@@ -472,7 +472,7 @@
         <button data-mode="visuel" class="active" title="+ Guide visuel — durée des notes et curseur" aria-label="Guide visuel">
           <svg viewBox="0 0 24 24"><path d="M2.8 12s3.4-6 9.2-6 9.2 6 9.2 6-3.4 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.5"/></svg>
         </button>
-        <button data-mode="son" title="+ Son — rythmique jouée (à venir)" aria-label="Son">
+        <button data-mode="son" title="+ Son — rythmique jouée à la basse" aria-label="Son">
           <svg viewBox="0 0 24 24"><path d="M4.5 9.6v4.8h3.2l4.5 3.7V5.9L7.7 9.6z"/><path d="M15.6 9.4a3.7 3.7 0 0 1 0 5.2M18.2 7.1a7 7 0 0 1 0 9.8"/></svg>
         </button>
       </div>
@@ -615,8 +615,8 @@
   var litState = [];  // booléen par élément : classe « lit » posée ou non
 
   /* Sémantique des modes : 1 = métronome seul (portée visible mais vierge de
-     toute aide), 2 = + durée visuelle des notes et curseur, 3 = + son (le son
-     arrive au ticket 05 ; identique au 2 en attendant). */
+     toute aide), 2 = + durée visuelle des notes et curseur, 3 = + son (chaque
+     note jouée au sample de basse D2 — repli synthé si le sample manque). */
   var MODE_NAMES = { metronome: "Métronome", visuel: "+ Guide visuel", son: "+ Son" };
 
   function beatsPerBar(){ return parseInt(signature.split("/")[0], 10); }
@@ -761,12 +761,52 @@
     tempoNum.classList.add("blip");
   }
 
+  /* ---------- sample de basse (mode 3) ----------
+     Le fichier est téléchargé dès l'ouverture de la page (m4a d'abord, wav en
+     repli) ; le décodage attend la création de l'AudioContext au premier
+     geste de lecture — il tient en quelques millisecondes, bien avant la
+     première note (le décompte dure une mesure). Si tout échoue (fichier
+     absent, fetch bloqué en local, décodage impossible), le moteur bascule
+     sur le repli synthé et le statut le mentionne au lancement. */
+  var SAMPLE_URLS = ["assets/audio/bass-D2.m4a", "assets/audio/bass-D2.wav"];
+  var sampleBuffer = null;      // AudioBuffer décodé, prêt à jouer
+  var samplePending = null;     // { data: ArrayBuffer, next } en attente de l'AudioContext
+  var sampleFailed = false;     // plus aucun format à tenter -> repli synthé
+
+  function loadSample(idx){
+    if (idx >= SAMPLE_URLS.length){ sampleFailed = true; return; }
+    fetch(SAMPLE_URLS[idx]).then(function(r){
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.arrayBuffer();
+    }).then(function(data){
+      samplePending = { data: data, next: idx + 1 };
+      decodePendingSample();
+    }).catch(function(){
+      loadSample(idx + 1);
+    });
+  }
+
+  function decodePendingSample(){
+    if (!audioCtx || !samplePending || sampleBuffer) return;
+    var p = samplePending;
+    samplePending = null; // decodeAudioData détache l'ArrayBuffer : une seule tentative par fetch
+    audioCtx.decodeAudioData(p.data, function(buf){
+      sampleBuffer = buf;
+      sampleFailed = false;
+    }, function(){
+      loadSample(p.next); // format suivant, repli synthé au bout de la liste
+    });
+  }
+
+  loadSample(0);
+
   /* ---------- moteur de lecture (Web Audio, js/engine.js) ---------- */
   function ensureAudioContext(){
     if (!audioCtx){
       var AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
       audioCtx = new AC();
+      decodePendingSample(); // le sample attendait le contexte pour être décodé
     }
     if (audioCtx.state === "suspended") audioCtx.resume();
     return audioCtx;
@@ -801,14 +841,21 @@
       bpm: bpm,
       beatsPerBar: activeBpb,
       totalBeats: TOTAL_BEATS,
-      startGridBeat: fromGridBeat || 0
+      startGridBeat: fromGridBeat || 0,
+      // Mode 3 : une attaque par note (chaîne liée = une seule, durée cumulée),
+      // programmée par la même pompe lookahead que les clics.
+      noteEvents: window.BassRhythmEngine.noteSoundEvents(currentNotes),
+      notesEnabled: mode === "son",
+      getNoteBuffer: function(){ return sampleBuffer; }
     });
     playing = true;
     playBtn.classList.remove("idle");
     playBtn.setAttribute("aria-label", "Suspendre la lecture");
     iconPlay.style.display = "none";
     iconPause.style.display = "";
-    setStatus("Décompte…");
+    setStatus(mode === "son" && !sampleBuffer && sampleFailed
+      ? "Décompte… · repli synthé (sample indisponible)"
+      : "Décompte…");
     rafId = requestAnimationFrame(tick);
   }
 
@@ -908,7 +955,10 @@
   var segButtons = document.querySelectorAll(".seg button");
   /* Changement de mode immédiat, y compris en cours de lecture : la boucle
      rAF lit `mode` à chaque image, rien à stopper ni à resynchroniser. En
-     repassant au mode 1, on éteint tout de suite notes et curseur. */
+     repassant au mode 1, on éteint tout de suite notes et curseur. Le son des
+     notes (mode 3) bascule dans le moteur sans toucher lecture ni métronome :
+     quitter le mode 3 coupe la note en cours (release court) et annule les
+     attaques programmées ; y revenir fait sonner les prochaines notes. */
   function setMode(m){
     mode = m;
     segButtons.forEach(function(b){ b.classList.toggle("active", b.dataset.mode === m); });
@@ -917,6 +967,7 @@
       clearLit();
       cursor.classList.remove("live");
     }
+    if (playing && transport) transport.setNotesEnabled(m === "son");
   }
   segButtons.forEach(function(b){
     b.addEventListener("click", function(){ setMode(b.dataset.mode); });

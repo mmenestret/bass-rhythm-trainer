@@ -4,9 +4,9 @@
 
 **Blocked by:** 04 — Guidage visuel : durée de la note (mode 2).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Le son démarre à l'attaque de chaque note, synchronisé avec l'allumage visuel et le métronome.
-- [ ] La durée sonore suit la durée notée (une ronde sonne 4 temps, une croche un demi-temps), avec une fin de note propre (pas de clic).
-- [ ] Mode 3 = mode 2 + son ; couper vers mode 2 ou 1 en cours de lecture arrête le son des notes sans arrêter la lecture.
-- [ ] Repli synthé fonctionnel si le sample ne charge pas.
+- [x] Le son démarre à l'attaque de chaque note, synchronisé avec l'allumage visuel et le métronome.
+- [x] La durée sonore suit la durée notée (une ronde sonne 4 temps, une croche un demi-temps), avec une fin de note propre (pas de clic).
+- [x] Mode 3 = mode 2 + son ; couper vers mode 2 ou 1 en cours de lecture arrête le son des notes sans arrêter la lecture.
+- [x] Repli synthé fonctionnel si le sample ne charge pas.
