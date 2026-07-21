@@ -560,18 +560,22 @@
 </aside>
 
 <script src="vendor/abcjs-basic-min.js"></script>
+<script src="js/generator.js"></script>
 <script>
 (function(){
   "use strict";
 
-  var ABC = "X:1\n" +
+  // Grille de secours si le générateur est indisponible.
+  var FALLBACK_ABC = "X:1\n" +
     "M:4/4\n" +
     "L:1/8\n" +
     "K:C clef=bass\n" +
     "D,4 D,2 D,2 | D,2 z2 D,4 | D, D, D,2 D,2 z2 | D,8 |\n" +
     "D,2 D, D, z2 D,2 | D,4 z4 | D, D, D, D, D,2 z2 | D,8 |]";
 
-  var TOTAL_BEATS = 32; // 8 mesures x 4 temps (grille fixe du prototype)
+  var currentAbc = FALLBACK_ABC; // remplacée par une grille générée au chargement
+  var currentNotes = [];         // timeline { startBeats, durationBeats, isRest, tiedToNext } pour le moteur du ticket 03
+  var TOTAL_BEATS = 32;          // recalculé à chaque génération (mesures × temps par mesure)
 
   var stage = document.getElementById("stage");
   var scoreEl = document.getElementById("score");
@@ -614,7 +618,7 @@
       scoreEl.innerHTML = '<div class="score-fallback">La partition n’a pas pu se charger (abcjs indisponible hors ligne).</div>';
       return;
     }
-    ABCJS.renderAbc(scoreEl, ABC, { add_classes: true, responsive: "resize" });
+    ABCJS.renderAbc(scoreEl, currentAbc, { add_classes: true, responsive: "resize" });
     if (animate){
       scoreEl.classList.remove("regen");
       void scoreEl.offsetWidth;
@@ -890,12 +894,46 @@
     if (!playing) setStatus(baseStatus());
   });
 
+  /* ---------- génération de la grille ---------- */
+  function readConfig(){
+    var figures = [];
+    document.querySelectorAll('input[name="fig"]:checked').forEach(function(inp){
+      figures.push(inp.value);
+    });
+    var lvl = document.querySelector('input[name="niveau"]:checked');
+    return {
+      figures: figures,
+      level: lvl ? parseInt(lvl.value, 10) : 1,
+      meter: signature,
+      measures: parseInt(measuresChoice, 10)
+    };
+  }
+
+  function generateGrid(){
+    if (!window.BassRhythmGenerator) return false;
+    var cfg = readConfig();
+    try {
+      var res = window.BassRhythmGenerator.generateExercise(cfg);
+      for (var i = 0; i < 7 && res.abc === currentAbc; i++){
+        // deux clics successifs doivent donner deux grilles différentes
+        res = window.BassRhythmGenerator.generateExercise(cfg);
+      }
+      currentAbc = res.abc;
+      currentNotes = res.notes; // exploitée par le moteur de lecture du ticket 03
+      TOTAL_BEATS = cfg.measures * beatsPerBar();
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
   /* ---------- actions ---------- */
   function regenerate(){
     stopAndReset();
+    var ok = generateGrid();
     renderScore(true);
     computeLines();
-    setStatus(baseStatus());
+    setStatus(ok ? baseStatus() : "Grille impossible · vérifiez les figures");
     closeDrawer();
   }
   document.getElementById("generateBtn").addEventListener("click", regenerate);
@@ -945,6 +983,7 @@
   });
 
   /* ---------- init ---------- */
+  generateGrid(); // la partition affichée au chargement est déjà une grille générée
   renderScore(false);
   buildBeats();
   setStatus(baseStatus());

@@ -4,9 +4,9 @@
 
 **Blocked by:** 01 — Socle Apnée hors-ligne.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Chaque mesure générée somme exactement à la signature choisie (aucune grille invalide sur 100 générations de chaque combinaison).
-- [ ] Seules les figures cochées apparaissent ; niveau 1 sans silences, niveau 2 avec silences, niveau 3 avec pointées/liaisons/syncopes.
-- [ ] Les grilles privilégient des cellules rythmiques idiomatiques (lisibles) plutôt que des suites arbitraires, ligatures correctes par temps.
-- [ ] Deux clics successifs sur « Générer » donnent des grilles différentes.
+- [x] Chaque mesure générée somme exactement à la signature choisie (aucune grille invalide sur 100 générations de chaque combinaison).
+- [x] Seules les figures cochées apparaissent ; niveau 1 sans silences, niveau 2 avec silences, niveau 3 avec pointées/liaisons/syncopes.
+- [x] Les grilles privilégient des cellules rythmiques idiomatiques (lisibles) plutôt que des suites arbitraires, ligatures correctes par temps.
+- [x] Deux clics successifs sur « Générer » donnent des grilles différentes.
