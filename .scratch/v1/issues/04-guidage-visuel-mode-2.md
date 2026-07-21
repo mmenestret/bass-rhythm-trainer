@@ -4,9 +4,9 @@
 
 **Blocked by:** 03 — Moteur de lecture + métronome (mode 1).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] L'allumage/extinction de chaque note correspond à sa durée notée (vérifiable à l'œil sur rondes et blanches à 60 BPM).
-- [ ] Les silences n'allument rien ; les notes liées restent allumées d'un seul tenant.
-- [ ] En mode 1, la portée reste vierge de toute aide visuelle ; les pastilles du métronome restent actives dans tous les modes.
-- [ ] Changement de mode en cours de lecture sans arrêt ni désynchronisation.
+- [x] L'allumage/extinction de chaque note correspond à sa durée notée (vérifiable à l'œil sur rondes et blanches à 60 BPM).
+- [x] Les silences n'allument rien ; les notes liées restent allumées d'un seul tenant.
+- [x] En mode 1, la portée reste vierge de toute aide visuelle ; les pastilles du métronome restent actives dans tous les modes.
+- [x] Changement de mode en cours de lecture sans arrêt ni désynchronisation.

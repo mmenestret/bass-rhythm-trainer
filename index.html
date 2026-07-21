@@ -162,7 +162,10 @@
   #score svg{ display:block; }
   #score path, #score text{ fill:#39424f; }
   #score text{ font-size:13px; }
-  .score-stage.blind #score{ opacity:.05; filter:blur(5px); }
+  /* allumage des notes (mode 2) : accent le temps de la valeur, transition
+     très courte pour éviter le scintillement */
+  #score .abcjs-note path, #score .abcjs-note text{ transition:fill .04s linear; }
+  #score .lit path, #score .lit text{ fill:var(--accent); }
   #score.regen{ animation:regen 1s var(--ease-drift); }
   @keyframes regen{ 0%{ opacity:0; transform:translateY(8px); } 100%{ opacity:1; transform:none; } }
   .score-fallback{
@@ -202,7 +205,6 @@
 
   /* ---------- pastilles de temps ---------- */
   #beats{ display:flex; gap:22px; transition:opacity .7s; }
-  #beats.quiet{ opacity:.25; }
   .beat{
     width:38px; height:38px; border-radius:50%;
     border:1px solid var(--hairline);
@@ -464,17 +466,17 @@
   <div class="transport rise d4">
     <div class="guidance">
       <div class="seg" role="group" aria-label="Mode de guidage">
-        <button data-mode="guide" class="active" title="Guidé — curseur et pastilles" aria-label="Guidé">
+        <button data-mode="metronome" title="Métronome — portée sans aide visuelle" aria-label="Métronome">
+          <svg viewBox="0 0 24 24"><path d="M9.3 4.5h5.4l2.8 15H6.5z"/><line x1="12" y1="15.5" x2="16" y2="6.8"/><line x1="8.4" y1="15.5" x2="15.6" y2="15.5"/></svg>
+        </button>
+        <button data-mode="visuel" class="active" title="+ Guide visuel — durée des notes et curseur" aria-label="Guide visuel">
           <svg viewBox="0 0 24 24"><path d="M2.8 12s3.4-6 9.2-6 9.2 6 9.2 6-3.4 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.5"/></svg>
         </button>
-        <button data-mode="curseur" title="Curseur seul" aria-label="Curseur seul">
-          <svg viewBox="0 0 24 24"><line x1="12" y1="4" x2="12" y2="20"/><path d="M4.5 9h4M4.5 15h4M15.5 9h4M15.5 15h4" opacity=".45"/></svg>
-        </button>
-        <button data-mode="aveugle" title="À l'aveugle — rien pendant la lecture" aria-label="À l'aveugle">
-          <svg viewBox="0 0 24 24"><path d="M2.8 12s3.4-6 9.2-6 9.2 6 9.2 6-3.4 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.5"/><line x1="4.5" y1="20" x2="19.5" y2="4"/></svg>
+        <button data-mode="son" title="+ Son — rythmique jouée (à venir)" aria-label="Son">
+          <svg viewBox="0 0 24 24"><path d="M4.5 9.6v4.8h3.2l4.5 3.7V5.9L7.7 9.6z"/><path d="M15.6 9.4a3.7 3.7 0 0 1 0 5.2M18.2 7.1a7 7 0 0 1 0 9.8"/></svg>
         </button>
       </div>
-      <span id="modeLabel">Guidé</span>
+      <span id="modeLabel">+ Guide visuel</span>
     </div>
 
     <button id="playBtn" class="idle" aria-label="Lancer la lecture">
@@ -575,7 +577,7 @@
     "D,2 D, D, z2 D,2 | D,4 z4 | D, D, D, D, D,2 z2 | D,8 |]";
 
   var currentAbc = FALLBACK_ABC; // remplacée par une grille générée au chargement
-  var currentNotes = [];         // timeline { startBeats, durationBeats, isRest, tiedToNext } pour la lecture des notes (ticket 04)
+  var currentNotes = [];         // timeline { startBeats, durationBeats, isRest, tiedToNext } — pilote l'allumage des notes (mode 2)
   var TOTAL_BEATS = 32;          // recalculé à chaque génération (mesures × temps par mesure)
 
   var stage = document.getElementById("stage");
@@ -605,12 +607,17 @@
   var activeBars = 8;       // nombre de mesures capturé au lancement de la lecture
   var rafId = null;
   var lines = [];
-  var mode = "guide";
+  var mode = "visuel";
   var signature = "4/4";
   var measuresChoice = "8";
   var beatEls = [];
+  var noteEls = [];   // éléments SVG notes/silences, alignés 1:1 sur currentNotes
+  var litState = [];  // booléen par élément : classe « lit » posée ou non
 
-  var MODE_NAMES = { guide: "Guidé", curseur: "Curseur seul", aveugle: "À l'aveugle" };
+  /* Sémantique des modes : 1 = métronome seul (portée visible mais vierge de
+     toute aide), 2 = + durée visuelle des notes et curseur, 3 = + son (le son
+     arrive au ticket 05 ; identique au 2 en attendant). */
+  var MODE_NAMES = { metronome: "Métronome", visuel: "+ Guide visuel", son: "+ Son" };
 
   function beatsPerBar(){ return parseInt(signature.split("/")[0], 10); }
 
@@ -618,13 +625,65 @@
   function renderScore(animate){
     if (!window.ABCJS){
       scoreEl.innerHTML = '<div class="score-fallback">La partition n’a pas pu se charger (abcjs indisponible hors ligne).</div>';
+      noteEls = [];
+      litState = [];
       return;
     }
     ABCJS.renderAbc(scoreEl, currentAbc, { add_classes: true, responsive: "resize" });
+    mapScoreNotes();
     if (animate){
       scoreEl.classList.remove("regen");
       void scoreEl.offsetWidth;
       scoreEl.classList.add("regen");
+    }
+  }
+
+  /* ---------- mapping timeline ↔ SVG (allumage des notes, mode 2) ----------
+     Après chaque rendu, les groupes abcjs notes/silences sont associés dans
+     l'ordre du document aux entrées de currentNotes : chaque token ABC produit
+     exactement un événement de timeline et un groupe SVG (une note liée donne
+     deux têtes graphiques… et deux événements, litIndicesAt les allume
+     ensemble). Si les comptes divergent, on désactive l'allumage sans casser
+     la lecture. */
+  function mapScoreNotes(){
+    noteEls = [];
+    litState = [];
+    var svg = scoreEl.querySelector("svg");
+    if (!svg) return;
+    var els = svg.querySelectorAll(".abcjs-note, .abcjs-rest");
+    if (els.length !== currentNotes.length){
+      console.warn("Guidage visuel désactivé : " + els.length + " élément(s) SVG (notes/silences) pour " +
+        currentNotes.length + " événement(s) de timeline — mapping impossible.");
+      return;
+    }
+    for (var i = 0; i < els.length; i++){
+      noteEls.push(els[i]);
+      litState.push(false);
+    }
+  }
+
+  function clearLit(){
+    for (var k = 0; k < litState.length; k++){
+      if (litState[k]){
+        litState[k] = false;
+        noteEls[k].classList.remove("lit");
+      }
+    }
+  }
+
+  /* Allumage piloté par la position temporelle réelle (horloge audio, jamais
+     le lookahead) : la note prend l'accent pile à l'attaque et revient à
+     l'encre pile à la fin de sa valeur. Seuls les changements touchent le DOM. */
+  function updateLit(gridBeat){
+    var lit = window.BassRhythmEngine.litIndicesAt(currentNotes, gridBeat);
+    var want = {};
+    for (var i = 0; i < lit.length; i++) want[lit[i]] = true;
+    for (var k = 0; k < litState.length; k++){
+      var on = !!want[k];
+      if (on !== litState[k]){
+        litState[k] = on;
+        noteEls[k].classList.toggle("lit", on);
+      }
     }
   }
 
@@ -714,10 +773,9 @@
   }
 
   function settleTransportUi(){
+    clearLit();
     cursor.classList.remove("live");
     countVeil.classList.remove("show");
-    stage.classList.remove("blind");
-    beatsEl.classList.remove("quiet");
     playBtn.classList.add("idle");
     playBtn.setAttribute("aria-label", "Lancer la lecture");
     iconPlay.style.display = "";
@@ -750,7 +808,6 @@
     playBtn.setAttribute("aria-label", "Suspendre la lecture");
     iconPlay.style.display = "none";
     iconPause.style.display = "";
-    applyModeVisuals();
     setStatus("Décompte…");
     rafId = requestAnimationFrame(tick);
   }
@@ -801,7 +858,7 @@
         countNum.classList.add("tick");
         pulseBeat(ev.pulseIndex);
       } else {
-        if (mode === "guide") pulseBeat(ev.pulseIndex);
+        pulseBeat(ev.pulseIndex); // pastilles actives dans tous les modes
         setStatus("Mesure " + ev.measure + "/" + activeBars + " · Temps " + ev.beatInBar);
       }
     }
@@ -812,23 +869,28 @@
       cursor.classList.remove("live");
     } else {
       countVeil.classList.remove("show");
-      stage.classList.toggle("blind", mode === "aveugle");
-      beatsEl.classList.toggle("quiet", mode !== "guide");
 
-      if (mode !== "aveugle" && lines.length){
-        // Curseur piloté par la vraie horloge : position temporelle réelle
-        // dans la grille, interpolation linéaire par ligne (précision note à
-        // note au ticket 04).
-        var frac = Math.max(0, Math.min(1, pos.gridBeat / TOTAL_BEATS));
-        var lf = frac * lines.length;
-        var li = Math.min(lines.length - 1, Math.floor(lf));
-        var inLine = lf - li;
-        var L = lines[li];
-        var x = L.x0 + (L.x1 - L.x0) * inLine;
-        cursor.style.height = (L.y1 - L.y0) + "px";
-        cursor.style.transform = "translate(" + x + "px," + L.y0 + "px)";
-        cursor.classList.add("live");
+      if (mode !== "metronome"){
+        // Mode 2+ : allumage des notes à la position temporelle réelle
+        // (horloge audio, pas le lookahead) et curseur discret, interpolation
+        // linéaire par ligne.
+        if (noteEls.length) updateLit(pos.gridBeat);
+        if (lines.length){
+          var frac = Math.max(0, Math.min(1, pos.gridBeat / TOTAL_BEATS));
+          var lf = frac * lines.length;
+          var li = Math.min(lines.length - 1, Math.floor(lf));
+          var inLine = lf - li;
+          var L = lines[li];
+          var x = L.x0 + (L.x1 - L.x0) * inLine;
+          cursor.style.height = (L.y1 - L.y0) + "px";
+          cursor.style.transform = "translate(" + x + "px," + L.y0 + "px)";
+          cursor.classList.add("live");
+        } else {
+          cursor.classList.remove("live");
+        }
       } else {
+        // Mode 1 : portée vierge de toute aide — extinction et curseur masqué.
+        clearLit();
         cursor.classList.remove("live");
       }
     }
@@ -844,16 +906,16 @@
 
   /* ---------- guidage ---------- */
   var segButtons = document.querySelectorAll(".seg button");
+  /* Changement de mode immédiat, y compris en cours de lecture : la boucle
+     rAF lit `mode` à chaque image, rien à stopper ni à resynchroniser. En
+     repassant au mode 1, on éteint tout de suite notes et curseur. */
   function setMode(m){
     mode = m;
     segButtons.forEach(function(b){ b.classList.toggle("active", b.dataset.mode === m); });
     modeLabel.textContent = MODE_NAMES[m];
-    applyModeVisuals();
-  }
-  function applyModeVisuals(){
-    if (!playing){
-      stage.classList.remove("blind");
-      beatsEl.classList.remove("quiet");
+    if (m === "metronome"){
+      clearLit();
+      cursor.classList.remove("live");
     }
   }
   segButtons.forEach(function(b){
@@ -934,7 +996,7 @@
         res = window.BassRhythmGenerator.generateExercise(cfg);
       }
       currentAbc = res.abc;
-      currentNotes = res.notes; // exploitée pour la lecture des notes (ticket 04)
+      currentNotes = res.notes; // alimente l'allumage des notes (mode 2)
       TOTAL_BEATS = cfg.measures * beatsPerBar();
       return true;
     } catch (err) {

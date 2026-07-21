@@ -20,6 +20,9 @@
  *      du transport — décompte d'une mesure, puis battements de la grille à
  *      partir de startGridBeat (reprise après pause incluse), puis fin —
  *      avec accent sur le temps 1.
+ *    - litIndicesAt(notes, gridBeat) : indices des notes « allumées » à une
+ *      position en temps (guidage visuel, mode 2) — silences exclus, chaînes
+ *      liées allumées d'un seul tenant sur la durée cumulée.
  *
  * 2. PARTIE WEB AUDIO
  *    - createTransport({ ctx, bpm, beatsPerBar, totalBeats, startGridBeat }) :
@@ -134,6 +137,32 @@
       pulseIndex: gridBeat % beatsPerBar,
       accent: bb.beat === 1
     };
+  }
+
+  /*
+   * Indices des événements de la timeline « allumés » à la position gridBeat
+   * (en temps de grille). Une note est allumée sur [début, début + durée) :
+   * allumée pile à l'attaque, éteinte pile à la fin de sa valeur. Une chaîne
+   * liée (tiedToNext) s'allume et s'éteint d'un seul tenant sur la durée
+   * cumulée, toutes les têtes ensemble. Les silences ne s'allument jamais.
+   * Défensif : une liaison vers un silence ou en fin de timeline clôt la
+   * chaîne sans erreur.
+   */
+  function litIndicesAt(notes, gridBeat) {
+    var lit = [];
+    var i = 0;
+    while (i < notes.length) {
+      if (notes[i].isRest) { i += 1; continue; }
+      var j = i; /* dernier événement de la chaîne liée démarrant en i */
+      while (notes[j].tiedToNext && j + 1 < notes.length && !notes[j + 1].isRest) j += 1;
+      var start = notes[i].startBeats;
+      var end = notes[j].startBeats + notes[j].durationBeats;
+      if (gridBeat >= start && gridBeat < end) {
+        for (var k = i; k <= j; k++) lit.push(k);
+      }
+      i = j + 1;
+    }
+    return lit;
   }
 
   /* ========================== partie Web Audio ========================== */
@@ -263,6 +292,7 @@
     countInBeats: countInBeats,
     barBeat: barBeat,
     describeBeat: describeBeat,
+    litIndicesAt: litIndicesAt,
     createTransport: createTransport
   };
 }));
