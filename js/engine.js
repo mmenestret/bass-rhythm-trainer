@@ -32,6 +32,15 @@
  *    - createBeatClock(...).timeAt(pos) : instant d'une position fractionnaire
  *      en battements (inverse exact de positionAt) — sert à programmer les
  *      attaques de notes entre les temps (croches, doubles…).
+ *    - outputLatencySeconds(ctx) : latence de sortie audio (outputLatency,
+ *      sinon baseLatency, sinon 0). Un événement programmé à T s'ENTEND à
+ *      T + latence — jusqu'à 100 ms et plus en Bluetooth : tous les visuels
+ *      doivent se caler sur currentTime − latence (transport.visualNow()).
+ *    - cursorXAt(anchors, lineEnds, totalBeats, pos) : abscisse du curseur
+ *      asservi aux notes. La gravure abcjs n'espace PAS les événements
+ *      proportionnellement à leur durée : la position est interpolée en
+ *      TEMPS entre les abscisses réellement gravées, avec saut net au
+ *      changement de ligne — le curseur ne devance jamais la note allumée.
  *
  * 2. PARTIE WEB AUDIO
  *    - createTransport({ ctx, bpm, beatsPerBar, totalBeats, startGridBeat,
@@ -52,6 +61,12 @@
  *      Mixage : basse à 0,8, clics inchangés, master à 0,8 — pire cas
  *      (attaque du sample pleine échelle + clic accentué) ≈ 0,96, sans
  *      saturation, la basse nette et le clic derrière.
+ *      visualNow() : instant de position visuelle UNIQUE — currentTime moins
+ *      la latence de sortie : ce qui s'affiche suit ce qui s'entend.
+ *      stop() rend la position entendue et un point de reprise calé au début
+ *      de la mesure en cours : après le re-décompte d'une mesure, le temps 1
+ *      retombe exactement sur un début de mesure (le « 1 » du décompte reste
+ *      en phase avec les temps forts).
  *
  * UMD minimal : window.BassRhythmEngine dans la page, module.exports sous Node.
  */
@@ -244,6 +259,60 @@
   function noteCutSeconds(holdBeats, bpm, sampleDurationS) {
     var holdS = holdBeats * 60 / bpm;
     return holdS < sampleDurationS ? holdS : null;
+  }
+
+  /*
+   * Latence de sortie audio en secondes : un événement programmé à T sur
+   * l'horloge audio S'ENTEND à T + latence (outputLatency quand le
+   * navigateur l'expose, baseLatency en repli, 0 sinon — jusqu'à 100 ms et
+   * plus en Bluetooth). Les visuels calés sur currentTime brut seraient
+   * systématiquement EN AVANCE sur le son de cette latence.
+   */
+  function outputLatencySeconds(ctx) {
+    var l = ctx ? ctx.outputLatency : 0;
+    if (typeof l === "number" && isFinite(l) && l > 0) return l;
+    l = ctx ? ctx.baseLatency : 0;
+    if (typeof l === "number" && isFinite(l) && l > 0) return l;
+    return 0;
+  }
+
+  /*
+   * Curseur asservi aux notes. La gravure abcjs n'espace PAS les événements
+   * proportionnellement à leur durée : une interpolation linéaire par ligne
+   * dérive donc de la note en cours (tantôt en avance, tantôt en retard).
+   * Ici l'abscisse est interpolée en TEMPS entre les positions réellement
+   * gravées :
+   *  - anchors    : [{ beat, x, line }] triés par beat — une ancre par
+   *    événement de la timeline (silences compris), x = abscisse gravée ;
+   *  - lineEnds   : abscisse de fin de chaque ligne ;
+   *  - totalBeats : borne temporelle du dernier événement de la grille.
+   * Garanties : à l'attaque de l'événement i, x = x_i EXACTEMENT ; entre
+   * deux événements d'une même ligne, interpolation linéaire en temps
+   * (strictement monotone dès que la gravure l'est) ; pour le dernier
+   * événement d'une ligne, interpolation vers la fin de ligne sur sa durée ;
+   * changement de ligne = saut net à l'attaque du premier événement de la
+   * ligne suivante ; le curseur n'atteint jamais x_{i+1} avant beat_{i+1} —
+   * cohérence totale avec litIndicesAt. Rend { x, line }, ou null sans ancre.
+   */
+  function cursorXAt(anchors, lineEnds, totalBeats, pos) {
+    if (!anchors || !anchors.length) return null;
+    if (pos <= anchors[0].beat) return { x: anchors[0].x, line: anchors[0].line };
+    var i = 0;
+    for (var k = 1; k < anchors.length; k++) {
+      if (anchors[k].beat <= pos) i = k;
+      else break;
+    }
+    var a = anchors[i];
+    var next = i + 1 < anchors.length ? anchors[i + 1] : null;
+    if (next && next.line === a.line) {
+      return { x: a.x + (next.x - a.x) * (pos - a.beat) / (next.beat - a.beat), line: a.line };
+    }
+    /* Dernier événement de sa ligne : interpolation vers la fin de ligne sur
+       sa durée (borne = attaque suivante, ou fin de grille). */
+    var endBeat = next ? next.beat : totalBeats;
+    var endX = typeof lineEnds[a.line] === "number" ? lineEnds[a.line] : a.x;
+    if (endBeat <= a.beat || pos >= endBeat) return { x: endX, line: a.line };
+    return { x: a.x + (endX - a.x) * (pos - a.beat) / (endBeat - a.beat), line: a.line };
   }
 
   /* ========================== partie Web Audio ========================== */
@@ -451,6 +520,13 @@
           gridBeat: startGridBeat + (step - countInBeats(bpb))
         };
       },
+      /* Instant de position visuelle UNIQUE : l'horloge audio moins la
+         latence de sortie. Un événement programmé à T s'entend à T + latence :
+         tous les visuels (pastilles, décompte, allumage, curseur, statut,
+         fin) doivent se lire à visualNow(), jamais à currentTime brut. */
+      visualNow: function () {
+        return ctx.currentTime - outputLatencySeconds(ctx);
+      },
       /* Battements dont l'instant programmé est atteint (pour la rAF). */
       takeDueVisuals: function (t) {
         var due = [];
@@ -492,10 +568,19 @@
         setTimeout(function () {
           try { master.disconnect(); } catch (e) { /* déjà déconnecté */ }
         }, 80);
-        var pos = startGridBeat + (clock.positionAt(now) - countInBeats(bpb));
-        var resumeBeat = Math.floor(pos);
-        if (resumeBeat < startGridBeat) resumeBeat = startGridBeat;
-        if (resumeBeat > totalBeats - 1) resumeBeat = totalBeats - 1;
+        /* Position ENTENDUE à l'arrêt (latence de sortie déduite), reprise
+           calée au DÉBUT de la mesure en cours : le re-décompte d'une mesure
+           est alors suivi pile d'un temps 1 — le « 1 » du décompte et les
+           accents restent en phase avec les débuts de mesure. Une reprise à
+           mi-mesure décalerait le métronome des barres pour tout le reste
+           de la lecture. */
+        var heard = now - outputLatencySeconds(ctx);
+        var pos = startGridBeat + (clock.positionAt(heard) - countInBeats(bpb));
+        if (pos < startGridBeat) pos = startGridBeat; // pause pendant le décompte
+        if (pos > totalBeats) pos = totalBeats;
+        var resumeBeat = Math.floor(pos / bpb) * bpb;
+        if (resumeBeat > totalBeats - bpb) resumeBeat = totalBeats - bpb;
+        if (resumeBeat < 0) resumeBeat = 0;
         return { position: pos, resumeBeat: resumeBeat };
       }
     };
@@ -504,6 +589,7 @@
   return {
     LOOKAHEAD_MS: LOOKAHEAD_MS,
     SCHEDULE_HORIZON_S: SCHEDULE_HORIZON_S,
+    START_DELAY_S: START_DELAY_S,
     NOTE_RELEASE_S: NOTE_RELEASE_S,
     createBeatClock: createBeatClock,
     meterBeats: meterBeats,
@@ -513,6 +599,8 @@
     litIndicesAt: litIndicesAt,
     noteSoundEvents: noteSoundEvents,
     noteCutSeconds: noteCutSeconds,
+    outputLatencySeconds: outputLatencySeconds,
+    cursorXAt: cursorXAt,
     createTransport: createTransport
   };
 }));
