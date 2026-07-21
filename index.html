@@ -148,6 +148,17 @@
     background:var(--mist-2); border:1.5px solid var(--ink);
   }
 
+  /* ---------- en-tête d'exercice ---------- */
+  #exTitle{
+    font-family:"Cormorant Garamond",serif; font-style:italic; font-weight:400;
+    font-size:17.5px; letter-spacing:.03em; color:var(--ink-soft);
+    text-align:center; user-select:none;
+    margin-bottom:-10px; /* rapprocher le titre de la portée */
+    min-height:1em;
+  }
+  #exTitle sup{ font-size:.6em; }
+  #exTitle.regen{ animation:regen 1s var(--ease-drift); }
+
   /* ---------- portée ---------- */
   .score-stage{
     position:relative;
@@ -452,6 +463,9 @@
     <input type="range" id="tempoSlider" min="40" max="200" step="1" value="60" aria-label="Tempo en BPM">
   </div>
 
+  <!-- en-tête d'exercice (nᵒ de session + leçon Agostini, mis à jour à chaque génération) -->
+  <div id="exTitle" class="rise d2" aria-live="polite"></div>
+
   <!-- portée -->
   <div class="score-stage rise d2" id="stage">
     <div id="score"></div>
@@ -580,6 +594,7 @@
   var currentNotes = [];         // timeline { startBeats, durationBeats, isRest, tiedToNext } — pilote l'allumage des notes (mode 2)
   var TOTAL_BEATS = 32;          // recalculé à chaque génération (mesures × temps par mesure)
 
+  var exTitle = document.getElementById("exTitle");
   var stage = document.getElementById("stage");
   var scoreEl = document.getElementById("score");
   var cursor = document.getElementById("cursor");
@@ -620,6 +635,43 @@
   var MODE_NAMES = { metronome: "Métronome", visuel: "+ Guide visuel", son: "+ Son" };
 
   function beatsPerBar(){ return parseInt(signature.split("/")[0], 10); }
+
+  /* ---------- en-tête d'exercice ----------
+     « Exercice nᵒ N — leçon » : N est un simple compteur de session (chaque
+     génération réussie l'incrémente, aucune persistance) ; la leçon nomme la
+     configuration en vocabulaire Agostini — palier de la figure la plus fine
+     cochée croisé avec le niveau (cf. docs/agostini-progression.md). */
+  var exerciseNum = 0;
+  var FINEST_ORDER = ["quadruple", "triple", "double", "croche", "noire", "blanche", "ronde"];
+  var LESSON_KEY = { ronde: "longues", blanche: "longues", noire: "longues" };
+  var LESSONS = {
+    longues:   ["les valeurs longues", "les valeurs longues et leurs silences", "les valeurs longues liées et pointées"],
+    croche:    ["la croche", "la croche et son demi-soupir", "syncopes et liaisons"],
+    double:    ["la double croche", "la double croche et son quart de soupir", "la croche pointée–double et les syncopes"],
+    triple:    ["la triple croche", "la triple croche et son huitième de soupir", "les triples croches syncopées et liées"],
+    quadruple: ["la quadruple croche", "la quadruple croche et son seizième de soupir", "les quadruples croches syncopées et liées"]
+  };
+
+  function lessonName(figures, level){
+    var finest = null;
+    for (var i = 0; i < FINEST_ORDER.length; i++){
+      if (figures.indexOf(FINEST_ORDER[i]) !== -1){ finest = FINEST_ORDER[i]; break; }
+    }
+    if (!finest) return "";
+    var names = LESSONS[LESSON_KEY[finest] || finest];
+    return names[Math.min(Math.max(level, 1), 3) - 1];
+  }
+
+  function updateExerciseTitle(cfg, animate){
+    exerciseNum++;
+    var lesson = lessonName(cfg.figures, cfg.level);
+    exTitle.innerHTML = "Exercice n<sup>o</sup> " + exerciseNum + (lesson ? " — " + lesson : "");
+    if (animate){
+      exTitle.classList.remove("regen");
+      void exTitle.offsetWidth;
+      exTitle.classList.add("regen");
+    }
+  }
 
   /* ---------- rendu de la partition ---------- */
   function renderScore(animate){
@@ -762,10 +814,13 @@
   }
 
   /* ---------- sample de basse (mode 3) ----------
-     Le fichier est téléchargé dès l'ouverture de la page (m4a d'abord, wav en
-     repli) ; le décodage attend la création de l'AudioContext au premier
-     geste de lecture — il tient en quelques millisecondes, bien avant la
-     première note (le décompte dure une mesure). Si tout échoue (fichier
+     Version dossier : le fichier est téléchargé dès l'ouverture de la page
+     (m4a d'abord, wav en repli) ; le décodage attend la création de
+     l'AudioContext au premier geste de lecture — il tient en quelques
+     millisecondes, bien avant la première note (le décompte dure une mesure).
+     Version fichier unique : scripts/build-single-file.mjs injecte le m4a en
+     base64 dans window.BRT_EMBEDDED_SAMPLE, consommé ICI avant tout fetch —
+     indispensable en file:// où fetch est bloqué. Si tout échoue (fichier
      absent, fetch bloqué en local, décodage impossible), le moteur bascule
      sur le repli synthé et le statut le mentionne au lancement. */
   var SAMPLE_URLS = ["assets/audio/bass-D2.m4a", "assets/audio/bass-D2.wav"];
@@ -798,7 +853,24 @@
     });
   }
 
-  loadSample(0);
+  function base64ToArrayBuffer(b64){
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  if (typeof window.BRT_EMBEDDED_SAMPLE === "string" && window.BRT_EMBEDDED_SAMPLE){
+    // Fichier unique : sample embarqué, aucune requête réseau au chargement.
+    // En cas de décodage impossible, next=0 rebascule sur la chaîne fetch.
+    try {
+      samplePending = { data: base64ToArrayBuffer(window.BRT_EMBEDDED_SAMPLE), next: 0 };
+    } catch (err) {
+      loadSample(0);
+    }
+  } else {
+    loadSample(0); // version dossier servie en HTTP
+  }
 
   /* ---------- moteur de lecture (Web Audio, js/engine.js) ---------- */
   function ensureAudioContext(){
@@ -878,7 +950,7 @@
     haltTransport();
     pausedGridBeat = 0;
     settleTransportUi();
-    setStatus("Fin de grille · " + signature);
+    setStatus("Terminé · Rejouer ou nouvelle grille");
   }
 
   function stopAndReset(){
@@ -1037,7 +1109,7 @@
     };
   }
 
-  function generateGrid(){
+  function generateGrid(animate){
     if (!window.BassRhythmGenerator) return false;
     var cfg = readConfig();
     try {
@@ -1049,6 +1121,7 @@
       currentAbc = res.abc;
       currentNotes = res.notes; // alimente l'allumage des notes (mode 2)
       TOTAL_BEATS = cfg.measures * beatsPerBar();
+      updateExerciseTitle(cfg, animate); // l'en-tête suit chaque grille réellement affichée
       return true;
     } catch (err) {
       return false;
@@ -1058,7 +1131,7 @@
   /* ---------- actions ---------- */
   function regenerate(){
     stopAndReset();
-    var ok = generateGrid();
+    var ok = generateGrid(true);
     renderScore(true);
     computeLines();
     setStatus(ok ? baseStatus() : "Grille impossible · vérifiez les figures");
@@ -1111,7 +1184,7 @@
   });
 
   /* ---------- init ---------- */
-  generateGrid(); // la partition affichée au chargement est déjà une grille générée
+  generateGrid(false); // la partition affichée au chargement est déjà une grille générée
   renderScore(false);
   buildBeats();
   setStatus(baseStatus());
