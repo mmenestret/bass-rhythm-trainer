@@ -1,48 +1,74 @@
-# Source des samples audio — basse électrique
+# Source des samples audio
 
-## Origine
+Un son échantillonné (+ un synthé Web Audio sans ressource). Tous les
+samples sont sous **Creative Commons CC0 1.0** (dédicace au domaine public),
+licence confirmée sur chaque dépôt source. Aucune attribution requise ;
+mentions de courtoisie possibles ci-dessous.
 
-- **Jeu de samples** : « Finger Bass YR » (version 2019-09-30), projet **FreePats**.
-- **Instrument** : basse électrique Yamaha RBX, notes isolées jouées **au doigt** (fingered), son clair, sans effet, mono 24 bits / 44,1 kHz (FLAC).
-- **Auteur** : samples créés par **Andrea Biasior** (reusenoise@gmail.com), édités par Roberto (zenvoid.org) pour l'intégration FreePats.
-- **Page du jeu** : <https://freepats.zenvoid.org/ElectricGuitar/clean-electric-bass.html#BassYR>
-- **Dépôt source (fichiers téléchargés)** : <https://github.com/freepats/electric-bass-YR> (branche `main`, dossier `samples/finger/`).
+Contrainte de sélection : chaque son doit pouvoir **tenir une ronde**
+(4 s à 60 BPM, 6 s à 40 BPM), naturellement ou par boucle de sustain.
 
-## Licence
+## Basse growl — `growl-Db2.m4a`
 
-**Creative Commons CC0 1.0 Universal (dédicace au domaine public)** — confirmée à trois endroits :
+- **Jeu** : « Growlybass » de Karoryfer Samples — Squier Jazz Bass attaquée
+  fort, cordes qui claquent contre les frettes, DI brut.
+- **Dépôt** : <https://github.com/sfzinstruments/karoryfer.growlybass>
+  (licence CC0 dans `LICENSE`), fichier `sustain/db2_f_rr1.wav`.
+- **Hauteur** : nommage scientifique — `db2` = MIDI 37 (C#2, ~69,3 Hz),
+  vérifié dans `growlybass_clean.sfz` (`pitch_keycenter=37`).
+- **Sustain** : 6,0 s sans boucle — la ronde passe sur toute la plage de
+  tempo (à 40 BPM, dernier souffle en fondu naturel).
+- **Conversion** : normalisation du pic à −1 dBFS, fade-out anti-clic 80 ms,
+  mono 44,1 kHz, AAC 96 kbit/s (ffmpeg).
 
-1. `LICENSE.txt` du dépôt (SPDX `CC0-1.0` détecté par GitHub) ;
-2. `README.txt` du jeu : « Published under the terms of Creative Commons CC0 public domain dedication » ;
-3. Page FreePats du jeu.
+## Transposition à la note d'entraînement
 
-Aucune attribution requise. Mention de courtoisie possible : « Samples : Finger Bass YR par Andrea Biasior, projet FreePats, CC0 ».
+L'app propose 7 notes (E1 à D2 sonnant, écrit une octave au-dessus en clé de
+fa). La voix prend le sample du son le plus proche de la cible et le
+transpose par `playbackRate = 2^(Δ demi-tons/12)`. Le growl n'a qu'un sample
+(C#2) : jusqu'à −9 demi-tons vers E1, timbre plus sombre et attaque plus
+molle assumés. Sample indisponible → repli synthé à la hauteur choisie.
 
-## Correspondance notes / octaves
+## Mentions de courtoisie
 
-Les FLAC source sont nommés par note sans octave ; l'octave vient du mapping SFZ
-officiel (`FingerBassYR 20190930.sfz`) : `E.flac` = MIDI 28 (E1) … `D.flac` = MIDI 38
-(**D2**) … `D#.flac` = MIDI 39 (D#2). La hauteur de `D.flac` a été vérifiée par
-autocorrélation : **73,26 Hz mesurés** pour un D2 théorique à 73,42 Hz (écart ≈ 4 cents).
+- « Growlybass » par Karoryfer Samples (karoryfer.com), CC0.
 
-Convention de nommage locale : les dièses sont notés `s` (`Fs1` = F#1, `Ds2` = D#2).
+## Historique
 
-## Fichiers livrés (`assets/audio/`)
+Sons retirés — les mécaniques de boucle (`loopStart`/`loopEnd` dans le
+registre `SOUNDS`, secondes de buffer) restent supportées par le moteur.
 
-| Fichier | Note | Format | Taille |
+### Contrebasse à l'archet « Meatbass » (retirée juillet 2026, goût)
+
+« Meatbass » de Karoryfer Samples — contrebasse Otto Rubner 1958 à l'archet.
+Dépôt <https://github.com/sfzinstruments/karoryfer.meatbass> (CC0), dossier
+`Samples/arco_looped/`, fichiers `<note>_vl2_down.wav`, hauteurs vérifiées
+dans `Programs/arco_looped_basic_map.sfz` (`eb1`=27, `gb1`=30, `a1`=33,
+`c2`=36, `eb2`=39). Conversion : 24→16 bits, pic à −1 dBFS, indices de frames
+inchangés, WAV conservé (l'AAC décalerait les boucles — priming du codec).
+Points de boucle (chunk `smpl`, en secondes, mesurés hors ligne) :
+
+| Fichier | midi | loopStart | loopEnd |
 |---|---|---|---|
-| `bass-D2.wav` | **D2 (note retenue)** | WAV PCM 16 bits mono 44,1 kHz | 227 Ko |
-| `bass-D2.m4a` | D2 | AAC-LC 96 kbit/s mono | 33 Ko |
-| `bass-E1.m4a` … `bass-Ds2.m4a` | set chromatique E1 → D#2 (12 notes) | AAC-LC 96 kbit/s mono | 33–51 Ko chacun |
+| arco-Eb1.wav | 27 | 1.393991 | 6.561859 |
+| arco-Gb1.wav | 30 | 0.974195 | 4.651610 |
+| arco-A1.wav | 33 | 0.833696 | 3.633152 |
+| arco-C2.wav | 36 | 1.087166 | 4.071746 |
+| arco-Eb2.wav | 39 | 1.578163 | 4.296122 |
 
-## Conversions effectuées (ffmpeg)
+### Synthé FM « Lately Bass » (retiré juillet 2026, goût)
 
-Depuis les FLAC 24 bits mono d'origine :
+« Lately Bass » du projet FreePats (recréation Dexed du preset TX81Z), dépôt
+<https://github.com/freepats/lately-bass> (CC0), fichiers `samples/F#1.wav`
+(midi 30) et `samples/C2.wav` (midi 36). Boucle calculée hors ligne (fenêtre
+~0,3 s alignée sur un nombre entier de périodes, corrélation 0,9997,
+amplitude aplatie exponentiellement, fichier tronqué après la boucle) par un
+script Node ponctuel (parse RIFF/smpl, corrélation en deux passes,
+réécriture WAV 16 bits). Points retenus : fm-Gb1 (midi 30) 1.9→2.202154 ;
+fm-C2 (midi 36) 1.8→2.105238.
 
-- passage en mono 44,1 kHz (inchangé), 16 bits pour le WAV ;
-- troncature à 4 s max (`-t 4` ; le D2 dure 2,57 s, non tronqué ; E1 et D#2 dépassaient 5 s) ;
-- fade-out anti-clic de 80 ms en fin de fichier (`areverse,afade=t=in:d=0.08,areverse`) ;
-- encodage AAC 96 kbit/s pour les `.m4a`.
+### Basse au doigt « Finger Bass YR » (retirée, sustain insuffisant)
 
-Le sustain utile du D2 est d'environ 2,5 s ; pour une ronde à 60 BPM (4 s), prolonger
-via l'enveloppe applicative ou boucler la queue du sample.
+FreePats, basse Yamaha RBX au doigt, `bass-*.m4a`/`bass-D2.wav` : sustain
+~2,5 s insuffisant pour tenir une ronde, timbre jugé décevant à l'usage.
+Récupérable sur <https://github.com/freepats/electric-bass-YR> si besoin.

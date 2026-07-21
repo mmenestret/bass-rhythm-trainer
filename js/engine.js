@@ -43,21 +43,29 @@
  *      changement de ligne — le curseur ne devance jamais la note allumée.
  *
  * 2. PARTIE WEB AUDIO
+ *    - buildNoteVoice(ctx, dest, time, holdS, v) : voix d'une note — sample
+ *      transposé (playbackRate), bouclé si v.loopStart/loopEnd (tenue
+ *      infinie), ou synthé triangle à enveloppe pluck tenue. Partagée entre
+ *      le transport et la préécoute.
+ *    - playNotePreview(ctx, v, seconds) : préécoute hors transport (~1,5 s),
+ *      rend { stop() }.
  *    - createTransport({ ctx, bpm, beatsPerBar, totalBeats, startGridBeat,
- *      noteEvents, notesEnabled, getNoteBuffer }) :
+ *      noteEvents, notesEnabled, clicksEnabled, getNoteVoice }) :
  *      horloge à lookahead (setInterval ~25 ms, horizon ~120 ms), chaque clic
  *      programmé sur ctx.currentTime — jamais de setTimeout cumulatif.
  *      Clic = oscillateur sinus court avec enveloppe douce (esthétique Apnée) ;
  *      accent du temps 1 plus aigu et plus fort. L'AudioContext est créé et
  *      repris par la page au geste utilisateur (bouton play), puis fourni ici.
- *      Notes (mode 3) : la même pompe programme chaque attaque à son instant
- *      exact (AudioBufferSourceNode sur le sample fourni par getNoteBuffer,
- *      repli synthé pluck 73,42 Hz sinon). Valeur plus courte que le sample :
- *      coupe à la fin de la valeur avec un release exponentiel court (~50 ms,
- *      pas de clic) ; plus longue : décroissance naturelle. setNotesEnabled()
- *      bascule le son des notes en vol sans toucher au métronome. stop() et
- *      la coupure en vol arrêtent tous les nœuds actifs et annulent les notes
- *      programmées non encore jouées.
+ *      Notes : la même pompe programme chaque attaque à son instant exact,
+ *      via buildNoteVoice sur la voix rendue par getNoteVoice() — lu à CHAQUE
+ *      attaque : changer de son ou de note s'applique en vol. Valeur plus
+ *      courte que la source : coupe en fin de valeur avec release court
+ *      (~50 ms, pas de clic) ; plus longue : décroissance naturelle, sauf
+ *      source bouclée qui tient toute la valeur. setNotesEnabled() bascule le
+ *      son des notes en vol sans toucher au métronome ; setClicksEnabled()
+ *      bascule le métronome sans toucher aux notes ni aux visuels (le
+ *      décompte reste toujours audible). stop() et les coupures en vol
+ *      arrêtent tous les nœuds actifs et annulent le programmé non joué.
  *      Mixage : basse à 0,8, clics inchangés, master à 0,8 — pire cas
  *      (attaque du sample pleine échelle + clic accentué) ≈ 0,96, sans
  *      saturation, la basse nette et le clic derrière.
@@ -88,9 +96,8 @@
   var NOTE_RELEASE_S = 0.05;     // release de coupe en fin de valeur (anti-clic)
   var SAMPLE_LEVEL = 0.8;        // niveau du sample (pic mesuré à pleine échelle)
   var MASTER_LEVEL = 0.8;        // marge anti-saturation : (0,8 + clic 0,4) × 0,8 < 1
-  var SYNTH_FREQ_HZ = 73.42;     // D2 — hauteur du repli synthé
+  var SYNTH_FREQ_HZ = 73.42;     // D2 — hauteur par défaut du synthé
   var SYNTH_LEVEL = 0.5;         // le pluck synthé est plus dense que le sample
-  var SYNTH_TAIL_S = 2.4;        // décroissance naturelle du repli (≈ sustain du sample)
 
   /* ============================ partie pure ============================ */
 
@@ -317,6 +324,110 @@
 
   /* ========================== partie Web Audio ========================== */
 
+  /*
+   * Construit et démarre une voix de note sur dest à l'instant time, tenue
+   * holdS secondes. v décrit la source :
+   *  - { buffer, rate?, loopStart?, loopEnd?, gain? } : sample transposé par
+   *    rate (playbackRate) ; si loopEnd > loopStart la source boucle sur cette
+   *    fenêtre (secondes de buffer, insensibles à rate) et TIENT la note
+   *    indéfiniment ;
+   *  - { synthHz? } ou null : synthé triangle + passe-bas, enveloppe pluck
+   *    tenue (corps bref puis palier de sustain) — tient n'importe quelle
+   *    valeur, ronde à 40 BPM comprise.
+   * Coupe de fin de valeur (release NOTE_RELEASE_S, pas de clic audible) posée
+   * sur cutGain ; une source non bouclée plus courte que la valeur décroît
+   * naturellement, comme une corde qu'on laisse sonner.
+   * Rend { src, cut, start } — nœuds démarrés, cut connecté à dest.
+   */
+  function buildNoteVoice(ctx, dest, time, holdS, v) {
+    var cutGain = ctx.createGain();
+    cutGain.connect(dest);
+    var src, level, tailS;
+    if (v && v.buffer) {
+      var rate = v.rate > 0 ? v.rate : 1;
+      src = ctx.createBufferSource();
+      src.buffer = v.buffer;
+      src.playbackRate.value = rate;
+      if (v.loopEnd > v.loopStart) {
+        src.loop = true;
+        src.loopStart = v.loopStart;
+        src.loopEnd = v.loopEnd;
+        tailS = Infinity; // la boucle tient : coupe toujours en fin de valeur
+      } else {
+        tailS = v.buffer.duration / rate;
+      }
+      src.connect(cutGain);
+      level = SAMPLE_LEVEL * (v.gain > 0 ? v.gain : 1);
+    } else {
+      src = ctx.createOscillator();
+      src.type = "triangle";
+      src.frequency.value = v && v.synthHz > 0 ? v.synthHz : SYNTH_FREQ_HZ;
+      var filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.Q.value = 0.7;
+      filter.frequency.setValueAtTime(900, time);
+      filter.frequency.exponentialRampToValueAtTime(180, time + 0.5);
+      var env = ctx.createGain(); // pluck tenu : corps bref, palier de sustain
+      env.gain.setValueAtTime(0.0001, time);
+      env.gain.linearRampToValueAtTime(1, time + 0.005);
+      env.gain.exponentialRampToValueAtTime(0.45, time + 0.35);
+      env.gain.linearRampToValueAtTime(0.3, time + Math.max(holdS, 0.4));
+      src.connect(filter);
+      filter.connect(env);
+      env.connect(cutGain);
+      level = SYNTH_LEVEL;
+      tailS = holdS + 0.3; // toujours > la valeur : la coupe de fin s'applique
+    }
+    cutGain.gain.setValueAtTime(level, time);
+    var stopAt;
+    if (holdS < tailS) {
+      // Source plus longue que la valeur (ou bouclée) : coupe en fin de valeur.
+      cutGain.gain.setValueAtTime(level, time + holdS);
+      cutGain.gain.exponentialRampToValueAtTime(0.0001, time + holdS + NOTE_RELEASE_S);
+      cutGain.gain.linearRampToValueAtTime(0, time + holdS + NOTE_RELEASE_S + 0.01);
+      stopAt = time + holdS + NOTE_RELEASE_S + 0.02;
+    } else {
+      // Valeur plus longue que la source : décroissance naturelle.
+      stopAt = time + tailS + 0.05;
+    }
+    src.start(time);
+    src.stop(stopAt);
+    return { src: src, cut: cutGain, start: time };
+  }
+
+  /*
+   * Préécoute d'un son hors transport : joue la voix v (cf. buildNoteVoice)
+   * pendant seconds (défaut 1,5 s) sur ctx.destination. Rend { stop() } pour
+   * couper court quand une autre préécoute démarre par-dessus.
+   */
+  function playNotePreview(ctx, v, seconds) {
+    var dur = seconds > 0 ? seconds : 1.5;
+    var master = ctx.createGain();
+    master.gain.value = MASTER_LEVEL;
+    master.connect(ctx.destination);
+    var voice = buildNoteVoice(ctx, master, ctx.currentTime + 0.02, dur, v);
+    var done = false;
+    voice.src.onended = function () {
+      done = true;
+      try { master.disconnect(); } catch (e) { /* déjà déconnecté */ }
+    };
+    return {
+      stop: function () {
+        if (done) return;
+        done = true;
+        var now = ctx.currentTime;
+        try {
+          var g = voice.cut.gain;
+          g.cancelScheduledValues(now);
+          g.setValueAtTime(g.value, now);
+          g.exponentialRampToValueAtTime(0.0001, now + NOTE_RELEASE_S);
+          g.linearRampToValueAtTime(0, now + NOTE_RELEASE_S + 0.01);
+          voice.src.stop(now + NOTE_RELEASE_S + 0.02);
+        } catch (e) { /* nœud déjà arrêté */ }
+      }
+    };
+  }
+
   function createTransport(opts) {
     var ctx = opts.ctx;
     var bpb = opts.beatsPerBar;
@@ -331,13 +442,15 @@
     var allScheduled = false;
     var stopped = false;
 
-    /* Son des notes (mode 3) : événements { startBeats, holdBeats } triés,
-       fournis par noteSoundEvents. On ne rejoue jamais une attaque antérieure
-       au point de départ (reprise après pause : la note en cours ne re-sonne
-       pas, les suivantes oui). */
+    /* Son des notes : événements { startBeats, holdBeats } triés, fournis par
+       noteSoundEvents. On ne rejoue jamais une attaque antérieure au point de
+       départ (reprise après pause : la note en cours ne re-sonne pas, les
+       suivantes oui). getNoteVoice() est lu à CHAQUE attaque : changer de son
+       ou de note dans les réglages s'applique aux attaques suivantes en vol. */
     var noteEvents = opts.noteEvents || [];
     var notesOn = !!opts.notesEnabled;
-    var getNoteBuffer = opts.getNoteBuffer || function () { return null; };
+    var clicksOn = opts.clicksEnabled !== false;
+    var getNoteVoice = opts.getNoteVoice || function () { return null; };
     var noteIdx = 0;
     while (noteIdx < noteEvents.length && noteEvents[noteIdx].startBeats < startGridBeat) noteIdx += 1;
     var liveNotes = [];      // voix actives { src, cut, start } pour coupure/annulation
@@ -372,65 +485,16 @@
       };
     }
 
-    /* Voix d'une note : sample de basse (AudioBufferSourceNode) ou repli
-       synthé (triangle + passe-bas + décroissance exponentielle). Deux étages
-       de gain : l'enveloppe naturelle (interne au repli ; le sample décroît
-       tout seul) et cutGain, l'enveloppe de coupe — fin de valeur notée,
-       bascule de mode en vol, pause — identique pour les deux sources. */
+    /* Voix d'une note : construction partagée avec la préécoute
+       (buildNoteVoice). getNoteVoice() est lu à chaque attaque. */
     function scheduleNoteVoice(time, holdBeats) {
-      var buffer = getNoteBuffer();
-      var cutGain = ctx.createGain();
-      cutGain.connect(master);
-      var src;
-      var level;
-      var tailS; // décroissance naturelle de la source
-      if (buffer) {
-        src = ctx.createBufferSource();
-        src.buffer = buffer;
-        src.connect(cutGain);
-        level = SAMPLE_LEVEL;
-        tailS = buffer.duration;
-      } else {
-        src = ctx.createOscillator();
-        src.type = "triangle";
-        src.frequency.value = SYNTH_FREQ_HZ;
-        var filter = ctx.createBiquadFilter();
-        filter.type = "lowpass";
-        filter.Q.value = 0.7;
-        filter.frequency.setValueAtTime(900, time);
-        filter.frequency.exponentialRampToValueAtTime(140, time + 0.5);
-        var env = ctx.createGain(); // pluck : attaque brève, décroissance longue
-        env.gain.setValueAtTime(0.0001, time);
-        env.gain.linearRampToValueAtTime(1, time + 0.005);
-        env.gain.exponentialRampToValueAtTime(0.001, time + SYNTH_TAIL_S);
-        src.connect(filter);
-        filter.connect(env);
-        env.connect(cutGain);
-        level = SYNTH_LEVEL;
-        tailS = SYNTH_TAIL_S;
-      }
-      cutGain.gain.setValueAtTime(level, time);
-      var cutS = noteCutSeconds(holdBeats, clock.bpm(), tailS);
-      var stopAt;
-      if (cutS !== null) {
-        // Valeur plus courte que la source : coupe à la fin de la valeur,
-        // release exponentiel court — pas de clic audible.
-        cutGain.gain.setValueAtTime(level, time + cutS);
-        cutGain.gain.exponentialRampToValueAtTime(0.0001, time + cutS + NOTE_RELEASE_S);
-        cutGain.gain.linearRampToValueAtTime(0, time + cutS + NOTE_RELEASE_S + 0.01);
-        stopAt = time + cutS + NOTE_RELEASE_S + 0.02;
-      } else {
-        // Valeur plus longue : on laisse la source décroître naturellement.
-        stopAt = time + tailS + 0.05;
-      }
-      src.start(time);
-      src.stop(stopAt);
-      var voice = { src: src, cut: cutGain, start: time };
+      var holdS = holdBeats * 60 / clock.bpm();
+      var voice = buildNoteVoice(ctx, master, time, holdS, getNoteVoice());
       liveNotes.push(voice);
-      src.onended = function () {
+      voice.src.onended = function () {
         var i = liveNotes.indexOf(voice);
         if (i !== -1) liveNotes.splice(i, 1);
-        cutGain.disconnect();
+        voice.cut.disconnect();
       };
     }
 
@@ -495,7 +559,10 @@
             allScheduled = true;
             break;
           }
-          scheduleClick(ev.time, d.accent);
+          // Métronome coupé : les battements avancent et les visuels restent
+          // (pastilles), seuls les clics de grille se taisent. Le décompte
+          // reste toujours audible : c'est le repère de départ.
+          if (clicksOn || d.type === "countin") scheduleClick(ev.time, d.accent);
           d.time = ev.time;
           visuals.push(d);
         }
@@ -544,6 +611,25 @@
         notesOn = on;
         if (!on) killNotes(NOTE_RELEASE_S);
         else pump();
+      },
+      /* Bascule du métronome en vol, sans toucher lecture, visuels ni notes :
+         coupure = arrêt net des clics déjà programmés non joués ;
+         réactivation = les prochains battements cliquent (pompe/horizon). */
+      setClicksEnabled: function (on) {
+        on = !!on;
+        if (on === clicksOn) return;
+        clicksOn = on;
+        if (!on) {
+          var now = ctx.currentTime;
+          for (var i = 0; i < live.length; i++) {
+            try {
+              live[i].osc.onended = null;
+              live[i].osc.stop(now);
+              live[i].gain.disconnect();
+            } catch (e) { /* nœud déjà arrêté */ }
+          }
+          live.length = 0;
+        }
       },
       /* Arrêt net : coupe la pompe, les clics déjà programmés et toutes les
          voix de notes actives, et rend la position atteinte + le battement de
@@ -601,6 +687,8 @@
     noteCutSeconds: noteCutSeconds,
     outputLatencySeconds: outputLatencySeconds,
     cursorXAt: cursorXAt,
+    buildNoteVoice: buildNoteVoice,
+    playNotePreview: playNotePreview,
     createTransport: createTransport
   };
 }));

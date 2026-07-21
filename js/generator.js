@@ -7,9 +7,11 @@
  *     level:    1 | 2 | 3,
  *     meter:    "2/4" | "3/4" | "4/4" | "2/2" | "3/2" | "4/2",
  *     measures: 4 | 8 | 16,
+ *     note:     jeton ABC optionnel de la note d'entraînement (défaut "D,") —
+ *               lettre naturelle A–G suivie d'éventuelles virgules d'octave,
  *     rng:      fonction aléatoire optionnelle (défaut Math.random)
  *   }
- *   abc   = partition ABC complète (clé de Fa, note fixe Ré grave « D, »).
+ *   abc   = partition ABC complète (clé de Fa, note fixe — config.note).
  *   notes = timeline [{ startBeats, durationBeats, isRest, tiedToNext }] pour le
  *           moteur de lecture (ticket 03). startBeats/durationBeats en temps.
  *
@@ -296,6 +298,7 @@
 
   function assemble(measures, config, m) {
     var den = m.den;
+    var noteTok = config.note || "D,";
     var i, j;
 
     /* Unité L: adaptée à la plus petite durée réellement générée (max 1/64). */
@@ -320,7 +323,7 @@
       for (j = 0; j < events.length; j++) {
         var e = events[j];
         var mult = beatsTo64(e.d, den) / unit;
-        var tok = (e.rest ? "z" : "D,") + (mult === 1 ? "" : mult) + (e.tie ? "-" : "");
+        var tok = (e.rest ? "z" : noteTok) + (mult === 1 ? "" : mult) + (e.tie ? "-" : "");
         if (e.d >= 1) {
           /* une valeur d'au moins un temps reste isolée */
           groups.push(tok);
@@ -385,6 +388,9 @@
     var level = config.level;
     if (level !== 1 && level !== 2 && level !== 3) {
       throw new Error("Niveau invalide : " + level);
+    }
+    if (config.note !== undefined && !/^[A-G],{0,2}$/.test(config.note)) {
+      throw new Error("Note d'entraînement invalide : " + config.note);
     }
     var m = parseMeter(config.meter);
     var count = config.measures;

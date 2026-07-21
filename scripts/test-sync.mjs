@@ -104,6 +104,10 @@ function createMockCtx(opts = {}) {
     createBufferSource() {
       const src = {
         buffer: null,
+        playbackRate: mockParam(),
+        loop: false,
+        loopStart: 0,
+        loopEnd: 0,
         onended: null,
         connect() {},
         start(t) { ctx.noteStarts.push({ time: t, scheduledAt: ctx.currentTime }); },
@@ -148,7 +152,7 @@ try {
     const spb = 60 / BPM;
     const tr = createTransport({
       ctx, bpm: BPM, beatsPerBar: 4, totalBeats: 8,
-      noteEvents: [], notesEnabled: false, getNoteBuffer: () => null,
+      noteEvents: [], notesEnabled: false, getNoteVoice: () => null,
     });
     stepPump(ctx, t0 + (4 + 8 + 2) * spb);
     const clicks = ctx.clickStarts;
@@ -181,7 +185,7 @@ try {
     const spb = 60 / 120;
     const tr = createTransport({
       ctx, bpm: 120, beatsPerBar: bpb, totalBeats: total,
-      noteEvents: [], notesEnabled: false, getNoteBuffer: () => null,
+      noteEvents: [], notesEnabled: false, getNoteVoice: () => null,
     });
     stepPump(ctx, t0 + (countIn + total + 2) * spb);
     const clicks = ctx.clickStarts;
@@ -222,7 +226,7 @@ try {
       const ref = createBeatClock({ startTime: t0, bpm: 60 }); // grille de référence indépendante
       const tr = createTransport({
         ctx, bpm: 60, beatsPerBar: 4, totalBeats: 16,
-        noteEvents: events, notesEnabled: true, getNoteBuffer: () => BUFFER,
+        noteEvents: events, notesEnabled: true, getNoteVoice: () => ({ buffer: BUFFER }),
       });
       stepPump(ctx, t0 + (4 + 16 + 2) * 1);
 
@@ -264,7 +268,7 @@ try {
     const t0 = ctx.currentTime + START_DELAY_S;
     const tr = createTransport({
       ctx, bpm: 60, beatsPerBar: 4, totalBeats: 16,
-      noteEvents: EVENTS, notesEnabled: true, getNoteBuffer: () => BUFFER,
+      noteEvents: EVENTS, notesEnabled: true, getNoteVoice: () => ({ buffer: BUFFER }),
     });
     stepPump(ctx, t0 + 6.0);   // en plein milieu de l'intervalle [6, 7]
     tr.setBpm(90);
@@ -323,7 +327,7 @@ try {
     const t0 = ctx.currentTime + START_DELAY_S;
     const tr = createTransport({
       ctx, bpm: 60, beatsPerBar: 4, totalBeats: 16,
-      noteEvents: EVENTS, notesEnabled: true, getNoteBuffer: () => BUFFER,
+      noteEvents: EVENTS, notesEnabled: true, getNoteVoice: () => ({ buffer: BUFFER }),
     });
     stepPump(ctx, t0 + 9.5); // décompte 4 temps + 5,5 temps de grille
     const info = tr.stop();
@@ -339,7 +343,7 @@ try {
     const ref = createBeatClock({ startTime: t0b, bpm: 60 });
     const tr2 = createTransport({
       ctx: ctx2, bpm: 60, beatsPerBar: 4, totalBeats: 16, startGridBeat: 4,
-      noteEvents: EVENTS, notesEnabled: true, getNoteBuffer: () => BUFFER,
+      noteEvents: EVENTS, notesEnabled: true, getNoteVoice: () => ({ buffer: BUFFER }),
     });
     stepPump(ctx2, t0b + (4 + 12 + 2) * 1);
     const clicks = ctx2.clickStarts;
@@ -381,7 +385,7 @@ try {
     const ctx3 = createMockCtx();
     const tr3 = createTransport({
       ctx: ctx3, bpm: 60, beatsPerBar: 4, totalBeats: 16, startGridBeat: 4,
-      noteEvents: EVENTS, notesEnabled: true, getNoteBuffer: () => BUFFER,
+      noteEvents: EVENTS, notesEnabled: true, getNoteVoice: () => ({ buffer: BUFFER }),
     });
     stepPump(ctx3, ctx3.currentTime + 2); // encore dans le décompte (4 s)
     const info3 = tr3.stop();
@@ -490,7 +494,7 @@ try {
     const t0 = ctx.currentTime + START_DELAY_S;
     const tr = createTransport({
       ctx, bpm: 60, beatsPerBar: 4, totalBeats: 8,
-      noteEvents: [], notesEnabled: false, getNoteBuffer: () => null,
+      noteEvents: [], notesEnabled: false, getNoteVoice: () => null,
     });
     stepPump(ctx, t0 + (4 + 8 + 2) * 1);
     const clicks = ctx.clickStarts;
@@ -520,7 +524,7 @@ try {
     const t0b = ctx2.currentTime + START_DELAY_S;
     const tr2 = createTransport({
       ctx: ctx2, bpm: 60, beatsPerBar: 4, totalBeats: 16,
-      noteEvents: EVENTS, notesEnabled: true, getNoteBuffer: () => BUFFER,
+      noteEvents: EVENTS, notesEnabled: true, getNoteVoice: () => ({ buffer: BUFFER }),
     });
     stepPump(ctx2, t0b + 9.5 + 0.08);
     const info = tr2.stop();

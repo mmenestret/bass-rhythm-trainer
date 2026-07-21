@@ -8,8 +8,9 @@
  *  (2) les PNG des figures rythmiques en data URI ;
  *  (3) vendor/abcjs-basic-min.js, js/generator.js, js/engine.js en <script>
  *      inline (le commentaire de licence abcjs est conservé tel quel) ;
- *  (4) le sample basse D2 (m4a) en constante JS base64
- *      window.BRT_EMBEDDED_SAMPLE, consommée par index.html AVANT tout fetch.
+ *  (4) tous les samples audio (assets/audio/*.wav|m4a) en base64 dans
+ *      window.BRT_EMBEDDED_SAMPLES (clé = nom de fichier), consommé par
+ *      index.html AVANT tout fetch.
  *
  * Le build vérifie lui-même son résultat :
  *  - aucun src=/href= vers un fichier local ou une URL http(s) dans le
@@ -22,7 +23,7 @@
  *  - taille totale affichée.
  * Code de sortie non nul si problème.
  */
-import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import os from "node:os";
@@ -84,16 +85,22 @@ for (const rel of ["vendor/abcjs-basic-min.js", "js/generator.js", "js/engine.js
   html = replaceOnce(html, tag, `<script>\n/* ---- ${rel} (inline) ---- */\n${js}\n</script>`);
 }
 
-// (4) Sample basse D2 en base64, AVANT les scripts applicatifs : index.html
-// consomme window.BRT_EMBEDDED_SAMPLE en priorité, le fetch ne sert que de
-// repli pour la version dossier (fetch est bloqué en file://).
-const sampleB64 = read("assets/audio/bass-D2.m4a").toString("base64");
+// (4) Samples audio en base64, AVANT les scripts applicatifs : index.html
+// consomme window.BRT_EMBEDDED_SAMPLES (clé = nom de fichier) en priorité, le
+// fetch ne sert que de repli pour la version dossier (fetch bloqué en file://).
+const audioFiles = readdirSync(path.join(ROOT, "assets/audio"))
+  .filter((f) => /\.(m4a|wav)$/.test(f))
+  .sort();
+if (!audioFiles.length) fail("aucun sample dans assets/audio/");
+const samplesJs = audioFiles
+  .map((f) => `  "${f}": "${read(path.join("assets/audio", f)).toString("base64")}"`)
+  .join(",\n");
 const ABCJS_MARK = "<script>\n/* ---- vendor/abcjs-basic-min.js (inline) ---- */";
-if (!html.includes(ABCJS_MARK)) fail("point d'insertion du sample introuvable (bloc abcjs inline)");
+if (!html.includes(ABCJS_MARK)) fail("point d'insertion des samples introuvable (bloc abcjs inline)");
 html = replaceOnce(
   html,
   ABCJS_MARK,
-  `<script>\n/* Sample basse D2 — « Finger Bass YR » (FreePats, CC0), m4a embarqué pour l'ouverture en file:// */\nwindow.BRT_EMBEDDED_SAMPLE = "${sampleB64}";\n</script>\n${ABCJS_MARK}`
+  `<script>\n/* Samples audio embarqués pour l'ouverture en file:// — Karoryfer (Growlybass, Meatbass) & FreePats (Lately Bass), CC0 */\nwindow.BRT_EMBEDDED_SAMPLES = {\n${samplesJs}\n};\n</script>\n${ABCJS_MARK}`
 );
 
 mkdirSync(OUT_DIR, { recursive: true });
@@ -149,26 +156,26 @@ try {
 }
 
 // D. fetch( restants : listés avec contexte ; le seul autorisé est celui de
-// loadSample (repli version dossier), court-circuité au chargement par la
-// constante embarquée — dont on vérifie la définition et le garde-fou.
+// fetchSampleData (repli version dossier), court-circuité au chargement par
+// la table embarquée — dont on vérifie la définition et la consommation.
 const fetchOccurrences = [];
 for (let i = html.indexOf("fetch("); i !== -1; i = html.indexOf("fetch(", i + 1))
   fetchOccurrences.push({ offset: i, context: html.slice(Math.max(0, i - 30), i + 50).replace(/\s+/g, " ") });
 console.log(`fetch( restant(s) dans le fichier produit : ${fetchOccurrences.length}`);
 for (const f of fetchOccurrences) console.log(`  @${f.offset} … ${f.context} …`);
 if (fetchOccurrences.length !== 1)
-  fail(`${fetchOccurrences.length} occurrence(s) de fetch( au lieu de 1 (repli loadSample uniquement)`);
-const defIdx = html.indexOf('window.BRT_EMBEDDED_SAMPLE = "');
-const guardIdx = html.indexOf('typeof window.BRT_EMBEDDED_SAMPLE === "string"');
-if (defIdx === -1) fail("constante window.BRT_EMBEDDED_SAMPLE absente du fichier produit");
-if (guardIdx === -1) fail("garde-fou sample embarqué absent (le fetch s'exécuterait au chargement)");
+  fail(`${fetchOccurrences.length} occurrence(s) de fetch( au lieu de 1 (repli fetchSampleData uniquement)`);
+const defIdx = html.indexOf("window.BRT_EMBEDDED_SAMPLES = {");
+const guardIdx = html.indexOf("= window.BRT_EMBEDDED_SAMPLES;");
+if (defIdx === -1) fail("table window.BRT_EMBEDDED_SAMPLES absente du fichier produit");
+if (guardIdx === -1) fail("consommation de la table embarquée absente (le fetch s'exécuterait au chargement)");
 if (defIdx !== -1 && guardIdx !== -1 && defIdx > guardIdx)
-  fail("la constante embarquée est définie APRÈS le code qui la consomme");
+  fail("la table embarquée est définie APRÈS le code qui la consomme");
 // L'unique fetch doit vivre dans le script applicatif (après le dernier bloc
-// inliné), c'est-à-dire dans loadSample — jamais dans une bibliothèque.
+// inliné), c'est-à-dire dans fetchSampleData — jamais dans une bibliothèque.
 const appScriptIdx = html.indexOf("/* ---- js/engine.js (inline) ---- */");
 if (fetchOccurrences.length === 1 && appScriptIdx !== -1 && fetchOccurrences[0].offset < appScriptIdx)
-  fail("le fetch restant n'est pas celui de loadSample (il précède le script applicatif)");
+  fail("le fetch restant n'est pas celui de fetchSampleData (il précède le script applicatif)");
 
 /* ------------------------------------------------------------------ */
 /* Rapport                                                             */

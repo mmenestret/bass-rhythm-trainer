@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bass Rhythm Trainer</title>
+<title>Rhythm Trainer</title>
 <link rel="stylesheet" href="assets/fonts/fonts.css">
 <style>
   :root{
@@ -32,10 +32,11 @@
     color:var(--ink);
     background:linear-gradient(163deg,var(--mist-1) 0%,var(--mist-2) 52%,var(--mist-3) 100%);
     background-attachment:fixed;
-    overflow-x:hidden;
+    overflow-x:clip;
   }
+  html{ overflow-x:clip; }
   button{ font-family:inherit; color:inherit; background:none; border:none; cursor:pointer; }
-  button:focus-visible, input:focus-visible, label:focus-within{ outline:1.5px solid var(--accent); outline-offset:3px; border-radius:4px; }
+  button:focus-visible, input:focus-visible{ outline:1.5px solid var(--accent); outline-offset:3px; border-radius:4px; }
 
   /* ---------- atmosphère : brume qui respire + grain ---------- */
   .breath{ position:fixed; border-radius:50%; filter:blur(90px); pointer-events:none; z-index:0; will-change:transform,opacity; }
@@ -79,10 +80,6 @@
     font-size:10.5px; letter-spacing:.34em; text-transform:uppercase;
     color:var(--ink-soft); font-weight:500; user-select:none;
   }
-  .wordmark em{
-    font-family:"Cormorant Garamond",serif; font-style:italic; text-transform:none;
-    letter-spacing:.04em; font-size:16px; color:var(--ink); margin-left:.9em; font-weight:400;
-  }
   #settingsBtn{
     pointer-events:auto;
     display:flex; align-items:center; gap:10px;
@@ -100,38 +97,50 @@
     min-height:100svh;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
     gap:clamp(14px,3vh,34px);
-    padding:96px 4vw 72px;
+    padding:clamp(72px,11vh,96px) 4vw clamp(52px,8vh,72px);
   }
   .rise{ opacity:0; transform:translateY(14px); animation:rise 1.1s var(--ease-drift) forwards; }
   @keyframes rise{ to{ opacity:1; transform:none; } }
   .d1{ animation-delay:.05s } .d2{ animation-delay:.22s } .d3{ animation-delay:.4s } .d4{ animation-delay:.58s }
 
-  /* tempo immense */
-  .tempo{ display:flex; align-items:baseline; gap:18px; user-select:none; }
+  /* tempo immense — champ saisissable au clavier, même typo, sans bordure */
+  /* label BPM centré verticalement sur les chiffres */
+  .tempo{ display:flex; align-items:center; gap:18px; user-select:none; }
   #tempoNum{
     font-family:"Cormorant Garamond",serif; font-weight:300;
-    font-size:clamp(88px,15vw,168px); line-height:.9;
+    font-size:clamp(88px,min(15vw,20vh),168px); line-height:.9;
     letter-spacing:-.015em; color:var(--ink);
     cursor:ns-resize;
+    background:none; border:none; padding:0;
+    width:3.2ch; text-align:center;
+    caret-color:var(--accent);
+    -webkit-user-select:text; user-select:text;
   }
+  #tempoNum:focus, #tempoNum:focus-visible{ outline:none; cursor:text; }
+  #tempoNum::selection{ background:var(--accent-soft); }
   #tempoNum.blip{ animation:blip .45s var(--ease-drift); }
   @keyframes blip{ 30%{ opacity:.45; letter-spacing:.01em; } }
-  .tempo-side{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; transform:translateY(-8px); }
+  .tempo-side{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; }
   .tempo-side .bpm{
     font-size:11px; letter-spacing:.4em; text-transform:uppercase; color:var(--ink-faint); font-weight:500;
   }
-  #plus5{
+  .step-btns{ display:flex; gap:7px; flex:none; }
+  .step-btns button{
     font-size:12px; letter-spacing:.14em; font-weight:500;
     padding:7px 15px; border-radius:999px;
     border:1px solid var(--hairline);
     color:var(--ink-soft);
     transition:border-color .4s,color .4s,background .4s,transform .25s var(--ease-drift);
   }
-  #plus5:hover{ border-color:var(--hairline-strong); color:var(--ink); background:var(--glass); }
-  #plus5:active{ transform:scale(.94); }
+  .step-btns button:hover{ border-color:var(--hairline-strong); color:var(--ink); background:var(--glass); }
+  .step-btns button:active{ transform:scale(.94); }
 
-  .tempo-slider{ width:min(300px,72vw); margin-top:-4px; opacity:.55; transition:opacity .5s; }
+  .tempo-slider{
+    width:min(430px,88vw); margin-top:-4px; opacity:.55; transition:opacity .5s;
+    display:flex; align-items:center; gap:14px;
+  }
   .tempo-slider:hover, .tempo-slider:focus-within{ opacity:1; }
+  .tempo-slider input[type=range]{ flex:1; min-width:0; }
   input[type=range]{
     -webkit-appearance:none; appearance:none; width:100%; height:22px; background:transparent; cursor:pointer;
   }
@@ -156,13 +165,14 @@
     margin-bottom:-10px; /* rapprocher le titre de la portée */
     min-height:1em;
   }
-  #exTitle sup{ font-size:.6em; }
-  #exTitle.regen{ animation:regen 1s var(--ease-drift); }
+  /* both : sans fill-mode, la fin de l'animation retomberait sur le
+     opacity:0 de .rise et le titre disparaîtrait au bout d'une seconde */
+  #exTitle.regen{ animation:regen 1s var(--ease-drift) both; }
 
   /* ---------- portée ---------- */
   .score-stage{
     position:relative;
-    width:min(980px,94vw);
+    width:min(940px,92vw);
   }
   .score-stage::before{
     content:""; position:absolute; inset:-8% -4%;
@@ -273,29 +283,21 @@
   #rewindBtn:hover{ border-color:var(--hairline-strong); color:var(--ink); background:var(--glass); }
   #rewindBtn:active{ transform:scale(.94); }
 
-  .guidance{ display:flex; flex-direction:column; align-items:center; gap:9px; }
+  /* aides de lecture : trois bascules indépendantes en ligne, centrée
+     verticalement sur le bouton play (align-items:center du transport) */
   .seg{
-    display:flex; border:1px solid var(--hairline); border-radius:999px; overflow:hidden;
+    display:flex;
+    border:1px solid var(--hairline); border-radius:999px; overflow:hidden;
     background:rgba(255,255,255,.18);
   }
   .seg button{
-    width:42px; height:36px; display:flex; align-items:center; justify-content:center;
+    width:44px; height:40px; display:flex; align-items:center; justify-content:center;
     color:var(--ink-faint); transition:color .4s,background .4s;
   }
   .seg button svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
   .seg button + button{ border-left:1px solid var(--hairline); }
   .seg button.active{ color:var(--ink); background:rgba(255,255,255,.55); }
   .seg button:hover:not(.active){ color:var(--ink-soft); }
-  #modeLabel{
-    font-size:10px; letter-spacing:.3em; text-transform:uppercase; color:var(--ink-faint); font-weight:500;
-    white-space:nowrap;
-  }
-
-  #status{
-    font-size:10.5px; letter-spacing:.32em; text-transform:uppercase;
-    color:var(--ink-faint); font-weight:500; user-select:none;
-    transition:opacity .6s;
-  }
 
   .hint{
     position:fixed; bottom:18px; left:0; right:0; z-index:5;
@@ -344,19 +346,43 @@
     transition:background .3s;
   }
   .fig:hover{ background:rgba(255,255,255,.5); }
-  .fig input{ position:absolute; opacity:0; pointer-events:none; }
-  .fig .dot{
+  .fig input, .sound input{ position:absolute; opacity:0; pointer-events:none; }
+  .fig .dot, .sound .dot{
     flex:none; width:16px; height:16px; border-radius:50%;
     border:1px solid var(--hairline-strong);
     position:relative; transition:border-color .35s;
   }
-  .fig .dot::after{
+  .fig .dot::after, .sound .dot::after{
     content:""; position:absolute; inset:3px; border-radius:50%;
     background:var(--accent); transform:scale(0);
     transition:transform .35s var(--ease-drift);
   }
-  .fig input:checked + .dot{ border-color:var(--accent); }
-  .fig input:checked + .dot::after{ transform:scale(1); }
+  .fig input:checked + .dot, .sound input:checked + .dot{ border-color:var(--accent); }
+  .fig input:checked + .dot::after, .sound input:checked + .dot::after{ transform:scale(1); }
+
+  /* ---------- lignes de son (sélecteur + préécoute) ---------- */
+  .sounds{ display:flex; flex-direction:column; gap:2px; margin-bottom:14px; }
+  .sound{
+    display:flex; align-items:center; gap:14px;
+    padding:7px 10px; border-radius:10px; cursor:pointer;
+    transition:background .3s;
+  }
+  .sound:hover{ background:rgba(255,255,255,.5); }
+  .sound .name{ font-size:13.5px; letter-spacing:.02em; color:var(--ink); }
+  .sound .preview{
+    margin-left:auto; flex:none;
+    width:28px; height:28px; border-radius:50%;
+    border:1px solid var(--hairline);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--ink-soft);
+    transition:border-color .3s,color .3s,background .3s,transform .2s var(--ease-drift);
+  }
+  .sound .preview:hover{ border-color:var(--accent); color:var(--ink); background:rgba(255,255,255,.6); }
+  .sound .preview:active{ transform:scale(.92); }
+  .sound .preview svg{ width:11px; height:11px; fill:currentColor; margin-left:1px; }
+  /* sélecteur de note : les 7 pastilles tiennent sur une seule ligne */
+  #notePills{ flex-wrap:nowrap; gap:6px; }
+  #notePills .pill{ flex:1; padding:8px 0; text-align:center; }
   .fig .glyph{
     flex:none; width:26px; height:22px; object-fit:contain; object-position:center bottom; opacity:.72;
   }
@@ -402,45 +428,105 @@
     border:1px solid var(--ink);
   }
   .btn-primary:hover{ background:#2e3644; }
-  .btn-quiet{
-    flex:1; border:1px solid var(--hairline); color:var(--ink-soft); background:transparent;
-  }
-  .btn-quiet:hover{ border-color:var(--hairline-strong); color:var(--ink); background:rgba(255,255,255,.5); }
-
-  .sep{ border:none; border-top:1px solid var(--hairline); margin:30px 0; }
-
-  .switch-row{
-    display:flex; align-items:center; justify-content:space-between;
-    cursor:pointer; padding:4px 2px; margin-bottom:18px;
-  }
-  .switch-row .lbl{ font-size:13.5px; letter-spacing:.02em; }
-  .switch-row input{ position:absolute; opacity:0; pointer-events:none; }
-  .switch{
-    flex:none; width:42px; height:23px; border-radius:999px;
-    border:1px solid var(--hairline-strong);
-    position:relative; transition:background .4s,border-color .4s;
-  }
-  .switch::after{
-    content:""; position:absolute; top:3px; left:3px;
-    width:15px; height:15px; border-radius:50%;
-    background:var(--ink-soft);
-    transition:transform .4s var(--ease-drift),background .4s;
-  }
-  .switch-row input:checked ~ .switch{ background:var(--accent-soft); border-color:var(--accent); }
-  .switch-row input:checked ~ .switch::after{ transform:translateX(19px); background:var(--accent); }
-
-  .row-2{ display:flex; gap:10px; }
-
   @media (prefers-reduced-motion:reduce){
     .breath, #playBtn.idle::after{ animation:none !important; }
     .rise{ animation-duration:.01s; }
   }
+  /* ---------- responsive ----------
+     Ordre volontaire : hauteur compacte, puis mobile étroit, puis paysage
+     court (la grille paysage doit gagner sur les règles mobiles). */
+
+  /* écrans peu hauts (petits laptops, tablettes paysage) : tout se resserre
+     pour tenir sans défilement — le tempo cède la place à la portée */
+  @media (max-height:800px){
+    main{
+      gap:clamp(10px,2.2vh,24px);
+      padding:clamp(56px,9vh,80px) 4vw clamp(44px,7vh,60px);
+    }
+    #tempoNum{ font-size:clamp(88px,min(15vw,16vh),150px); }
+    .tempo-slider{ margin-top:-2px; }
+  }
+
+  /* mobile étroit : cibles tactiles ≥ 44 px, chrome resserré */
   @media (max-width:640px){
-    header{ padding:18px 20px; }
-    .transport{ gap:20px; flex-wrap:wrap; justify-content:center; }
+    header{ padding:14px 16px; }
+    #settingsBtn{ padding:13px 14px; }
+    .tempo{ gap:14px; }
+    .step-btns button{ min-height:44px; padding:12px 17px; }
+    .tempo-slider{ gap:10px; }
+    input[type=range]{ height:36px; }
+    input[type=range]::-webkit-slider-thumb{ width:17px; height:17px; margin-top:-8px; }
+    input[type=range]::-moz-range-thumb{ width:15px; height:15px; }
+    .score-stage{ width:94vw; }
     #beats{ gap:12px; }
     .beat{ width:32px; height:32px; }
+    .transport{ gap:16px; flex-wrap:wrap; justify-content:center; }
+    .seg button{ width:50px; height:46px; }
     .hint{ display:none; }
+    /* tiroir : mêmes hairlines, gabarits tactiles */
+    #drawer{ padding:24px 22px 40px; }
+    .drawer-head{ margin-bottom:24px; }
+    #closeBtn{ padding:12px; }
+    .field{ margin-bottom:24px; }
+    .sound{ padding:7px 10px; min-height:52px; }
+    .sound .preview{ width:42px; height:42px; }
+    .sound .preview svg{ width:13px; height:13px; }
+    .fig{ min-height:46px; padding:8px 10px; }
+    .pill{ padding:13px 15px; }
+    #notePills .pill{ padding:13px 0; }
+    .level{ padding:13px 15px; }
+    .btn{ min-height:48px; }
+  }
+
+  /* paysage court (téléphone à l'horizontale) : la colonne unique ne tient
+     pas en 390 px de haut — la scène passe en grille : tempo, curseur et
+     pastilles à gauche, titre et portée à droite, transport en pied.
+     Le header suit le flux pour ne jamais recouvrir la portée. */
+  @media (orientation:landscape) and (max-height:540px){
+    header{ position:absolute; padding:12px 20px; }
+    .hint{ display:none; }
+    main{
+      display:grid;
+      grid-template-columns:minmax(200px,auto) minmax(0,1fr);
+      grid-template-areas:
+        "tempo  title"
+        "tempo  score"
+        "slider score"
+        "beats  score"
+        "foot   foot";
+      align-content:center; justify-content:center; align-items:center;
+      column-gap:clamp(24px,4vw,56px);
+      row-gap:clamp(8px,2.5vh,16px);
+      padding:48px 5vw 16px;
+      max-width:1060px; margin:0 auto;
+    }
+    .tempo{ grid-area:tempo; justify-self:center; align-self:end; gap:12px; }
+    #tempoNum{ font-size:clamp(56px,22vh,100px); }
+    .tempo-slider{ grid-area:slider; justify-self:center; width:min(240px,100%); margin-top:0; }
+    #exTitle{ grid-area:title; margin-bottom:0; font-size:15.5px; }
+    .score-stage{ grid-area:score; width:100%; }
+    #beats{ grid-area:beats; justify-self:center; gap:10px; }
+    .beat{ width:26px; height:26px; font-size:10.5px; }
+    .transport{ grid-area:foot; justify-self:center; gap:22px; }
+    #playBtn{ width:64px; height:64px; }
+    #playBtn svg{ width:20px; height:20px; }
+    #rewindBtn{ width:44px; height:44px; }
+    #countNum{ font-size:clamp(56px,18vh,110px); }
+  }
+
+  /* pointeur tactile, quelle que soit la largeur : gabarits de saisie */
+  @media (pointer:coarse){
+    .step-btns button{ min-height:44px; padding:12px 17px; }
+    input[type=range]{ height:32px; }
+    input[type=range]::-webkit-slider-thumb{ width:17px; height:17px; margin-top:-8px; }
+    input[type=range]::-moz-range-thumb{ width:15px; height:15px; }
+    .seg button{ min-width:50px; min-height:46px; }
+    .sound .preview{ width:42px; height:42px; }
+    .pill{ padding:13px 15px; }
+    #notePills .pill{ padding:13px 0; }
+    .fig{ min-height:46px; }
+    .level{ padding:13px 15px; }
+    .btn{ min-height:48px; }
   }
 </style>
 </head>
@@ -451,7 +537,7 @@
 <div class="breath breath-c"></div>
 
 <header>
-  <div class="wordmark">Bass Rhythm Trainer<em>Apnée</em></div>
+  <div class="wordmark">Rhythm Trainer</div>
   <button id="settingsBtn" aria-label="Ouvrir les réglages" aria-controls="drawer" aria-expanded="false">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M4 7h7.5M16.5 7H20"/><circle cx="14" cy="7" r="2.4"/>
@@ -465,14 +551,18 @@
 <main>
   <!-- tempo -->
   <div class="tempo rise d1">
-    <div id="tempoNum" title="Glisser verticalement ou molette pour ajuster">60</div>
+    <input id="tempoNum" type="text" inputmode="numeric" maxlength="3" value="60" autocomplete="off"
+           aria-label="Tempo en BPM" title="Cliquer pour saisir · glisser verticalement ou molette pour ajuster">
     <div class="tempo-side">
       <span class="bpm">BPM</span>
-      <button id="plus5" aria-label="Augmenter le tempo de 5 BPM">+5</button>
     </div>
   </div>
   <div class="tempo-slider rise d1">
     <input type="range" id="tempoSlider" min="40" max="200" step="1" value="60" aria-label="Tempo en BPM">
+    <div class="step-btns">
+      <button id="minus5" aria-label="Diminuer le tempo de 5 BPM">−5</button>
+      <button id="plus5" aria-label="Augmenter le tempo de 5 BPM">+5</button>
+    </div>
   </div>
 
   <!-- en-tête d'exercice (nᵒ de session + leçon Agostini, mis à jour à chaque génération) -->
@@ -490,19 +580,16 @@
 
   <!-- transport -->
   <div class="transport rise d4">
-    <div class="guidance">
-      <div class="seg" role="group" aria-label="Mode de guidage">
-        <button data-mode="metronome" title="Métronome — portée sans aide visuelle" aria-label="Métronome">
-          <svg viewBox="0 0 24 24"><path d="M9.3 4.5h5.4l2.8 15H6.5z"/><line x1="12" y1="15.5" x2="16" y2="6.8"/><line x1="8.4" y1="15.5" x2="15.6" y2="15.5"/></svg>
-        </button>
-        <button data-mode="visuel" class="active" title="+ Guide visuel — durée des notes et curseur" aria-label="Guide visuel">
-          <svg viewBox="0 0 24 24"><path d="M2.8 12s3.4-6 9.2-6 9.2 6 9.2 6-3.4 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.5"/></svg>
-        </button>
-        <button data-mode="son" title="+ Son — rythmique jouée à la basse" aria-label="Son">
-          <svg viewBox="0 0 24 24"><path d="M4.5 9.6v4.8h3.2l4.5 3.7V5.9L7.7 9.6z"/><path d="M15.6 9.4a3.7 3.7 0 0 1 0 5.2M18.2 7.1a7 7 0 0 1 0 9.8"/></svg>
-        </button>
-      </div>
-      <span id="modeLabel">+ Guide visuel</span>
+    <div class="seg" role="group" aria-label="Aides de lecture">
+      <button id="tglClick" class="active" title="Métronome — clics des temps" aria-pressed="true" aria-label="Métronome">
+        <svg viewBox="0 0 24 24"><path d="M9.3 4.5h5.4l2.8 15H6.5z"/><line x1="12" y1="15.5" x2="16" y2="6.8"/><line x1="8.4" y1="15.5" x2="15.6" y2="15.5"/></svg>
+      </button>
+      <button id="tglVisual" class="active" title="Guide visuel — durée des notes et curseur" aria-pressed="true" aria-label="Guide visuel">
+        <svg viewBox="0 0 24 24"><path d="M2.8 12s3.4-6 9.2-6 9.2 6 9.2 6-3.4 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.5"/></svg>
+      </button>
+      <button id="tglSound" title="Son — rythmique jouée" aria-pressed="false" aria-label="Son">
+        <svg viewBox="0 0 24 24"><path d="M4.5 9.6v4.8h3.2l4.5 3.7V5.9L7.7 9.6z"/><path d="M15.6 9.4a3.7 3.7 0 0 1 0 5.2M18.2 7.1a7 7 0 0 1 0 9.8"/></svg>
+      </button>
     </div>
 
     <button id="rewindBtn" aria-label="Retour au début" title="Retour au début">
@@ -514,8 +601,6 @@
       <svg id="iconPause" viewBox="0 0 24 24" style="display:none"><rect x="7.2" y="5.5" width="2.6" height="13" rx="1.1"/><rect x="14.2" y="5.5" width="2.6" height="13" rx="1.1"/></svg>
     </button>
   </div>
-
-  <div id="status" class="rise d4">Prêt · 8 mesures · 4/4</div>
 </main>
 
 <div class="hint">Espace — lancer ou suspendre la lecture</div>
@@ -531,15 +616,21 @@
   </div>
 
   <div class="field">
-    <h3>Figures</h3>
-    <div class="figs">
-      <label class="fig"><input type="checkbox" name="fig" value="ronde"><span class="dot"></span><img class="glyph" src="assets/figures/ronde.png" alt=""><span class="name">Ronde</span></label>
-      <label class="fig"><input type="checkbox" name="fig" value="blanche" checked><span class="dot"></span><img class="glyph" src="assets/figures/blanche.png" alt=""><span class="name">Blanche</span></label>
-      <label class="fig"><input type="checkbox" name="fig" value="noire" checked><span class="dot"></span><img class="glyph" src="assets/figures/noire.png" alt=""><span class="name">Noire</span></label>
-      <label class="fig"><input type="checkbox" name="fig" value="croche" checked><span class="dot"></span><img class="glyph" src="assets/figures/croche.png" alt=""><span class="name">Croche</span></label>
-      <label class="fig"><input type="checkbox" name="fig" value="double"><span class="dot"></span><img class="glyph" src="assets/figures/double.png" alt=""><span class="name">Double croche</span></label>
-      <label class="fig"><input type="checkbox" name="fig" value="triple"><span class="dot"></span><img class="glyph" src="assets/figures/triple.png" alt=""><span class="name">Triple croche</span></label>
-      <label class="fig"><input type="checkbox" name="fig" value="quadruple"><span class="dot"></span><img class="glyph" src="assets/figures/quadruple.png" alt=""><span class="name">Quadruple croche</span></label>
+    <h3>Son</h3>
+    <div class="sounds" id="soundList">
+      <label class="sound"><input type="radio" name="sound" value="growl" checked><span class="dot"></span><span class="name">Basse growl</span>
+        <button type="button" class="preview" data-sound="growl" aria-label="Écouter la basse growl" title="Écouter"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
+      <label class="sound"><input type="radio" name="sound" value="synth"><span class="dot"></span><span class="name">Synthé</span>
+        <button type="button" class="preview" data-sound="synth" aria-label="Écouter le synthé" title="Écouter"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
+    </div>
+    <div class="pills" id="notePills" role="group" aria-label="Note d'entraînement">
+      <label class="pill"><input type="radio" name="note" value="E">E</label>
+      <label class="pill"><input type="radio" name="note" value="F">F</label>
+      <label class="pill"><input type="radio" name="note" value="G">G</label>
+      <label class="pill"><input type="radio" name="note" value="A">A</label>
+      <label class="pill"><input type="radio" name="note" value="B">B</label>
+      <label class="pill"><input type="radio" name="note" value="C">C</label>
+      <label class="pill checked"><input type="radio" name="note" value="D" checked>D</label>
     </div>
   </div>
 
@@ -549,6 +640,19 @@
       <label class="level checked"><input type="radio" name="niveau" value="1" checked><span class="n">1</span><span class="txt"><b>Notes seules</b><span>Uniquement des figures jouées</span></span></label>
       <label class="level"><input type="radio" name="niveau" value="2"><span class="n">2</span><span class="txt"><b>Avec silences</b><span>Ajoute soupirs et pauses</span></span></label>
       <label class="level"><input type="radio" name="niveau" value="3"><span class="n">3</span><span class="txt"><b>Complet</b><span>Pointées, liaisons, syncopes</span></span></label>
+    </div>
+  </div>
+
+  <div class="field">
+    <h3>Figures de notes</h3>
+    <div class="figs">
+      <label class="fig"><input type="checkbox" name="fig" value="ronde"><span class="dot"></span><img class="glyph" src="assets/figures/ronde.png" alt=""><span class="name">Ronde</span></label>
+      <label class="fig"><input type="checkbox" name="fig" value="blanche" checked><span class="dot"></span><img class="glyph" src="assets/figures/blanche.png" alt=""><span class="name">Blanche</span></label>
+      <label class="fig"><input type="checkbox" name="fig" value="noire" checked><span class="dot"></span><img class="glyph" src="assets/figures/noire.png" alt=""><span class="name">Noire</span></label>
+      <label class="fig"><input type="checkbox" name="fig" value="croche" checked><span class="dot"></span><img class="glyph" src="assets/figures/croche.png" alt=""><span class="name">Croche</span></label>
+      <label class="fig"><input type="checkbox" name="fig" value="double"><span class="dot"></span><img class="glyph" src="assets/figures/double.png" alt=""><span class="name">Double croche</span></label>
+      <label class="fig"><input type="checkbox" name="fig" value="triple"><span class="dot"></span><img class="glyph" src="assets/figures/triple.png" alt=""><span class="name">Triple croche</span></label>
+      <label class="fig"><input type="checkbox" name="fig" value="quadruple"><span class="dot"></span><img class="glyph" src="assets/figures/quadruple.png" alt=""><span class="name">Quadruple croche</span></label>
     </div>
   </div>
 
@@ -574,21 +678,6 @@
   </div>
 
   <button class="btn btn-primary" id="generateBtn">Générer</button>
-
-  <hr class="sep">
-
-  <div class="field">
-    <h3>Lecture</h3>
-    <label class="switch-row">
-      <span class="lbl">Écouter la rythmique</span>
-      <input type="checkbox" id="listenToggle" checked>
-      <span class="switch"></span>
-    </label>
-    <div class="row-2">
-      <button class="btn btn-quiet" id="replayBtn">Rejouer</button>
-      <button class="btn btn-quiet" id="newGridBtn">Nouvelle grille</button>
-    </div>
-  </div>
 </aside>
 
 <script src="vendor/abcjs-basic-min.js"></script>
@@ -617,7 +706,6 @@
   var countVeil = document.getElementById("countVeil");
   var countNum = document.getElementById("countNum");
   var beatsEl = document.getElementById("beats");
-  var statusEl = document.getElementById("status");
   var playBtn = document.getElementById("playBtn");
   var rewindBtn = document.getElementById("rewindBtn");
   var iconPlay = document.getElementById("iconPlay");
@@ -625,7 +713,7 @@
   var tempoNum = document.getElementById("tempoNum");
   var tempoSlider = document.getElementById("tempoSlider");
   var plus5 = document.getElementById("plus5");
-  var modeLabel = document.getElementById("modeLabel");
+  var minus5 = document.getElementById("minus5");
   var drawer = document.getElementById("drawer");
   var veil = document.getElementById("veil");
   var settingsBtn = document.getElementById("settingsBtn");
@@ -636,31 +724,30 @@
   var transport = null;     // moteur de lecture actif (BassRhythmEngine.createTransport)
   var pausedGridBeat = 0;   // temps de grille où reprendre après une pause
   var activeBpb = 4;        // temps par mesure capturés au lancement de la lecture
-  var activeBars = 8;       // nombre de mesures capturé au lancement de la lecture
   var rafId = null;
   var lines = [];
   var cursorAnchors = null; // [{ beat, x, line }] — une ancre par événement de currentNotes (curseur asservi aux notes)
   var lineEndXs = [];       // abscisse de fin de chaque ligne (repère stage)
-  var mode = "visuel";
   var signature = "4/4";
   var measuresChoice = "8";
   var beatEls = [];
   var noteEls = [];   // éléments SVG notes/silences, alignés 1:1 sur currentNotes
   var litState = [];  // booléen par élément : classe « lit » posée ou non
 
-  /* Sémantique des modes : 1 = métronome seul (portée visible mais vierge de
-     toute aide), 2 = + durée visuelle des notes et curseur, 3 = + son (chaque
-     note jouée au sample de basse D2 — repli synthé si le sample manque). */
-  var MODE_NAMES = { metronome: "Métronome", visuel: "+ Guide visuel", son: "+ Son" };
+  /* Aides de lecture : trois bascules INDÉPENDANTES. Métronome = clics des
+     temps (le décompte reste toujours audible) ; guide visuel = allumage des
+     notes + curseur ; son = rythmique jouée avec le son choisi. Chacune
+     s'applique en vol sans interrompre la lecture. */
+  var clickOn = true;
+  var visualOn = true;
+  var soundOn = false;
 
   function beatsPerBar(){ return parseInt(signature.split("/")[0], 10); }
 
   /* ---------- en-tête d'exercice ----------
-     « Exercice nᵒ N — leçon » : N est un simple compteur de session (chaque
-     génération réussie l'incrémente, aucune persistance) ; la leçon nomme la
-     configuration en vocabulaire Agostini — palier de la figure la plus fine
-     cochée croisé avec le niveau (cf. docs/agostini-progression.md). */
-  var exerciseNum = 0;
+     La leçon nomme la configuration en vocabulaire Agostini — palier de la
+     figure la plus fine cochée croisé avec le niveau
+     (cf. docs/agostini-progression.md). */
   var FINEST_ORDER = ["quadruple", "triple", "double", "croche", "noire", "blanche", "ronde"];
   var LESSON_KEY = { ronde: "longues", blanche: "longues", noire: "longues" };
   var LESSONS = {
@@ -682,9 +769,7 @@
   }
 
   function updateExerciseTitle(cfg, animate){
-    exerciseNum++;
-    var lesson = lessonName(cfg.figures, cfg.level);
-    exTitle.innerHTML = "Exercice n<sup>o</sup> " + exerciseNum + (lesson ? " — " + lesson : "");
+    exTitle.textContent = lessonName(cfg.figures, cfg.level);
     if (animate){
       exTitle.classList.remove("regen");
       void exTitle.offsetWidth;
@@ -842,65 +927,57 @@
     if (idx === 0) el.classList.add("strong");
   }
 
-  /* ---------- statut & tempo ---------- */
-  function setStatus(txt){ statusEl.textContent = txt; }
-
-  function baseStatus(){
-    return "Prêt · " + measuresChoice + " mesures · " + signature;
-  }
-
+  /* ---------- tempo ---------- */
   function setBpm(v){
     v = Math.max(40, Math.min(200, Math.round(v)));
     if (v === bpm) return;
     bpm = v;
     // En vol : le moteur se ré-ancre au prochain battement, sans saut ni dérive.
     if (playing && transport) transport.setBpm(bpm);
-    tempoNum.textContent = bpm;
+    tempoNum.value = bpm;
     tempoSlider.value = bpm;
     tempoNum.classList.remove("blip");
     void tempoNum.offsetWidth;
     tempoNum.classList.add("blip");
   }
 
-  /* ---------- sample de basse (mode 3) ----------
-     Version dossier : le fichier est téléchargé dès l'ouverture de la page
-     (m4a d'abord, wav en repli) ; le décodage attend la création de
-     l'AudioContext au premier geste de lecture — il tient en quelques
-     millisecondes, bien avant la première note (le décompte dure une mesure).
-     Version fichier unique : scripts/build-single-file.mjs injecte le m4a en
-     base64 dans window.BRT_EMBEDDED_SAMPLE, consommé ICI avant tout fetch —
-     indispensable en file:// où fetch est bloqué. Si tout échoue (fichier
-     absent, fetch bloqué en local, décodage impossible), le moteur bascule
-     sur le repli synthé et le statut le mentionne au lancement. */
-  var SAMPLE_URLS = ["assets/audio/bass-D2.m4a", "assets/audio/bass-D2.wav"];
-  var sampleBuffer = null;      // AudioBuffer décodé, prêt à jouer
-  var samplePending = null;     // { data: ArrayBuffer, next } en attente de l'AudioContext
-  var sampleFailed = false;     // plus aucun format à tenter -> repli synthé
+  /* ---------- banque de sons ----------
+     2 sons pour la rythmique jouée et la préécoute. Un son échantillonné
+     liste ses samples { url, midi, loopStart?, loopEnd? } (provenance et
+     licences CC0 : docs/audio-sample-source.md) ; la voix prend le sample le
+     plus proche de la note d'entraînement et le transpose (playbackRate =
+     2^(Δ demi-tons/12)). loopStart/loopEnd (secondes de buffer, mesurés hors
+     ligne) feraient TENIR la note indéfiniment ; le growl (6 s sans boucle)
+     couvre la ronde sur toute la plage de tempo à un souffle près.
+     « Synthé » est l'oscillateur du moteur : aucune ressource.
+     La note d'entraînement (NOTES) porte la hauteur sonnante (midi, une
+     octave sous l'écrit, convention basse) et le jeton ABC écrit.
 
-  function loadSample(idx){
-    if (idx >= SAMPLE_URLS.length){ sampleFailed = true; return; }
-    fetch(SAMPLE_URLS[idx]).then(function(r){
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.arrayBuffer();
-    }).then(function(data){
-      samplePending = { data: data, next: idx + 1 };
-      decodePendingSample();
-    }).catch(function(){
-      loadSample(idx + 1);
-    });
-  }
+     Version dossier : fichiers téléchargés dès l'ouverture, décodés à la
+     création de l'AudioContext (premier geste). Version fichier unique :
+     scripts/build-single-file.mjs injecte chaque fichier en base64 dans
+     window.BRT_EMBEDDED_SAMPLES (clé = nom de fichier), consommé AVANT tout
+     fetch — indispensable en file://. Sample indisponible -> repli synthé à
+     la hauteur choisie. */
+  var NOTES = [
+    { letter: "E", abc: "E,,", midi: 28 },
+    { letter: "F", abc: "F,,", midi: 29 },
+    { letter: "G", abc: "G,,", midi: 31 },
+    { letter: "A", abc: "A,,", midi: 33 },
+    { letter: "B", abc: "B,,", midi: 35 },
+    { letter: "C", abc: "C,",  midi: 36 },
+    { letter: "D", abc: "D,",  midi: 38 }
+  ];
+  var SOUNDS = [
+    { id: "growl", samples: [
+      { url: "assets/audio/growl-Db2.m4a", midi: 37 }
+    ] },
+    { id: "synth" } // oscillateur du moteur
+  ];
+  var noteChoice = "D";
+  var soundChoice = "growl";
 
-  function decodePendingSample(){
-    if (!audioCtx || !samplePending || sampleBuffer) return;
-    var p = samplePending;
-    samplePending = null; // decodeAudioData détache l'ArrayBuffer : une seule tentative par fetch
-    audioCtx.decodeAudioData(p.data, function(buf){
-      sampleBuffer = buf;
-      sampleFailed = false;
-    }, function(){
-      loadSample(p.next); // format suivant, repli synthé au bout de la liste
-    });
-  }
+  var sampleStore = {}; // url -> { data: Promise<ArrayBuffer>, buffer, decoding, failed }
 
   function base64ToArrayBuffer(b64){
     var bin = atob(b64);
@@ -909,17 +986,92 @@
     return bytes.buffer;
   }
 
-  if (typeof window.BRT_EMBEDDED_SAMPLE === "string" && window.BRT_EMBEDDED_SAMPLE){
-    // Fichier unique : sample embarqué, aucune requête réseau au chargement.
-    // En cas de décodage impossible, next=0 rebascule sur la chaîne fetch.
-    try {
-      samplePending = { data: base64ToArrayBuffer(window.BRT_EMBEDDED_SAMPLE), next: 0 };
-    } catch (err) {
-      loadSample(0);
+  function fetchSampleData(url){
+    var em = window.BRT_EMBEDDED_SAMPLES;
+    var name = url.split("/").pop();
+    if (em && typeof em[name] === "string"){
+      try { return Promise.resolve(base64ToArrayBuffer(em[name])); }
+      catch (err) { /* base64 corrompu : on retombe sur le fetch */ }
     }
-  } else {
-    loadSample(0); // version dossier servie en HTTP
+    return fetch(url).then(function(r){
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.arrayBuffer();
+    });
   }
+
+  SOUNDS.forEach(function(sound){
+    (sound.samples || []).forEach(function(s){
+      var st = { data: fetchSampleData(s.url), buffer: null, decoding: null, failed: false };
+      st.data.catch(function(){ st.failed = true; });
+      sampleStore[s.url] = st;
+    });
+  });
+
+  function decodeSample(url){
+    var st = sampleStore[url];
+    if (!st || !audioCtx) return Promise.reject(new Error("sample indisponible"));
+    if (st.buffer) return Promise.resolve(st.buffer);
+    if (!st.decoding){
+      st.decoding = st.data.then(function(data){
+        return new Promise(function(resolve, reject){
+          // copie : decodeAudioData détache l'ArrayBuffer (une seule chance sinon)
+          audioCtx.decodeAudioData(data.slice(0), resolve, reject);
+        });
+      }).then(function(buf){
+        st.buffer = buf;
+        return buf;
+      }).catch(function(err){
+        st.failed = true;
+        throw err;
+      });
+      st.decoding.catch(function(){}); // rejet toujours observé
+    }
+    return st.decoding;
+  }
+
+  function decodeAllSamples(){
+    if (!audioCtx) return;
+    Object.keys(sampleStore).forEach(function(url){
+      decodeSample(url).catch(function(){});
+    });
+  }
+
+  function soundById(id){
+    for (var i = 0; i < SOUNDS.length; i++) if (SOUNDS[i].id === id) return SOUNDS[i];
+    return SOUNDS[SOUNDS.length - 1];
+  }
+  function noteByLetter(l){
+    for (var i = 0; i < NOTES.length; i++) if (NOTES[i].letter === l) return NOTES[i];
+    return NOTES[NOTES.length - 1];
+  }
+  function noteHz(midi){ return 440 * Math.pow(2, (midi - 69) / 12); }
+  function bestSample(sound, targetMidi){
+    var best = null;
+    var list = sound.samples || [];
+    for (var i = 0; i < list.length; i++){
+      if (!best || Math.abs(list[i].midi - targetMidi) < Math.abs(best.midi - targetMidi)) best = list[i];
+    }
+    return best;
+  }
+
+  /* Voix courante (son × note) — lue par le moteur à CHAQUE attaque et par la
+     préécoute : changer de son ou de note s'applique en vol. Sample pas prêt
+     ou en échec -> synthé à la hauteur choisie. */
+  function voiceFor(soundId){
+    var target = noteByLetter(noteChoice).midi;
+    var s = bestSample(soundById(soundId), target);
+    var st = s && sampleStore[s.url];
+    if (st && st.buffer){
+      return {
+        buffer: st.buffer,
+        rate: Math.pow(2, (target - s.midi) / 12),
+        loopStart: s.loopStart || 0,
+        loopEnd: s.loopEnd || 0
+      };
+    }
+    return { synthHz: noteHz(target) };
+  }
+  function currentVoice(){ return voiceFor(soundChoice); }
 
   /* ---------- moteur de lecture (Web Audio, js/engine.js) ---------- */
   function ensureAudioContext(){
@@ -927,7 +1079,7 @@
       var AC = window.AudioContext || window.webkitAudioContext;
       if (!AC) return null;
       audioCtx = new AC();
-      decodePendingSample(); // le sample attendait le contexte pour être décodé
+      decodeAllSamples(); // les samples attendaient le contexte pour être décodés
     }
     if (audioCtx.state === "suspended") audioCtx.resume();
     return audioCtx;
@@ -951,32 +1103,29 @@
 
   function startPlayback(fromGridBeat){
     if (playing) return;
-    if (!window.BassRhythmEngine){ setStatus("Moteur de lecture indisponible"); return; }
+    if (!window.BassRhythmEngine) return;
     var ctx = ensureAudioContext();
-    if (!ctx){ setStatus("Audio indisponible dans ce navigateur"); return; }
+    if (!ctx) return;
     computeLines();
     activeBpb = beatsPerBar();
-    activeBars = Math.max(1, Math.round(TOTAL_BEATS / activeBpb));
     transport = window.BassRhythmEngine.createTransport({
       ctx: ctx,
       bpm: bpm,
       beatsPerBar: activeBpb,
       totalBeats: TOTAL_BEATS,
       startGridBeat: fromGridBeat || 0,
-      // Mode 3 : une attaque par note (chaîne liée = une seule, durée cumulée),
+      // Une attaque par note (chaîne liée = une seule, durée cumulée),
       // programmée par la même pompe lookahead que les clics.
       noteEvents: window.BassRhythmEngine.noteSoundEvents(currentNotes),
-      notesEnabled: mode === "son",
-      getNoteBuffer: function(){ return sampleBuffer; }
+      notesEnabled: soundOn,
+      clicksEnabled: clickOn,
+      getNoteVoice: currentVoice
     });
     playing = true;
     playBtn.classList.remove("idle");
     playBtn.setAttribute("aria-label", "Suspendre la lecture");
     iconPlay.style.display = "none";
     iconPause.style.display = "";
-    setStatus(mode === "son" && !sampleBuffer && sampleFailed
-      ? "Décompte… · repli synthé (sample indisponible)"
-      : "Décompte…");
     rafId = requestAnimationFrame(tick);
   }
 
@@ -993,22 +1142,12 @@
     if (rafId) cancelAnimationFrame(rafId);
     pausedGridBeat = info ? info.resumeBeat : 0;
     settleTransportUi();
-    var bb = window.BassRhythmEngine.barBeat(pausedGridBeat, activeBpb);
-    setStatus("Pause · Reprise mesure " + bb.measure);
-  }
-
-  function finishPlayback(){
-    haltTransport();
-    pausedGridBeat = 0;
-    settleTransportUi();
-    setStatus("Terminé · Rejouer ou nouvelle grille");
   }
 
   function stopAndReset(){
     haltTransport();
     pausedGridBeat = 0;
     settleTransportUi();
-    setStatus(baseStatus());
   }
 
   function tick(){
@@ -1016,7 +1155,7 @@
 
     // Référentiel visuel UNIQUE : un événement programmé à T s'ENTEND à
     // T + latence de sortie (jusqu'à 100 ms et plus en Bluetooth). Tous les
-    // visuels — pastilles, décompte, statut, allumage, curseur, fin — se
+    // visuels — pastilles, décompte, allumage, curseur, fin — se
     // lisent à transport.visualNow() = currentTime − latence : ce qui
     // s'affiche suit ce qui s'entend, jamais les instants programmés en
     // avance par le lookahead.
@@ -1033,7 +1172,6 @@
         pulseBeat(ev.pulseIndex);
       } else {
         pulseBeat(ev.pulseIndex); // pastilles actives dans tous les modes
-        setStatus("Mesure " + ev.measure + "/" + activeBars + " · Temps " + ev.beatInBar);
       }
     }
 
@@ -1044,8 +1182,8 @@
     } else {
       countVeil.classList.remove("show");
 
-      if (mode !== "metronome"){
-        // Mode 2+ : allumage des notes et curseur, tous deux à la position
+      if (visualOn){
+        // Guide visuel : allumage des notes et curseur, tous deux à la position
         // ENTENDUE (vNow). Le curseur est asservi aux notes : interpolation
         // en temps entre les abscisses réellement gravées, saut net au
         // changement de ligne — jamais en avance ni en retard sur la note
@@ -1073,13 +1211,13 @@
           cursor.classList.remove("live");
         }
       } else {
-        // Mode 1 : portée vierge de toute aide — extinction et curseur masqué.
+        // Guide visuel coupé : extinction et curseur masqué.
         clearLit();
         cursor.classList.remove("live");
       }
     }
 
-    if (transport.isFinished(vNow)){ finishPlayback(); return; }
+    if (transport.isFinished(vNow)){ stopAndReset(); return; }
     rafId = requestAnimationFrame(tick);
   }
 
@@ -1088,26 +1226,33 @@
     else startPlayback(pausedGridBeat);
   }
 
-  /* ---------- guidage ---------- */
-  var segButtons = document.querySelectorAll(".seg button");
-  /* Changement de mode immédiat, y compris en cours de lecture : la boucle
-     rAF lit `mode` à chaque image, rien à stopper ni à resynchroniser. En
-     repassant au mode 1, on éteint tout de suite notes et curseur. Le son des
-     notes (mode 3) bascule dans le moteur sans toucher lecture ni métronome :
-     quitter le mode 3 coupe la note en cours (release court) et annule les
-     attaques programmées ; y revenir fait sonner les prochaines notes. */
-  function setMode(m){
-    mode = m;
-    segButtons.forEach(function(b){ b.classList.toggle("active", b.dataset.mode === m); });
-    modeLabel.textContent = MODE_NAMES[m];
-    if (m === "metronome"){
+  /* ---------- aides de lecture (bascules indépendantes) ----------
+     Effet immédiat, y compris en cours de lecture : la rAF lit visualOn à
+     chaque image ; métronome et son basculent dans le moteur sans toucher la
+     lecture (coupure nette du programmé non joué, reprise dans l'horizon). */
+  function bindToggle(id, fn){
+    var btn = document.getElementById(id);
+    btn.addEventListener("click", function(){
+      var on = !btn.classList.contains("active");
+      btn.classList.toggle("active", on);
+      btn.setAttribute("aria-pressed", String(on));
+      fn(on);
+    });
+  }
+  bindToggle("tglClick", function(on){
+    clickOn = on;
+    if (playing && transport) transport.setClicksEnabled(on);
+  });
+  bindToggle("tglVisual", function(on){
+    visualOn = on;
+    if (!on){
       clearLit();
       cursor.classList.remove("live");
     }
-    if (playing && transport) transport.setNotesEnabled(m === "son");
-  }
-  segButtons.forEach(function(b){
-    b.addEventListener("click", function(){ setMode(b.dataset.mode); });
+  });
+  bindToggle("tglSound", function(on){
+    soundOn = on;
+    if (playing && transport) transport.setNotesEnabled(on);
   });
 
   /* ---------- tiroir ---------- */
@@ -1152,11 +1297,60 @@
   bindPills("sigPills", function(v){
     signature = v;
     buildBeats();
-    if (!playing) setStatus(baseStatus());
   });
   bindPills("mesPills", function(v){
     measuresChoice = v;
-    if (!playing) setStatus(baseStatus());
+  });
+
+  /* ---------- son et note d'entraînement ----------
+     Le son s'applique en vol (le moteur lit currentVoice à chaque attaque).
+     La note re-hausse la grille AFFICHÉE sans en changer le rythme : seuls
+     les jetons de note du corps ABC changent (l'en-tête K: est préservé),
+     la timeline currentNotes est indépendante de la hauteur. */
+  function rePitchAbc(abc, tok){
+    var mark = "clef=bass\n";
+    var i = abc.indexOf(mark);
+    if (i === -1) return abc;
+    return abc.slice(0, i + mark.length) +
+      abc.slice(i + mark.length).replace(/[A-G],{0,2}/g, tok);
+  }
+  document.querySelectorAll('#soundList input[name="sound"]').forEach(function(inp){
+    inp.addEventListener("change", function(){
+      if (!inp.checked) return;
+      soundChoice = inp.value;
+    });
+  });
+  bindPills("notePills", function(v){
+    noteChoice = v;
+    currentAbc = rePitchAbc(currentAbc, noteByLetter(v).abc);
+    renderScore(true);
+    computeLines();
+    // en lecture, les attaques suivantes prennent la nouvelle hauteur
+  });
+
+  /* Préécoute : ~1,5 s du son de la ligne, à la note choisie, sans toucher à
+     la sélection (preventDefault court-circuite l'activation du label). Le
+     premier clic crée l'AudioContext ; on attend le décodage du sample visé
+     avant de jouer (repli synthé si échec). */
+  var previewHandle = null;
+  document.querySelectorAll("#soundList .preview").forEach(function(btn){
+    btn.addEventListener("click", function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      var ctx = ensureAudioContext();
+      if (!ctx) return;
+      var id = btn.dataset.sound;
+      var play = function(){
+        if (previewHandle) previewHandle.stop();
+        previewHandle = window.BassRhythmEngine.playNotePreview(ctx, voiceFor(id), 1.5);
+      };
+      var s = bestSample(soundById(id), noteByLetter(noteChoice).midi);
+      if (s && !(sampleStore[s.url] && sampleStore[s.url].buffer)){
+        decodeSample(s.url).then(play, play);
+      } else {
+        play();
+      }
+    });
   });
 
   /* ---------- génération de la grille ---------- */
@@ -1170,7 +1364,8 @@
       figures: figures,
       level: lvl ? parseInt(lvl.value, 10) : 1,
       meter: signature,
-      measures: parseInt(measuresChoice, 10)
+      measures: parseInt(measuresChoice, 10),
+      note: noteByLetter(noteChoice).abc
     };
   }
 
@@ -1196,19 +1391,12 @@
   /* ---------- actions ---------- */
   function regenerate(){
     stopAndReset();
-    var ok = generateGrid(true);
+    generateGrid(true);
     renderScore(true);
     computeLines();
-    setStatus(ok ? baseStatus() : "Grille impossible · vérifiez les figures");
     closeDrawer();
   }
   document.getElementById("generateBtn").addEventListener("click", regenerate);
-  document.getElementById("newGridBtn").addEventListener("click", regenerate);
-  document.getElementById("replayBtn").addEventListener("click", function(){
-    stopAndReset();
-    closeDrawer();
-    startPlayback(0); // Rejouer repart toujours du début, décompte inclus
-  });
 
   /* ---------- retour au début ----------
      En lecture : relance immédiate depuis le début de la grille, décompte
@@ -1226,34 +1414,66 @@
       startPlayback(0);
     } else if (pausedGridBeat > 0){
       pausedGridBeat = 0;
-      setStatus("Pause · Reprise mesure 1");
     } else {
       stopAndReset();
     }
   }
   rewindBtn.addEventListener("click", rewindToStart);
 
-  /* ---------- tempo : slider, +5, molette, glisser ---------- */
+  /* ---------- tempo : saisie directe, slider, ±5, molette, glisser ---------- */
   playBtn.addEventListener("click", togglePlay);
   plus5.addEventListener("click", function(){ setBpm(bpm + 5); });
+  minus5.addEventListener("click", function(){ setBpm(bpm - 5); });
   tempoSlider.addEventListener("input", function(){ setBpm(parseInt(tempoSlider.value, 10)); });
   tempoNum.addEventListener("wheel", function(e){
     e.preventDefault();
     setBpm(bpm + (e.deltaY < 0 ? 1 : -1));
   }, { passive: false });
 
+  /* Saisie directe : le champ n'accepte que des chiffres ; Entrée ou perte de
+     focus valide (valeur clampée 40–200 par setBpm), Échap annule. Après
+     validation, l'affichage est TOUJOURS resynchronisé sur bpm — y compris
+     saisie vide ou hors bornes. */
+  tempoNum.addEventListener("focus", function(){ tempoNum.select(); });
+  tempoNum.addEventListener("click", function(){
+    // le mouseup natif replace le caret après le select() du focus : on
+    // re-sélectionne tout (sémantique « écraser la valeur »)
+    if (document.activeElement === tempoNum) tempoNum.select();
+  });
+  tempoNum.addEventListener("input", function(){
+    var clean = tempoNum.value.replace(/\D/g, "").slice(0, 3);
+    if (clean !== tempoNum.value) tempoNum.value = clean;
+  });
+  tempoNum.addEventListener("keydown", function(e){
+    if (e.key === "Enter"){ e.preventDefault(); tempoNum.blur(); }
+    else if (e.key === "Escape"){ tempoNum.value = bpm; tempoNum.blur(); }
+  });
+  tempoNum.addEventListener("blur", function(){
+    var v = parseInt(tempoNum.value, 10);
+    if (!isNaN(v)) setBpm(v);
+    tempoNum.value = bpm;
+  });
+
+  /* Glisser vertical pour ajuster ; un simple clic (course < 4 px) laisse le
+     focus au champ pour la saisie clavier. Le drag ne s'arme qu'au-delà du
+     seuil : il rend alors le focus et capture le pointeur. */
   (function(){
-    var dragging = false, startY = 0, startBpm = 60;
+    var armed = false, dragging = false, startY = 0, startBpm = 60;
     tempoNum.addEventListener("pointerdown", function(e){
-      dragging = true; startY = e.clientY; startBpm = bpm;
-      tempoNum.setPointerCapture(e.pointerId);
+      armed = true; dragging = false; startY = e.clientY; startBpm = bpm;
     });
     tempoNum.addEventListener("pointermove", function(e){
-      if (!dragging) return;
+      if (!armed) return;
+      if (!dragging){
+        if (Math.abs(e.clientY - startY) < 4) return;
+        dragging = true;
+        tempoNum.blur();
+        tempoNum.setPointerCapture(e.pointerId);
+      }
       setBpm(startBpm + Math.round((startY - e.clientY) / 3));
     });
-    tempoNum.addEventListener("pointerup", function(){ dragging = false; });
-    tempoNum.addEventListener("pointercancel", function(){ dragging = false; });
+    tempoNum.addEventListener("pointerup", function(){ armed = false; dragging = false; });
+    tempoNum.addEventListener("pointercancel", function(){ armed = false; dragging = false; });
   })();
 
   document.addEventListener("keydown", function(e){
@@ -1275,7 +1495,6 @@
   generateGrid(false); // la partition affichée au chargement est déjà une grille générée
   renderScore(false);
   buildBeats();
-  setStatus(baseStatus());
 })();
 </script>
 </body>
