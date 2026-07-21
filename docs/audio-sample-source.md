@@ -1,6 +1,6 @@
 # Source des samples audio
 
-Un son échantillonné (+ un synthé Web Audio sans ressource). Tous les
+Trois sons échantillonnés (+ un synthé Web Audio sans ressource). Tous les
 samples sont sous **Creative Commons CC0 1.0** (dédicace au domaine public),
 licence confirmée sur chaque dépôt source. Aucune attribution requise ;
 mentions de courtoisie possibles ci-dessous.
@@ -21,40 +21,59 @@ Contrainte de sélection : chaque son doit pouvoir **tenir une ronde**
 - **Conversion** : normalisation du pic à −1 dBFS, fade-out anti-clic 80 ms,
   mono 44,1 kHz, AAC 96 kbit/s (ffmpeg).
 
+## Basse Ergo — `ergo-*.wav`
+
+- **Jeu** : « Ergo » de Karoryfer Samples — contrebasse électrique (electric
+  upright bass), articulation pizz.
+- **Dépôt** : <https://github.com/sfzinstruments/karoryfer.ergo> (licence
+  CC0-1.0), dossier `ergo/pizz/`, une prise par note retenue à l'audition.
+- **Hauteurs** : le nommage source est décalé vs la hauteur sonnante — les
+  fichiers ont été renommés à la hauteur réelle, **vérifiée par
+  autocorrélation** (fenêtre RMS max, correction d'octave) : `ergo-C1`=24,
+  `ergo-Eb1`=27, `ergo-Gb1`=30, `ergo-A1`=33, `ergo-C2`=36 (±0,11 demi-ton
+  mesuré).
+- **Sustain** : décroissance naturelle 3,5–6,2 s, sans boucle — la ronde aux
+  tempos lents (6 s à 40 BPM) s'éteint en fondu, limite assumée au choix du
+  son.
+- **Conversion** : float32 → 16 bits PCM mono 44,1 kHz, pic normalisé à
+  −1 dBFS, fondu de fin 30 ms anti-clic.
+
+## Contrebasse à l'archet — `arco-*.wav`
+
+- **Jeu** : « Meatbass » de Karoryfer Samples — contrebasse Otto Rubner 1958
+  à l'archet, samples bouclés.
+- **Dépôt** : <https://github.com/sfzinstruments/karoryfer.meatbass>
+  (licence CC0), dossier `Samples/arco_looped/`, fichiers `<note>_vl2_down.wav`.
+- **Hauteurs** : nommage scientifique vérifié dans
+  `Programs/arco_looped_basic_map.sfz` — `eb1`=27, `gb1`=30, `a1`=33,
+  `c2`=36, `eb2`=39 (5 fichiers livrés : `arco-Eb1/Gb1/A1/C2/Eb2.wav`).
+- **Sustain** : **tenue infinie** — points de boucle lus dans le chunk `smpl`
+  de chaque WAV source et recopiés dans le registre `SOUNDS` d'index.html
+  (`loopStart`/`loopEnd` en secondes ; la lecture boucle sur cette fenêtre).
+- **Conversion** : 24 bits → 16 bits, pic normalisé à −1 dBFS, indices de
+  frames inchangés (les points de boucle restent exacts à l'échantillon près).
+  WAV conservé (l'AAC décalerait les points de boucle — priming du codec).
+
 ## Transposition à la note d'entraînement
 
 L'app propose 7 notes (E1 à D2 sonnant, écrit une octave au-dessus en clé de
 fa). La voix prend le sample du son le plus proche de la cible et le
-transpose par `playbackRate = 2^(Δ demi-tons/12)`. Le growl n'a qu'un sample
-(C#2) : jusqu'à −9 demi-tons vers E1, timbre plus sombre et attaque plus
-molle assumés. Sample indisponible → repli synthé à la hauteur choisie.
+transpose par `playbackRate = 2^(Δ demi-tons/12)` — au plus ±1 demi-ton pour
+l'archet, ±2 pour l'Ergo. Le growl n'a qu'un sample (C#2) : jusqu'à
+−9 demi-tons vers E1, timbre plus sombre et attaque plus molle assumés.
+Sample indisponible → repli synthé à la hauteur choisie.
 
 ## Mentions de courtoisie
 
-- « Growlybass » par Karoryfer Samples (karoryfer.com), CC0.
+- « Growlybass », « Meatbass » et « Ergo » par Karoryfer Samples
+  (karoryfer.com), CC0.
 
 ## Historique
 
 Sons retirés — les mécaniques de boucle (`loopStart`/`loopEnd` dans le
 registre `SOUNDS`, secondes de buffer) restent supportées par le moteur.
-
-### Contrebasse à l'archet « Meatbass » (retirée juillet 2026, goût)
-
-« Meatbass » de Karoryfer Samples — contrebasse Otto Rubner 1958 à l'archet.
-Dépôt <https://github.com/sfzinstruments/karoryfer.meatbass> (CC0), dossier
-`Samples/arco_looped/`, fichiers `<note>_vl2_down.wav`, hauteurs vérifiées
-dans `Programs/arco_looped_basic_map.sfz` (`eb1`=27, `gb1`=30, `a1`=33,
-`c2`=36, `eb2`=39). Conversion : 24→16 bits, pic à −1 dBFS, indices de frames
-inchangés, WAV conservé (l'AAC décalerait les boucles — priming du codec).
-Points de boucle (chunk `smpl`, en secondes, mesurés hors ligne) :
-
-| Fichier | midi | loopStart | loopEnd |
-|---|---|---|---|
-| arco-Eb1.wav | 27 | 1.393991 | 6.561859 |
-| arco-Gb1.wav | 30 | 0.974195 | 4.651610 |
-| arco-A1.wav | 33 | 0.833696 | 3.633152 |
-| arco-C2.wav | 36 | 1.087166 | 4.071746 |
-| arco-Eb2.wav | 39 | 1.578163 | 4.296122 |
+La contrebasse à l'archet (Meatbass) et la basse Ergo, écartées un temps,
+ont été réintégrées après audition comparative (juillet 2026).
 
 ### Synthé FM « Lately Bass » (retiré juillet 2026, goût)
 

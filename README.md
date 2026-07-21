@@ -29,8 +29,9 @@ Deux façons de lancer l'application, strictement équivalentes :
 Dans l'application : tempo 40–200 BPM saisissable au clavier, au slider, aux
 boutons ±5, à la molette ou au glisser ; décompte d'une mesure ; trois aides
 de lecture indépendantes (métronome, guide visuel, son) débrayables en vol ;
-réglages : son (basse growl, synthé — avec préécoute), note d'entraînement
-(E à D), niveau 1–3, figures de notes, signature, nombre de mesures.
+réglages : son (basse growl, synthé, basse Ergo, contrebasse à l'archet —
+avec préécoute), note d'entraînement (E à D), niveau 1–3, figures de notes,
+signature, nombre de mesures.
 
 ## Build du fichier unique
 
@@ -55,7 +56,7 @@ js/engine.js               # moteur de lecture Web Audio : métronome, transport
 vendor/abcjs-basic-min.js  # gravure de la partition (abcjs 6.6.4)
 assets/fonts/              # Cormorant Garamond & Karla (woff2 + fonts.css)
 assets/figures/            # glyphes des figures rythmiques (PNG)
-assets/audio/              # samples de basse (growl) — cf. docs/audio-sample-source.md
+assets/audio/              # samples de basse (growl, Ergo, arco bouclé) — cf. docs/audio-sample-source.md
 docs/                      # progression Agostini reconstituée, provenance des samples
 scripts/                   # build du fichier unique + harnais de test
 dist/                      # fichier unique généré par le build
