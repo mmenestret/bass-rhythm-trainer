@@ -4,9 +4,9 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] La page s'ouvre et s'affiche complètement avec le réseau coupé (aucune requête CDN).
-- [ ] Le design Apnée est en place : portée centrée, tempo géant, tiroir de configuration fonctionnel.
-- [ ] Les 7 figures rythmiques sont représentées par les images PNG, lisiblement.
-- [ ] Une partition de démonstration (clé de Fa, Ré fixe) est rendue au chargement.
+- [x] La page s'ouvre et s'affiche complètement avec le réseau coupé (aucune requête CDN) — toutes les références sont locales (abcjs vendorisé, fontes woff2 locales, figures PNG), sous-ressources vérifiées en 200.
+- [x] Le design Apnée est en place : portée centrée, tempo géant, tiroir de configuration fonctionnel.
+- [x] Les 7 figures rythmiques sont représentées par les images PNG, lisiblement.
+- [x] Une partition de démonstration (clé de Fa, Ré fixe) est rendue au chargement.
