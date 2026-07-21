@@ -273,6 +273,18 @@
     70%{ transform:scale(1.34); opacity:0; }
   }
 
+  /* retour au début : cercle hairline discret, petit frère du play */
+  #rewindBtn{
+    width:46px; height:46px; border-radius:50%;
+    border:1px solid var(--hairline);
+    display:flex; align-items:center; justify-content:center;
+    color:var(--ink-soft);
+    transition:transform .4s var(--ease-drift),border-color .4s,color .4s,background .4s;
+  }
+  #rewindBtn svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+  #rewindBtn:hover{ border-color:var(--hairline-strong); color:var(--ink); background:var(--glass); }
+  #rewindBtn:active{ transform:scale(.94); }
+
   .guidance{ display:flex; flex-direction:column; align-items:center; gap:9px; }
   .seg{
     display:flex; border:1px solid var(--hairline); border-radius:999px; overflow:hidden;
@@ -504,6 +516,10 @@
       </div>
       <span id="modeLabel">+ Guide visuel</span>
     </div>
+
+    <button id="rewindBtn" aria-label="Retour au début" title="Retour au début">
+      <svg viewBox="0 0 24 24"><line x1="7.4" y1="6.8" x2="7.4" y2="17.2"/><path d="M17.2 7.2v9.6L9.8 12z"/></svg>
+    </button>
 
     <button id="playBtn" class="idle" aria-label="Lancer la lecture">
       <svg id="iconPlay" viewBox="0 0 24 24"><path d="M8.2 5.2v13.6L19.4 12z"/></svg>
@@ -1653,6 +1669,7 @@ window.BRT_EMBEDDED_SAMPLE = "AAAAHGZ0eXBNNEEgAAACAE00QSBpc29taXNvMgAAAAhmcmVlAA
   var beatsEl = document.getElementById("beats");
   var statusEl = document.getElementById("status");
   var playBtn = document.getElementById("playBtn");
+  var rewindBtn = document.getElementById("rewindBtn");
   var iconPlay = document.getElementById("iconPlay");
   var iconPause = document.getElementById("iconPause");
   var tempoNum = document.getElementById("tempoNum");
@@ -2242,6 +2259,29 @@ window.BRT_EMBEDDED_SAMPLE = "AAAAHGZ0eXBNNEEgAAACAE00QSBpc29taXNvMgAAAAhmcmVlAA
     closeDrawer();
     startPlayback(0); // Rejouer repart toujours du début, décompte inclus
   });
+
+  /* ---------- retour au début ----------
+     En lecture : relance immédiate depuis le début de la grille, décompte
+     d'une mesure inclus, par le chemin de lancement unique (startPlayback) —
+     mode de guidage et tempo intacts, stop() du moteur coupe les nœuds
+     actifs et annule les notes programmées (mêmes garanties que Rejouer).
+     En pause : seul le point de reprise revient à 0 (play repartira de la
+     mesure 1 avec décompte), la lecture reste suspendue. À l'arrêt (avant
+     lecture ou après fin) : simple remise au repos des visuels et du statut,
+     sans lancer la lecture. NB : une pause en mesure 1 mémorise déjà 0 —
+     elle suit alors le même chemin que l'arrêt, sans rien perdre. */
+  function rewindToStart(){
+    if (playing){
+      stopAndReset();
+      startPlayback(0);
+    } else if (pausedGridBeat > 0){
+      pausedGridBeat = 0;
+      setStatus("Pause · Reprise mesure 1");
+    } else {
+      stopAndReset();
+    }
+  }
+  rewindBtn.addEventListener("click", rewindToStart);
 
   /* ---------- tempo : slider, +5, molette, glisser ---------- */
   playBtn.addEventListener("click", togglePlay);
