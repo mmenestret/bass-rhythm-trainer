@@ -561,6 +561,7 @@
 
 <script src="vendor/abcjs-basic-min.js"></script>
 <script src="js/generator.js"></script>
+<script src="js/engine.js"></script>
 <script>
 (function(){
   "use strict";
@@ -574,7 +575,7 @@
     "D,2 D, D, z2 D,2 | D,4 z4 | D, D, D, D, D,2 z2 | D,8 |]";
 
   var currentAbc = FALLBACK_ABC; // remplacée par une grille générée au chargement
-  var currentNotes = [];         // timeline { startBeats, durationBeats, isRest, tiedToNext } pour le moteur du ticket 03
+  var currentNotes = [];         // timeline { startBeats, durationBeats, isRest, tiedToNext } pour la lecture des notes (ticket 04)
   var TOTAL_BEATS = 32;          // recalculé à chaque génération (mesures × temps par mesure)
 
   var stage = document.getElementById("stage");
@@ -597,12 +598,13 @@
 
   var bpm = 60;
   var playing = false;
-  var offsetBeats = 0;   // temps écoulés (décompte inclus), en battements
-  var startTs = 0;
+  var audioCtx = null;      // AudioContext créé/repris au geste utilisateur (bouton play)
+  var transport = null;     // moteur de lecture actif (BassRhythmEngine.createTransport)
+  var pausedGridBeat = 0;   // temps de grille où reprendre après une pause
+  var activeBpb = 4;        // temps par mesure capturés au lancement de la lecture
+  var activeBars = 8;       // nombre de mesures capturé au lancement de la lecture
   var rafId = null;
   var lines = [];
-  var lastBeatIdx = -1;
-  var lastCountShown = 0;
   var mode = "guide";
   var signature = "4/4";
   var measuresChoice = "8";
@@ -690,11 +692,9 @@
   function setBpm(v){
     v = Math.max(40, Math.min(200, Math.round(v)));
     if (v === bpm) return;
-    if (playing){ // replier le temps écoulé avant de changer la vitesse
-      offsetBeats = currentBeats();
-      startTs = performance.now();
-    }
     bpm = v;
+    // En vol : le moteur se ré-ancre au prochain battement, sans saut ni dérive.
+    if (playing && transport) transport.setBpm(bpm);
     tempoNum.textContent = bpm;
     tempoSlider.value = bpm;
     tempoNum.classList.remove("blip");
@@ -702,111 +702,124 @@
     tempoNum.classList.add("blip");
   }
 
-  /* ---------- moteur de lecture simulée ---------- */
-  function currentBeats(){
-    return offsetBeats + (performance.now() - startTs) / 1000 * (bpm / 60);
+  /* ---------- moteur de lecture (Web Audio, js/engine.js) ---------- */
+  function ensureAudioContext(){
+    if (!audioCtx){
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+    }
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
   }
 
-  function startPlayback(){
+  function settleTransportUi(){
+    cursor.classList.remove("live");
+    countVeil.classList.remove("show");
+    stage.classList.remove("blind");
+    beatsEl.classList.remove("quiet");
+    playBtn.classList.add("idle");
+    playBtn.setAttribute("aria-label", "Lancer la lecture");
+    iconPlay.style.display = "";
+    iconPause.style.display = "none";
+  }
+
+  function haltTransport(){
+    playing = false;
+    if (rafId) cancelAnimationFrame(rafId);
+    if (transport){ transport.stop(); transport = null; }
+  }
+
+  function startPlayback(fromGridBeat){
     if (playing) return;
+    if (!window.BassRhythmEngine){ setStatus("Moteur de lecture indisponible"); return; }
+    var ctx = ensureAudioContext();
+    if (!ctx){ setStatus("Audio indisponible dans ce navigateur"); return; }
     computeLines();
+    activeBpb = beatsPerBar();
+    activeBars = Math.max(1, Math.round(TOTAL_BEATS / activeBpb));
+    transport = window.BassRhythmEngine.createTransport({
+      ctx: ctx,
+      bpm: bpm,
+      beatsPerBar: activeBpb,
+      totalBeats: TOTAL_BEATS,
+      startGridBeat: fromGridBeat || 0
+    });
     playing = true;
-    startTs = performance.now();
-    lastBeatIdx = -1;
-    lastCountShown = 0;
     playBtn.classList.remove("idle");
     playBtn.setAttribute("aria-label", "Suspendre la lecture");
     iconPlay.style.display = "none";
     iconPause.style.display = "";
     applyModeVisuals();
+    setStatus("Décompte…");
     rafId = requestAnimationFrame(tick);
   }
 
+  /* Pause : coupe net les clics programmés et mémorise le temps atteint.
+     La reprise repart de ce temps avec un re-décompte d'une mesure : un seul
+     chemin de lancement (startPlayback), simple et robuste. */
   function pausePlayback(){
-    if (!playing) return;
-    offsetBeats = currentBeats();
+    if (!playing || !transport) return;
+    var info = transport.stop();
+    transport = null;
     playing = false;
-    cancelAnimationFrame(rafId);
-    cursor.classList.remove("live");
-    countVeil.classList.remove("show");
-    stage.classList.remove("blind");
-    beatsEl.classList.remove("quiet");
-    playBtn.classList.add("idle");
-    playBtn.setAttribute("aria-label", "Lancer la lecture");
-    iconPlay.style.display = "";
-    iconPause.style.display = "none";
-    setStatus("Pause");
+    if (rafId) cancelAnimationFrame(rafId);
+    pausedGridBeat = info ? info.resumeBeat : 0;
+    settleTransportUi();
+    var bb = window.BassRhythmEngine.barBeat(pausedGridBeat, activeBpb);
+    setStatus("Pause · Mesure " + bb.measure + " · Temps " + bb.beat);
   }
 
   function finishPlayback(){
-    playing = false;
-    cancelAnimationFrame(rafId);
-    offsetBeats = 0;
-    cursor.classList.remove("live");
-    countVeil.classList.remove("show");
-    stage.classList.remove("blind");
-    beatsEl.classList.remove("quiet");
-    playBtn.classList.add("idle");
-    playBtn.setAttribute("aria-label", "Lancer la lecture");
-    iconPlay.style.display = "";
-    iconPause.style.display = "none";
+    haltTransport();
+    pausedGridBeat = 0;
+    settleTransportUi();
     setStatus("Fin de grille · " + signature);
   }
 
   function stopAndReset(){
-    playing = false;
-    if (rafId) cancelAnimationFrame(rafId);
-    offsetBeats = 0;
-    cursor.classList.remove("live");
-    countVeil.classList.remove("show");
-    stage.classList.remove("blind");
-    beatsEl.classList.remove("quiet");
-    playBtn.classList.add("idle");
-    playBtn.setAttribute("aria-label", "Lancer la lecture");
-    iconPlay.style.display = "";
-    iconPause.style.display = "none";
+    haltTransport();
+    pausedGridBeat = 0;
+    settleTransportUi();
     setStatus(baseStatus());
   }
 
   function tick(){
-    if (!playing) return;
-    var bpb = beatsPerBar();
-    var countBeats = bpb;
-    var total = currentBeats();
-    var p = total - countBeats; // position dans la grille, négative pendant le décompte
-    var beatDur = 60 / bpm;
+    if (!playing || !transport) return;
+    var now = audioCtx.currentTime;
 
-    if (p >= TOTAL_BEATS){ finishPlayback(); return; }
-
-    // pulsation des pastilles
-    var beatIdx = Math.floor(total);
-    if (beatIdx !== lastBeatIdx && beatIdx >= 0){
-      lastBeatIdx = beatIdx;
-      if (mode === "guide" || p < 0) pulseBeat(beatIdx % bpb);
-    }
-
-    if (p < 0){
-      // décompte visuel d'une mesure
-      setStatus("Décompte…");
-      countVeil.classList.add("show");
-      var n = Math.floor(total) + 1; // 1..bpb
-      if (n !== lastCountShown && n >= 1 && n <= countBeats){
-        lastCountShown = n;
-        countNum.textContent = n;
-        countNum.style.animationDuration = Math.min(beatDur, 1.4) + "s";
+    // Pastilles, décompte et statut déclenchés au moment réel des clics
+    // programmés (comparaison de l'horloge audio aux instants du moteur).
+    var due = transport.takeDueVisuals(now);
+    for (var i = 0; i < due.length; i++){
+      var ev = due[i];
+      if (ev.type === "countin"){
+        countNum.textContent = ev.countNumber;
+        countNum.style.animationDuration = Math.min(60 / bpm, 1.4) + "s";
         countNum.classList.remove("tick");
         void countNum.offsetWidth;
         countNum.classList.add("tick");
+        pulseBeat(ev.pulseIndex);
+      } else {
+        if (mode === "guide") pulseBeat(ev.pulseIndex);
+        setStatus("Mesure " + ev.measure + "/" + activeBars + " · Temps " + ev.beatInBar);
       }
+    }
+
+    var pos = transport.positionAt(now);
+    if (pos.countIn){
+      countVeil.classList.add("show");
       cursor.classList.remove("live");
     } else {
       countVeil.classList.remove("show");
-      setStatus("Lecture · " + bpm + " BPM");
       stage.classList.toggle("blind", mode === "aveugle");
       beatsEl.classList.toggle("quiet", mode !== "guide");
 
       if (mode !== "aveugle" && lines.length){
-        var frac = p / TOTAL_BEATS;
+        // Curseur piloté par la vraie horloge : position temporelle réelle
+        // dans la grille, interpolation linéaire par ligne (précision note à
+        // note au ticket 04).
+        var frac = Math.max(0, Math.min(1, pos.gridBeat / TOTAL_BEATS));
         var lf = frac * lines.length;
         var li = Math.min(lines.length - 1, Math.floor(lf));
         var inLine = lf - li;
@@ -819,12 +832,14 @@
         cursor.classList.remove("live");
       }
     }
+
+    if (transport.isFinished(now)){ finishPlayback(); return; }
     rafId = requestAnimationFrame(tick);
   }
 
   function togglePlay(){
     if (playing) pausePlayback();
-    else startPlayback();
+    else startPlayback(pausedGridBeat);
   }
 
   /* ---------- guidage ---------- */
@@ -919,7 +934,7 @@
         res = window.BassRhythmGenerator.generateExercise(cfg);
       }
       currentAbc = res.abc;
-      currentNotes = res.notes; // exploitée par le moteur de lecture du ticket 03
+      currentNotes = res.notes; // exploitée pour la lecture des notes (ticket 04)
       TOTAL_BEATS = cfg.measures * beatsPerBar();
       return true;
     } catch (err) {
@@ -941,7 +956,7 @@
   document.getElementById("replayBtn").addEventListener("click", function(){
     stopAndReset();
     closeDrawer();
-    startPlayback();
+    startPlayback(0); // Rejouer repart toujours du début, décompte inclus
   });
 
   /* ---------- tempo : slider, +5, molette, glisser ---------- */

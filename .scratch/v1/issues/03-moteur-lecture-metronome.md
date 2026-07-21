@@ -4,9 +4,9 @@
 
 **Blocked by:** 02 — Générateur de grilles Agostini.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Horloge audio à lookahead : aucun décalage audible ni dérive sur 2 minutes de lecture.
-- [ ] Décompte d'une mesure complète avant le départ, calé sur la signature.
-- [ ] Accent net sur le temps 1, pastilles synchronisées avec les clics.
-- [ ] Changement de tempo et +5 BPM en vol sans interrompre ni désynchroniser la lecture.
+- [x] Horloge audio à lookahead : aucun décalage audible ni dérive sur 2 minutes de lecture.
+- [x] Décompte d'une mesure complète avant le départ, calé sur la signature.
+- [x] Accent net sur le temps 1, pastilles synchronisées avec les clics.
+- [x] Changement de tempo et +5 BPM en vol sans interrompre ni désynchroniser la lecture.
