@@ -3115,6 +3115,12 @@
     ronde: "Ronde", blanche: "Blanche", noire: "Noire", croche: "Croche",
     double: "Double", triple: "Triple", quadruple: "Quadruple"
   };
+  /* Noms propres des silences (solfège) : chaque silence a son nom, distinct de
+     la figure de note de même durée. */
+  var REST_NAMES = {
+    ronde: "Pause", blanche: "Demi-pause", noire: "Soupir", croche: "Demi-soupir",
+    double: "Quart de soupir", triple: "Huitième de soupir", quadruple: "Seizième de soupir"
+  };
   var COMPOSER_EPSILON = 1e-6;
 
   /* Glyphes des figures : on réutilise les images déjà présentes dans les
@@ -3491,10 +3497,11 @@
     var glyph = isRest
       ? '<span class="palette-glyph palette-rest">' + restGlyphSvg(fig) + '</span>'
       : '<img class="palette-glyph" src="' + (FIG_SRC[fig] || "") + '" alt="">';
+    var label = isRest ? REST_NAMES[fig] : FIG_NAMES[fig];
     return '<button type="button" class="palette-item" data-cfig="' + fig + '" data-crest="' + isRest + '"' +
       (ok ? "" : " disabled") + '>' +
       glyph +
-      '<span class="palette-label">' + FIG_NAMES[fig] + (isRest ? "<br>silence" : "") + '</span></button>';
+      '<span class="palette-label">' + label + '</span></button>';
   }
   function composerPaletteHTML(){
     var html = '<div class="palette-group"><div class="palette-family">Notes</div><div class="palette-items">';
