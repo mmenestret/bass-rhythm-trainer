@@ -104,12 +104,26 @@
   .d1{ animation-delay:.05s } .d2{ animation-delay:.22s } .d3{ animation-delay:.4s } .d4{ animation-delay:.58s }
 
   /* tempo — une seule ligne : −5 · chiffre BPM · +5. Le champ reste
-     saisissable au clavier, à la molette et au glisser vertical. */
-  .tempo{ display:flex; align-items:center; gap:clamp(20px,3.5vw,36px); user-select:none; }
+     saisissable au clavier, à la molette et au glisser vertical.
+     --tempo-fs pilote la taille des chiffres ET la retombée optique des
+     pastilles ±5 (les media queries ne changent que la variable). */
+  .tempo{
+    --tempo-fs:clamp(76px,min(12vw,18vh),140px);
+    display:flex; align-items:center; gap:clamp(20px,3.5vw,36px); user-select:none;
+  }
   .tempo-core{ display:flex; align-items:baseline; gap:12px; }
+  /* Chiffres « bande x » de Cormorant (0, 1, 2 — les autres montent ou
+     descendent) : leur centre optique est 0,125 em SOUS le centre de la
+     boîte 1em — les pastilles visent cette bande, pas la boîte. */
+  .tempo .step-btn{ translate:0 calc(var(--tempo-fs) * .125); }
   #tempoNum{
     font-family:"Cormorant Garamond",serif; font-weight:300;
-    font-size:clamp(76px,min(12vw,18vh),140px); line-height:.9;
+    font-size:var(--tempo-fs);
+    /* height = line-height : la ligne remplit exactement la boîte, la
+       position verticale des chiffres ne dépend plus que des métriques de
+       la fonte — identique sur tous les navigateurs (les input laissent
+       sinon chaque moteur centrer le texte à sa façon). */
+    height:1em; line-height:1em;
     letter-spacing:-.015em; color:var(--ink);
     cursor:ns-resize;
     background:none; border:none; padding:0;
@@ -435,15 +449,14 @@
       gap:clamp(10px,2.2vh,24px);
       padding:clamp(56px,9vh,80px) 4vw clamp(44px,7vh,60px);
     }
-    #tempoNum{ font-size:clamp(72px,min(12vw,15vh),124px); }
+    .tempo{ --tempo-fs:clamp(72px,min(12vw,15vh),124px); }
   }
 
   /* mobile étroit : cibles tactiles ≥ 44 px, chrome resserré */
   @media (max-width:640px){
     header{ padding:14px 16px; }
     #settingsBtn{ padding:13px 14px; }
-    .tempo{ gap:18px; }
-    #tempoNum{ font-size:clamp(56px,17vw,72px); }
+    .tempo{ gap:18px; --tempo-fs:clamp(56px,17vw,72px); }
     .step-btn{ min-height:44px; padding:12px 17px; }
     .score-stage{ width:94vw; }
     #beats{ gap:12px; }
@@ -490,8 +503,7 @@
       padding:48px 5vw 16px;
       max-width:1060px; margin:0 auto;
     }
-    .tempo{ grid-area:tempo; justify-self:center; align-self:center; gap:12px; }
-    #tempoNum{ font-size:clamp(56px,22vh,100px); }
+    .tempo{ grid-area:tempo; justify-self:center; align-self:center; gap:12px; --tempo-fs:clamp(56px,22vh,100px); }
     #exTitle{ grid-area:title; margin-bottom:0; font-size:15.5px; }
     .score-stage{ grid-area:score; width:100%; }
     #beats{ grid-area:beats; justify-self:center; gap:10px; }
