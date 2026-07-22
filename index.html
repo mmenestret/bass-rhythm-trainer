@@ -951,7 +951,8 @@
      licences CC0 : docs/audio-sample-source.md) ; midi = hauteur SONNANTE
      mesurée du fichier (autocorrélation + spectre — fractionnaire si la
      prise n'est pas juste, ex. arco-Eb1 à −23 cents) : c'est elle qui
-     garantit que le E de chaque son tombe sur le E1 d'une basse (41,2 Hz).
+     garantit que chaque note de chaque son tombe sur sa hauteur cible
+     (E sur le E1 d'une basse, 41,2 Hz — vérifié ±7 cents, 7 notes × 4 sons).
      La voix prend le sample le plus proche de la note d'entraînement et le
      transpose (playbackRate = 2^(Δ demi-tons/12)). loopStart/loopEnd
      (secondes de buffer, mesurés hors ligne) font TENIR la note indéfiniment
@@ -985,8 +986,8 @@
     { id: "ergo", samples: [
       { url: "assets/audio/ergo-C1.wav",  midi: 24 },
       { url: "assets/audio/ergo-Eb1.wav", midi: 27 },
-      { url: "assets/audio/ergo-Gb1.wav", midi: 30 },
-      { url: "assets/audio/ergo-A1.wav",  midi: 33 },
+      { url: "assets/audio/ergo-Gb1.wav", midi: 30.06 },
+      { url: "assets/audio/ergo-A1.wav",  midi: 33.08 },
       { url: "assets/audio/ergo-C2.wav",  midi: 36 }
     ] },
     { id: "arco", samples: [

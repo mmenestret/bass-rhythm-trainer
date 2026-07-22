@@ -33,9 +33,11 @@ Contrainte de sélection : chaque son doit pouvoir **tenir une ronde**
   CC0-1.0), dossier `ergo/pizz/`, une prise par note retenue à l'audition.
 - **Hauteurs** : le nommage source est décalé vs la hauteur sonnante — les
   fichiers ont été renommés à la hauteur réelle, **vérifiée par
-  autocorrélation** (fenêtre RMS max, correction d'octave) : `ergo-C1`=24,
-  `ergo-Eb1`=27, `ergo-Gb1`=30, `ergo-A1`=33, `ergo-C2`=36 (±0,11 demi-ton
-  mesuré).
+  autocorrélation** (médiane sur fenêtres de 0,5 s couvrant le corps de la
+  note) : `ergo-C1`=23,98, `ergo-Eb1`=27,03, `ergo-Gb1`=**30,06**,
+  `ergo-A1`=**33,08**, `ergo-C2`=36,00. Les deux prises hautes de 6 et
+  8 cents portent leur valeur mesurée dans le registre `SOUNDS` (les trois
+  autres restent à l'entier, écart ≤ 3 cents) : F, G et A sonnent juste.
 - **Sustain** : décroissance naturelle 3,5–6,2 s, sans boucle — la ronde aux
   tempos lents (6 s à 40 BPM) s'éteint en fondu, limite assumée au choix du
   son.
@@ -68,9 +70,11 @@ L'app propose 7 notes (E1 à D2 sonnant, écrit une octave au-dessus en clé de
 fa). La voix prend le sample du son le plus proche de la cible et le
 transpose par `playbackRate = 2^(Δ demi-tons/12)` — au plus ±1 demi-ton pour
 l'archet, ±2 pour l'Ergo. Le `midi` du registre est la hauteur sonnante
-MESURÉE de chaque fichier (pas le nommage source) : le E de chaque son tombe
-ainsi sur le E1 d'une basse (41,2 Hz), vérifié à ±7 cents près pour les
-4 sons. Le growl n'a qu'un sample (C#1) : de +3 demi-tons (E1) à +13 (D2)
+MESURÉE de chaque fichier (pas le nommage source) : chaque note tombe ainsi
+sur sa hauteur cible — E sur le E1 d'une basse (41,2 Hz) — vérifié à
+±7 cents près sur les 7 notes × 4 sons (médiane multi-fenêtres, boucle de
+sustain pour l'archet ; le growl, à −6 cents constants, fluctue lui-même de
+±15 cents sur sa durée). Le growl n'a qu'un sample (C#1) : de +3 demi-tons (E1) à +13 (D2)
 vers l'aigu — timbre plus brillant et tenue raccourcie en montant (6 s
 source → ~5 s en E1, ~2,8 s en D2), assumés. Sample indisponible → repli
 synthé à la hauteur choisie.
