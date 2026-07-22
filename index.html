@@ -13,453 +13,1028 @@
 <link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/croche-180.png">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
 <style>
-  :root{
-    --mist-1:#dee3ec;
-    --mist-2:#eae5e1;
-    --mist-3:#dbe4e1;
-    --ink:#3d4655;
-    --ink-soft:rgba(61,70,85,.62);
-    --ink-faint:rgba(61,70,85,.38);
-    --hairline:rgba(61,70,85,.16);
-    --hairline-strong:rgba(61,70,85,.30);
-    --accent:#7e93a8;
-    --accent-soft:rgba(126,147,168,.22);
-    --blush:rgba(183,163,166,.35);
-    --glass:rgba(255,255,255,.34);
-    --ease-drift:cubic-bezier(.22,.9,.24,1);
+  :root {
+    --mist-1: #dee3ec;
+    --mist-2: #eae5e1;
+    --mist-3: #dbe4e1;
+    --ink: #3d4655;
+    --ink-soft: rgba(61,70,85,0.62);
+    --ink-faint: rgba(61,70,85,0.38);
+    --hairline: rgba(61,70,85,0.16);
+    --hairline-strong: rgba(61,70,85,0.30);
+    --accent: #7e93a8;
+    --accent-soft: rgba(126,147,168,0.22);
+    --blush: rgba(183,163,166,0.35);
+    --glass: rgba(255,255,255,0.34);
+    --ease-drift: cubic-bezier(0.22,0.9,0.24,1);
   }
 
-  *{ margin:0; padding:0; box-sizing:border-box; }
-  html{ -webkit-text-size-adjust:100%; }
-  body{
-    min-height:100svh;
-    font-family:"Karla",sans-serif;
-    font-weight:400;
-    color:var(--ink);
-    background:linear-gradient(163deg,var(--mist-1) 0%,var(--mist-2) 52%,var(--mist-3) 100%);
-    background-attachment:fixed;
-    overflow-x:clip;
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
-  html{ overflow-x:clip; }
-  button{ font-family:inherit; color:inherit; background:none; border:none; cursor:pointer; }
-  button:focus-visible, input:focus-visible{ outline:1.5px solid var(--accent); outline-offset:3px; border-radius:4px; }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    min-height: 100svh;
+    font-family: 'Karla',sans-serif;
+    font-weight: 400;
+    color: var(--ink);
+    background: linear-gradient(163deg,var(--mist-1) 0%,var(--mist-2) 52%,var(--mist-3) 100%);
+    background-attachment: fixed;
+    overflow-x: clip;
+  }
+  html {
+    overflow-x: clip;
+  }
+  button {
+    font-family: inherit;
+    color: inherit;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  button:focus-visible,
+  input:focus-visible {
+    outline: 1.5px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
 
   /* ---------- atmosphère : brume qui respire + grain ---------- */
-  .breath{ position:fixed; border-radius:50%; filter:blur(90px); pointer-events:none; z-index:0; will-change:transform,opacity; }
-  .breath-a{
-    width:56vw; height:56vw; min-width:520px; min-height:520px;
-    left:-12vw; top:-18vh;
-    background:radial-gradient(circle,rgba(197,209,226,.85),rgba(197,209,226,0) 70%);
-    animation:breathe 11s ease-in-out infinite alternate;
+  .breath {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: 0;
+    will-change: transform,opacity;
   }
-  .breath-b{
-    width:48vw; height:48vw; min-width:460px; min-height:460px;
-    right:-14vw; bottom:-20vh;
-    background:radial-gradient(circle,rgba(233,219,213,.8),rgba(233,219,213,0) 70%);
-    animation:breathe 15s ease-in-out infinite alternate-reverse;
+  .breath-a {
+    width: 56vw;
+    height: 56vw;
+    min-width: 520px;
+    min-height: 520px;
+    left: -12vw;
+    top: -18vh;
+    background: radial-gradient(circle,rgba(197,209,226,0.85),rgba(197,209,226,0) 70%);
+    animation: breathe 11s ease-in-out infinite alternate;
   }
-  .breath-c{
-    width:34vw; height:34vw; min-width:320px; min-height:320px;
-    left:38vw; top:52vh;
-    background:radial-gradient(circle,rgba(203,222,216,.65),rgba(203,222,216,0) 70%);
-    animation:breathe 13s ease-in-out infinite alternate;
-    animation-delay:-6s;
+  .breath-b {
+    width: 48vw;
+    height: 48vw;
+    min-width: 460px;
+    min-height: 460px;
+    right: -14vw;
+    bottom: -20vh;
+    background: radial-gradient(circle,rgba(233,219,213,0.8),rgba(233,219,213,0) 70%);
+    animation: breathe 15s ease-in-out infinite alternate-reverse;
   }
-  @keyframes breathe{
-    from{ transform:scale(1) translateY(0); opacity:.55; }
-    to{ transform:scale(1.12) translateY(-2.5vh); opacity:.9; }
+  .breath-c {
+    width: 34vw;
+    height: 34vw;
+    min-width: 320px;
+    min-height: 320px;
+    left: 38vw;
+    top: 52vh;
+    background: radial-gradient(circle,rgba(203,222,216,0.65),rgba(203,222,216,0) 70%);
+    animation: breathe 13s ease-in-out infinite alternate;
+    animation-delay: -6s;
   }
-  body::after{
-    content:""; position:fixed; inset:-40px; z-index:300; pointer-events:none;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    opacity:.05; mix-blend-mode:multiply;
+  @keyframes breathe {
+    from {
+      transform: scale(1) translateY(0);
+      opacity: 0.55;
+    }
+    to {
+      transform: scale(1.12) translateY(-2.5vh);
+      opacity: 0.9;
+    }
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    inset: -40px;
+    z-index: 300;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.05;
+    mix-blend-mode: multiply;
   }
 
   /* ---------- entête minimale ---------- */
-  header{
-    position:fixed; top:0; left:0; right:0; z-index:90;
-    display:flex; align-items:center; justify-content:space-between;
-    padding:26px 34px;
-    pointer-events:none;
+  header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 26px 34px;
+    pointer-events: none;
   }
-  .wordmark{
-    font-size:10.5px; letter-spacing:.34em; text-transform:uppercase;
-    color:var(--ink-soft); font-weight:500; user-select:none;
+  .wordmark {
+    font-size: 10.5px;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    font-weight: 500;
+    user-select: none;
   }
-  #settingsBtn{
-    pointer-events:auto;
-    display:flex; align-items:center; gap:10px;
-    font-size:10.5px; letter-spacing:.28em; text-transform:uppercase;
-    color:var(--ink-soft);
-    padding:10px 14px; border-radius:999px;
-    transition:color .4s,background .4s;
+  .settings-btn {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 10.5px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    padding: 10px 14px;
+    border-radius: 999px;
+    transition: color 0.4s,background 0.4s;
   }
-  #settingsBtn svg{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; }
-  #settingsBtn:hover{ color:var(--ink); background:var(--glass); }
+  .settings-btn svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+  }
+  .settings-btn:hover {
+    color: var(--ink);
+    background: var(--glass);
+  }
 
   /* ---------- scène centrale ---------- */
-  main{
-    position:relative; z-index:1;
-    min-height:100svh;
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:clamp(14px,3vh,34px);
-    padding:clamp(72px,11vh,96px) 4vw clamp(52px,8vh,72px);
+  main {
+    position: relative;
+    z-index: 1;
+    min-height: 100svh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: clamp(14px,3vh,34px);
+    padding: clamp(72px,11vh,96px) 4vw clamp(52px,8vh,72px);
   }
-  .rise{ opacity:0; transform:translateY(14px); animation:rise 1.1s var(--ease-drift) forwards; }
-  @keyframes rise{ to{ opacity:1; transform:none; } }
-  .d1{ animation-delay:.05s } .d2{ animation-delay:.22s } .d3{ animation-delay:.4s } .d4{ animation-delay:.58s }
+  .rise {
+    opacity: 0;
+    transform: translateY(14px);
+    animation: rise 1.1s var(--ease-drift) forwards;
+  }
+  @keyframes rise {
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .d1 {
+    animation-delay: 0.05s;
+  }
+  .d2 {
+    animation-delay: 0.22s;
+  }
+  .d3 {
+    animation-delay: 0.4s;
+  }
+  .d4 {
+    animation-delay: 0.58s;
+  }
 
   /* tempo — une seule ligne : −5 · chiffre BPM · +5. Le champ reste
      saisissable au clavier, à la molette et au glisser vertical.
      --tempo-fs pilote la taille des chiffres ET la retombée optique des
      pastilles ±5 (les media queries ne changent que la variable). */
-  .tempo{
-    --tempo-fs:clamp(76px,min(12vw,18vh),140px);
-    display:flex; align-items:center; gap:clamp(20px,3.5vw,36px); user-select:none;
+  .tempo {
+    --tempo-fs: clamp(76px,min(12vw,18vh),140px);
+    display: flex;
+    align-items: center;
+    gap: clamp(20px,3.5vw,36px);
+    user-select: none;
   }
-  .tempo-core{ display:flex; align-items:baseline; gap:12px; }
+  .tempo-core {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
   /* Chiffres « bande x » de Cormorant (0, 1, 2 — les autres montent ou
      descendent) : leur centre optique est 0,125 em SOUS le centre de la
      boîte 1em — les pastilles visent cette bande, pas la boîte. */
-  .tempo .step-btn{ translate:0 calc(var(--tempo-fs) * .125); }
-  #tempoNum{
-    font-family:"Cormorant Garamond",serif; font-weight:300;
-    font-size:var(--tempo-fs);
+  .tempo .step-btn {
+    translate: 0 calc(var(--tempo-fs) * 0.125);
+  }
+  .tempo-num {
+    font-family: 'Cormorant Garamond',serif;
+    font-weight: 300;
+    font-size: var(--tempo-fs);
     /* height = line-height : la ligne remplit exactement la boîte, la
        position verticale des chiffres ne dépend plus que des métriques de
        la fonte — identique sur tous les navigateurs (les input laissent
        sinon chaque moteur centrer le texte à sa façon). */
-    height:1em; line-height:1em;
-    letter-spacing:-.015em; color:var(--ink);
-    cursor:ns-resize;
-    background:none; border:none; padding:0;
-    width:3.2ch; text-align:center;
-    caret-color:var(--accent);
-    -webkit-user-select:text; user-select:text;
+    height: 1em;
+    line-height: 1em;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    cursor: ns-resize;
+    background: none;
+    border: none;
+    padding: 0;
+    width: 3.2ch;
+    text-align: center;
+    caret-color: var(--accent);
+    -webkit-user-select: text;
+    user-select: text;
   }
-  #tempoNum:focus, #tempoNum:focus-visible{ outline:none; cursor:text; }
-  #tempoNum::selection{ background:var(--accent-soft); }
-  #tempoNum.blip{ animation:blip .45s var(--ease-drift); }
-  @keyframes blip{ 30%{ opacity:.45; letter-spacing:.01em; } }
-  .tempo-core .bpm{
-    font-size:11px; letter-spacing:.4em; text-transform:uppercase; color:var(--ink-faint); font-weight:500;
+  .tempo-num:focus,
+  .tempo-num:focus-visible {
+    outline: none;
+    cursor: text;
   }
-  .step-btn{
-    font-size:12px; letter-spacing:.14em; font-weight:500;
-    padding:7px 15px; border-radius:999px;
-    border:1px solid var(--hairline);
-    color:var(--ink-soft); flex:none;
-    transition:border-color .4s,color .4s,background .4s,transform .25s var(--ease-drift);
+  .tempo-num::selection {
+    background: var(--accent-soft);
   }
-  .step-btn:hover{ border-color:var(--hairline-strong); color:var(--ink); background:var(--glass); }
-  .step-btn:active{ transform:scale(.94); }
+  .tempo-num.blip {
+    animation: blip 0.45s var(--ease-drift);
+  }
+  @keyframes blip {
+    30% {
+      opacity: 0.45;
+      letter-spacing: 0.01em;
+    }
+  }
+  .tempo-core .bpm {
+    font-size: 11px;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+  }
+  .step-btn {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    font-weight: 500;
+    padding: 7px 15px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline);
+    color: var(--ink-soft);
+    flex: none;
+    transition: border-color 0.4s,color 0.4s,background 0.4s,transform 0.25s var(--ease-drift);
+  }
+  .step-btn:hover {
+    border-color: var(--hairline-strong);
+    color: var(--ink);
+    background: var(--glass);
+  }
+  .step-btn:active {
+    transform: scale(0.94);
+  }
 
   /* ---------- en-tête d'exercice ---------- */
-  #exTitle{
-    font-family:"Cormorant Garamond",serif; font-style:italic; font-weight:400;
-    font-size:17.5px; letter-spacing:.03em; color:var(--ink-soft);
-    text-align:center; user-select:none;
-    margin-bottom:-10px; /* rapprocher le titre de la portée */
-    min-height:1em;
+  .ex-title {
+    font-family: 'Cormorant Garamond',serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 17.5px;
+    letter-spacing: 0.03em;
+    color: var(--ink-soft);
+    text-align: center;
+    user-select: none;
+    margin-bottom: -10px;
+    /* rapprocher le titre de la portée */
+    min-height: 1em;
   }
   /* both : sans fill-mode, la fin de l'animation retomberait sur le
      opacity:0 de .rise et le titre disparaîtrait au bout d'une seconde */
-  #exTitle.regen{ animation:regen 1s var(--ease-drift) both; }
+  .ex-title.regen {
+    animation: regen 1s var(--ease-drift) both;
+  }
 
   /* ---------- portée ---------- */
-  .score-stage{
-    position:relative;
-    width:min(940px,92vw);
+  .score-stage {
+    position: relative;
+    width: min(940px,92vw);
   }
-  .score-stage::before{
-    content:""; position:absolute; inset:-8% -4%;
-    background:radial-gradient(ellipse at center,rgba(255,255,255,.5),rgba(255,255,255,0) 72%);
-    z-index:0; pointer-events:none;
+  .score-stage::before {
+    content: '';
+    position: absolute;
+    inset: -8% -4%;
+    background: radial-gradient(ellipse at center,rgba(255,255,255,0.5),rgba(255,255,255,0) 72%);
+    z-index: 0;
+    pointer-events: none;
   }
   /* fenêtre téléprompteur : sur écran étroit, hauteur clampée à 2 systèmes
      par le JS (layoutScoreWindow) et glissière qui suit la lecture */
-  #scoreWin{ position:relative; z-index:1; overflow:hidden; }
-  #scoreSlide{ position:relative; transition:transform .45s var(--ease-drift); will-change:transform; }
-  #scoreSlide.snap{ transition:none; }
-  #score{ transition:opacity .9s var(--ease-drift),filter .9s var(--ease-drift); }
-  #score svg{ display:block; }
-  #score path, #score text{ fill:#39424f; }
-  #score text{ font-size:13px; }
+  .score-win {
+    position: relative;
+    z-index: 1;
+    overflow: hidden;
+  }
+  .score-slide {
+    position: relative;
+    transition: transform 0.45s var(--ease-drift);
+    will-change: transform;
+  }
+  .score-slide.snap {
+    transition: none;
+  }
+  .score {
+    transition: opacity 0.9s var(--ease-drift),filter 0.9s var(--ease-drift);
+  }
+  .score svg {
+    display: block;
+  }
+  .score path,
+  .score text {
+    fill: #39424f;
+  }
+  .score text {
+    font-size: 13px;
+  }
   /* allumage des notes (mode 2) : accent le temps de la valeur, transition
      très courte pour éviter le scintillement */
-  #score .abcjs-note path, #score .abcjs-note text{ transition:fill .04s linear; }
-  #score .lit path, #score .lit text{ fill:var(--accent); }
-  #score.regen{ animation:regen 1s var(--ease-drift); }
-  @keyframes regen{ 0%{ opacity:0; transform:translateY(8px); } 100%{ opacity:1; transform:none; } }
-  .score-fallback{
-    font-family:"Cormorant Garamond",serif; font-style:italic; font-size:20px;
-    color:var(--ink-soft); text-align:center; padding:60px 0;
+  .score .abcjs-note path,
+  .score .abcjs-note text {
+    transition: fill 0.04s linear;
+  }
+  .score .lit path,
+  .score .lit text {
+    fill: var(--accent);
+  }
+  .score.regen {
+    animation: regen 1s var(--ease-drift);
+  }
+  @keyframes regen {
+    0% {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    100% {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .score-fallback {
+    font-family: 'Cormorant Garamond',serif;
+    font-style: italic;
+    font-size: 20px;
+    color: var(--ink-soft);
+    text-align: center;
+    padding: 60px 0;
   }
 
   /* curseur de lecture */
-  #cursor{
-    position:absolute; left:0; top:0; z-index:2;
-    width:2px; height:120px; border-radius:2px;
-    background:linear-gradient(to bottom,rgba(126,147,168,0),var(--accent) 18%,var(--accent) 82%,rgba(126,147,168,0));
-    box-shadow:0 0 16px 2px var(--accent-soft);
-    opacity:0; transition:opacity .6s;
-    pointer-events:none; will-change:transform;
+  .cursor {
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 2;
+    width: 2px;
+    height: 120px;
+    border-radius: 2px;
+    background: linear-gradient(to bottom,rgba(126,147,168,0),var(--accent) 18%,var(--accent) 82%,rgba(126,147,168,0));
+    box-shadow: 0 0 16px 2px var(--accent-soft);
+    opacity: 0;
+    transition: opacity 0.6s;
+    pointer-events: none;
+    will-change: transform;
   }
-  #cursor.live{ opacity:.9; }
+  .cursor.live {
+    opacity: 0.9;
+  }
 
   /* décompte d'une mesure */
-  #countVeil{
-    position:absolute; inset:-6%; z-index:3;
-    display:none; align-items:center; justify-content:center;
-    background:radial-gradient(ellipse at center,rgba(233,229,225,.82),rgba(233,229,225,.1) 75%);
-    pointer-events:none;
+  .count-veil {
+    position: absolute;
+    inset: -6%;
+    z-index: 3;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at center,rgba(233,229,225,0.82),rgba(233,229,225,0.1) 75%);
+    pointer-events: none;
   }
-  #countVeil.show{ display:flex; }
-  #countNum{
-    font-family:"Cormorant Garamond",serif; font-weight:300;
-    font-size:clamp(80px,12vw,130px); color:var(--ink); line-height:1;
+  .count-veil.show {
+    display: flex;
   }
-  #countNum.tick{ animation:countTick .95s var(--ease-drift) both; }
-  @keyframes countTick{
-    0%{ opacity:0; transform:scale(1.1); }
-    18%{ opacity:1; transform:scale(1); }
-    100%{ opacity:0; transform:scale(.96); }
+  .count-num {
+    font-family: 'Cormorant Garamond',serif;
+    font-weight: 300;
+    font-size: clamp(80px,12vw,130px);
+    color: var(--ink);
+    line-height: 1;
+  }
+  .count-num.tick {
+    animation: countTick 0.95s var(--ease-drift) both;
+  }
+  @keyframes countTick {
+    0% {
+      opacity: 0;
+      transform: scale(1.1);
+    }
+    18% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.96);
+    }
   }
 
   /* ---------- pastilles de temps ---------- */
-  #beats{ display:flex; gap:22px; transition:opacity .7s; }
-  .beat{
-    width:38px; height:38px; border-radius:50%;
-    border:1px solid var(--hairline);
-    display:flex; align-items:center; justify-content:center;
-    font-size:12px; letter-spacing:.05em; color:var(--ink-faint); font-weight:500;
-    position:relative; user-select:none;
-    transition:border-color .5s,color .5s;
+  .beats {
+    display: flex;
+    gap: 22px;
+    transition: opacity 0.7s;
   }
-  .beat.on{ animation:beatPulse .55s var(--ease-drift); }
-  .beat.on.strong{ animation:beatPulseStrong .6s var(--ease-drift); }
-  @keyframes beatPulse{
-    0%{ transform:scale(1); background:var(--accent-soft); border-color:var(--accent); color:var(--ink); }
-    100%{ transform:scale(1); background:transparent; border-color:var(--hairline); color:var(--ink-faint); }
+  .beat {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    color: var(--ink-faint);
+    font-weight: 500;
+    position: relative;
+    user-select: none;
+    transition: border-color 0.5s,color 0.5s;
   }
-  @keyframes beatPulseStrong{
-    0%{ transform:scale(1.18); background:var(--accent-soft); border-color:var(--accent); color:var(--ink); box-shadow:0 0 0 8px rgba(126,147,168,.12); }
-    100%{ transform:scale(1); background:transparent; border-color:var(--hairline); color:var(--ink-faint); box-shadow:0 0 0 18px rgba(126,147,168,0); }
+  .beat.on {
+    animation: beatPulse 0.55s var(--ease-drift);
+  }
+  .beat.on.strong {
+    animation: beatPulseStrong 0.6s var(--ease-drift);
+  }
+  @keyframes beatPulse {
+    0% {
+      transform: scale(1);
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--ink);
+    }
+    100% {
+      transform: scale(1);
+      background: transparent;
+      border-color: var(--hairline);
+      color: var(--ink-faint);
+    }
+  }
+  @keyframes beatPulseStrong {
+    0% {
+      transform: scale(1.18);
+      background: var(--accent-soft);
+      border-color: var(--accent);
+      color: var(--ink);
+      box-shadow: 0 0 0 8px rgba(126,147,168,0.12);
+    }
+    100% {
+      transform: scale(1);
+      background: transparent;
+      border-color: var(--hairline);
+      color: var(--ink-faint);
+      box-shadow: 0 0 0 18px rgba(126,147,168,0);
+    }
   }
 
   /* ---------- transport ---------- */
-  .transport{ display:flex; align-items:center; gap:34px; }
-  #playBtn{
-    position:relative;
-    width:76px; height:76px; border-radius:50%;
-    border:1px solid var(--hairline-strong);
-    background:var(--glass);
-    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
-    display:flex; align-items:center; justify-content:center;
-    transition:transform .4s var(--ease-drift),border-color .4s,background .4s;
+  .transport {
+    display: flex;
+    align-items: center;
+    gap: 34px;
   }
-  #playBtn svg{ width:24px; height:24px; fill:var(--ink); }
-  #playBtn:hover{ transform:scale(1.05); border-color:var(--ink-soft); background:rgba(255,255,255,.5); }
-  #playBtn:active{ transform:scale(.96); }
-  #playBtn::after{
-    content:""; position:absolute; inset:-1px; border-radius:50%;
-    border:1px solid var(--accent);
-    opacity:0; pointer-events:none;
+  .play-btn {
+    position: relative;
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    border: 1px solid var(--hairline-strong);
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.4s var(--ease-drift),border-color 0.4s,background 0.4s;
   }
-  #playBtn.idle::after{ animation:ringBreath 5.5s ease-in-out infinite; }
-  @keyframes ringBreath{
-    0%,100%{ transform:scale(1); opacity:0; }
-    45%{ transform:scale(1.22); opacity:.35; }
-    70%{ transform:scale(1.34); opacity:0; }
+  .play-btn svg {
+    width: 24px;
+    height: 24px;
+    fill: var(--ink);
+  }
+  .play-btn:hover {
+    transform: scale(1.05);
+    border-color: var(--ink-soft);
+    background: rgba(255,255,255,0.5);
+  }
+  .play-btn:active {
+    transform: scale(0.96);
+  }
+  .play-btn::after {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 50%;
+    border: 1px solid var(--accent);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .play-btn.idle::after {
+    animation: ringBreath 5.5s ease-in-out infinite;
+  }
+  @keyframes ringBreath {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 0;
+    }
+    45% {
+      transform: scale(1.22);
+      opacity: 0.35;
+    }
+    70% {
+      transform: scale(1.34);
+      opacity: 0;
+    }
   }
 
   /* retour au début + repeat + copier le lien : cercles hairline discrets, petits frères du play */
-  #rewindBtn, #repeatBtn, #copyLinkBtn{
-    width:46px; height:46px; border-radius:50%;
-    border:1px solid var(--hairline);
-    display:flex; align-items:center; justify-content:center;
-    color:var(--ink-soft);
-    transition:transform .4s var(--ease-drift),border-color .4s,color .4s,background .4s;
+  .rewind-btn,
+  .repeat-btn,
+  .copy-link-btn {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-soft);
+    transition: transform 0.4s var(--ease-drift),border-color 0.4s,color 0.4s,background 0.4s;
   }
-  #rewindBtn svg, #repeatBtn svg, #copyLinkBtn svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
-  #rewindBtn:hover, #repeatBtn:hover, #copyLinkBtn:hover{ border-color:var(--hairline-strong); color:var(--ink); background:var(--glass); }
-  #rewindBtn:active, #repeatBtn:active, #copyLinkBtn:active{ transform:scale(.94); }
-  #repeatBtn.active{ border-color:var(--accent); color:var(--ink); background:var(--accent-soft); }
+  .rewind-btn svg,
+  .repeat-btn svg,
+  .copy-link-btn svg {
+    width: 17px;
+    height: 17px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .rewind-btn:hover,
+  .repeat-btn:hover,
+  .copy-link-btn:hover {
+    border-color: var(--hairline-strong);
+    color: var(--ink);
+    background: var(--glass);
+  }
+  .rewind-btn:active,
+  .repeat-btn:active,
+  .copy-link-btn:active {
+    transform: scale(0.94);
+  }
+  .repeat-btn.active {
+    border-color: var(--accent);
+    color: var(--ink);
+    background: var(--accent-soft);
+  }
   /* flash bref à la copie du lien : la coche accentuée remplace l'icône copier */
-  #copyLinkBtn .ico-done{ display:none; }
-  #copyLinkBtn.copied{ border-color:var(--accent); color:var(--ink); background:var(--accent-soft); }
-  #copyLinkBtn.copied .ico-copy{ display:none; }
-  #copyLinkBtn.copied .ico-done{ display:block; }
-  /* toast « Lien copié » : brume de verre discrète, disparaît seule */
-  #toast{
-    position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 26px);
-    transform:translate(-50%, 12px);
-    padding:9px 16px; border-radius:999px;
-    border:1px solid var(--hairline-strong); background:var(--glass);
-    -webkit-backdrop-filter:blur(9px); backdrop-filter:blur(9px);
-    color:var(--ink); font-family:'Karla',sans-serif; font-size:13px; letter-spacing:.02em;
-    opacity:0; pointer-events:none; z-index:60;
-    transition:opacity .5s var(--ease-drift),transform .5s var(--ease-drift);
+  .copy-link-btn .ico-done {
+    display: none;
   }
-  #toast.show{ opacity:1; transform:translate(-50%, 0); }
+  .copy-link-btn.copied {
+    border-color: var(--accent);
+    color: var(--ink);
+    background: var(--accent-soft);
+  }
+  .copy-link-btn.copied .ico-copy {
+    display: none;
+  }
+  .copy-link-btn.copied .ico-done {
+    display: block;
+  }
+  /* toast « Lien copié » : brume de verre discrète, disparaît seule */
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 26px);
+    transform: translate(-50%, 12px);
+    padding: 9px 16px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline-strong);
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(9px);
+    backdrop-filter: blur(9px);
+    color: var(--ink);
+    font-family: 'Karla',sans-serif;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    opacity: 0;
+    pointer-events: none;
+    z-index: 60;
+    transition: opacity 0.5s var(--ease-drift),transform 0.5s var(--ease-drift);
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
   /* mesures ∞ : le même emplacement devient témoin du mode (non cliquable) */
-  #repeatBtn .ico-inf{ display:none; }
-  #repeatBtn.inf .ico-repeat{ display:none; }
-  #repeatBtn.inf .ico-inf{ display:block; }
-  #repeatBtn.inf{
-    pointer-events:none;
-    border-color:var(--accent); color:var(--ink); background:var(--accent-soft);
+  .repeat-btn .ico-inf {
+    display: none;
+  }
+  .repeat-btn.inf .ico-repeat {
+    display: none;
+  }
+  .repeat-btn.inf .ico-inf {
+    display: block;
+  }
+  .repeat-btn.inf {
+    pointer-events: none;
+    border-color: var(--accent);
+    color: var(--ink);
+    background: var(--accent-soft);
   }
 
   /* aides de lecture : trois bascules indépendantes en ligne, centrée
      verticalement sur le bouton play (align-items:center du transport) */
-  .seg{
-    display:flex;
-    border:1px solid var(--hairline); border-radius:999px; overflow:hidden;
-    background:rgba(255,255,255,.18);
+  .seg {
+    display: flex;
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.18);
   }
-  .seg button{
-    width:44px; height:40px; display:flex; align-items:center; justify-content:center;
-    color:var(--ink-faint); transition:color .4s,background .4s;
+  .seg button {
+    width: 44px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-faint);
+    transition: color 0.4s,background 0.4s;
   }
-  .seg button svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
-  .seg button + button{ border-left:1px solid var(--hairline); }
-  .seg button.active{ color:var(--ink); background:rgba(255,255,255,.55); }
-  .seg button:hover:not(.active){ color:var(--ink-soft); }
+  .seg button svg {
+    width: 17px;
+    height: 17px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .seg button + button {
+    border-left: 1px solid var(--hairline);
+  }
+  .seg button.active {
+    color: var(--ink);
+    background: rgba(255,255,255,0.55);
+  }
+  .seg button:hover:not(.active) {
+    color: var(--ink-soft);
+  }
 
-  .hint{
-    position:fixed; bottom:18px; left:0; right:0; z-index:5;
-    text-align:center; font-size:10px; letter-spacing:.26em; text-transform:uppercase;
-    color:var(--ink-faint); opacity:.55; pointer-events:none; user-select:none;
+  .hint {
+    position: fixed;
+    bottom: 18px;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    opacity: 0.55;
+    pointer-events: none;
+    user-select: none;
   }
 
   /* ---------- tiroir de réglages ---------- */
-  #veil{
-    position:fixed; inset:0; z-index:110;
-    background:rgba(74,84,102,.14);
-    -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
-    opacity:0; pointer-events:none; transition:opacity .5s;
+  .veil {
+    position: fixed;
+    inset: 0;
+    z-index: 110;
+    background: rgba(74,84,102,0.14);
+    -webkit-backdrop-filter: blur(2px);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s;
   }
-  #veil.show{ opacity:1; pointer-events:auto; }
-  #drawer{
-    position:fixed; top:0; right:0; bottom:0; z-index:120;
-    width:min(380px,94vw);
-    background:rgba(240,240,242,.86);
-    -webkit-backdrop-filter:blur(26px) saturate(1.15); backdrop-filter:blur(26px) saturate(1.15);
-    border-left:1px solid var(--hairline);
-    transform:translateX(102%);
-    transition:transform .55s var(--ease-drift);
-    overflow-y:auto;
-    padding:30px 30px 44px;
+  .veil.show {
+    opacity: 1;
+    pointer-events: auto;
   }
-  #drawer.open{ transform:none; }
-  .drawer-head{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:30px; }
-  .drawer-head h2{
-    font-family:"Cormorant Garamond",serif; font-weight:400; font-size:30px; letter-spacing:.02em;
+  .drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 120;
+    width: min(380px,94vw);
+    background: rgba(240,240,242,0.86);
+    -webkit-backdrop-filter: blur(26px) saturate(1.15);
+    backdrop-filter: blur(26px) saturate(1.15);
+    border-left: 1px solid var(--hairline);
+    transform: translateX(102%);
+    transition: transform 0.55s var(--ease-drift);
+    overflow-y: auto;
+    padding: 30px 30px 44px;
   }
-  #closeBtn{ padding:8px; color:var(--ink-soft); transition:color .3s,transform .3s; }
-  #closeBtn:hover{ color:var(--ink); transform:rotate(90deg); }
-  #closeBtn svg{ width:17px; height:17px; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; }
+  .drawer.open {
+    transform: none;
+  }
+  .drawer-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 30px;
+  }
+  .drawer-head h2 {
+    font-family: 'Cormorant Garamond',serif;
+    font-weight: 400;
+    font-size: 30px;
+    letter-spacing: 0.02em;
+  }
+  .close-btn {
+    padding: 8px;
+    color: var(--ink-soft);
+    transition: color 0.3s,transform 0.3s;
+  }
+  .close-btn:hover {
+    color: var(--ink);
+    transform: rotate(90deg);
+  }
+  .close-btn svg {
+    width: 17px;
+    height: 17px;
+    stroke: currentColor;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+  }
 
-  .field{ margin-bottom:28px; }
-  .field > h3{
-    font-size:10px; letter-spacing:.32em; text-transform:uppercase;
-    color:var(--ink-faint); font-weight:600; margin-bottom:14px;
+  .field {
+    margin-bottom: 28px;
+  }
+  .field > h3 {
+    font-size: 10px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+    margin-bottom: 14px;
   }
 
-  .figs{ display:flex; flex-direction:column; gap:2px; }
-  .fig{
-    display:flex; align-items:center; gap:14px;
-    padding:7px 10px; border-radius:10px; cursor:pointer;
-    transition:background .3s;
+  .figs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
-  .fig:hover{ background:rgba(255,255,255,.5); }
-  .fig input, .sound input{ position:absolute; opacity:0; pointer-events:none; }
-  .fig .dot, .sound .dot{
-    flex:none; width:16px; height:16px; border-radius:50%;
-    border:1px solid var(--hairline-strong);
-    position:relative; transition:border-color .35s;
+  .fig {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 7px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s;
   }
-  .fig .dot::after, .sound .dot::after{
-    content:""; position:absolute; inset:3px; border-radius:50%;
-    background:var(--accent); transform:scale(0);
-    transition:transform .35s var(--ease-drift);
+  .fig:hover {
+    background: rgba(255,255,255,0.5);
   }
-  .fig input:checked + .dot, .sound input:checked + .dot{ border-color:var(--accent); }
-  .fig input:checked + .dot::after, .sound input:checked + .dot::after{ transform:scale(1); }
+  .fig input,
+  .sound input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .fig .dot,
+  .sound .dot {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: 1px solid var(--hairline-strong);
+    position: relative;
+    transition: border-color 0.35s;
+  }
+  .fig .dot::after,
+  .sound .dot::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    background: var(--accent);
+    transform: scale(0);
+    transition: transform 0.35s var(--ease-drift);
+  }
+  .fig input:checked + .dot,
+  .sound input:checked + .dot {
+    border-color: var(--accent);
+  }
+  .fig input:checked + .dot::after,
+  .sound input:checked + .dot::after {
+    transform: scale(1);
+  }
 
   /* ---------- lignes de son (sélecteur + préécoute) ---------- */
-  .sounds{ display:flex; flex-direction:column; gap:2px; margin-bottom:14px; }
-  .sound{
-    display:flex; align-items:center; gap:14px;
-    padding:7px 10px; border-radius:10px; cursor:pointer;
-    transition:background .3s;
+  .sounds {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 14px;
   }
-  .sound:hover{ background:rgba(255,255,255,.5); }
-  .sound .name{ font-size:13.5px; letter-spacing:.02em; color:var(--ink); }
-  .sound .preview{
-    margin-left:auto; flex:none;
-    width:28px; height:28px; border-radius:50%;
-    border:1px solid var(--hairline);
-    display:flex; align-items:center; justify-content:center;
-    color:var(--ink-soft);
-    transition:border-color .3s,color .3s,background .3s,transform .2s var(--ease-drift);
+  .sound {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 7px 10px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s;
   }
-  .sound .preview:hover{ border-color:var(--accent); color:var(--ink); background:rgba(255,255,255,.6); }
-  .sound .preview:active{ transform:scale(.92); }
-  .sound .preview svg{ width:11px; height:11px; fill:currentColor; margin-left:1px; }
+  .sound:hover {
+    background: rgba(255,255,255,0.5);
+  }
+  .sound .name {
+    font-size: 13.5px;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+  }
+  .sound .preview {
+    margin-left: auto;
+    flex: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-soft);
+    transition: border-color 0.3s,color 0.3s,background 0.3s,transform 0.2s var(--ease-drift);
+  }
+  .sound .preview:hover {
+    border-color: var(--accent);
+    color: var(--ink);
+    background: rgba(255,255,255,0.6);
+  }
+  .sound .preview:active {
+    transform: scale(0.92);
+  }
+  .sound .preview svg {
+    width: 11px;
+    height: 11px;
+    fill: currentColor;
+    margin-left: 1px;
+  }
   /* sélecteur de note : les 7 pastilles tiennent sur une seule ligne */
-  #notePills{ flex-wrap:nowrap; gap:6px; }
-  #notePills .pill{ flex:1; padding:8px 0; text-align:center; }
-  .fig .glyph{
-    flex:none; width:26px; height:22px; object-fit:contain; object-position:center bottom; opacity:.72;
+  .pills.note-pills {
+    flex-wrap: nowrap;
+    gap: 6px;
   }
-  .fig .name{ font-size:13.5px; letter-spacing:.02em; color:var(--ink); }
+  .note-pills .pill {
+    flex: 1;
+    padding: 8px 0;
+    text-align: center;
+  }
+  .fig .glyph {
+    flex: none;
+    width: 26px;
+    height: 22px;
+    object-fit: contain;
+    object-position: center bottom;
+    opacity: 0.72;
+  }
+  .fig .name {
+    font-size: 13.5px;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+  }
 
-  .levels{ display:flex; flex-direction:column; gap:8px; }
-  .level{
-    display:flex; gap:14px; align-items:baseline;
-    border:1px solid var(--hairline); border-radius:12px;
-    padding:11px 15px; cursor:pointer;
-    transition:border-color .35s,background .35s;
+  .levels {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
   }
-  .level input{ position:absolute; opacity:0; pointer-events:none; }
-  .level .n{
-    font-family:"Cormorant Garamond",serif; font-size:23px; font-weight:400; color:var(--ink-faint);
-    transition:color .35s;
+  .level {
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+    border: 1px solid var(--hairline);
+    border-radius: 12px;
+    padding: 11px 15px;
+    cursor: pointer;
+    transition: border-color 0.35s,background 0.35s;
   }
-  .level .txt b{ display:block; font-size:13px; font-weight:600; letter-spacing:.02em; }
-  .level .txt span{ font-size:11.5px; color:var(--ink-soft); }
-  .level.checked{ border-color:var(--accent); background:rgba(255,255,255,.55); }
-  .level.checked .n{ color:var(--accent); }
+  .level input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .level .n {
+    font-family: 'Cormorant Garamond',serif;
+    font-size: 23px;
+    font-weight: 400;
+    color: var(--ink-faint);
+    transition: color 0.35s;
+  }
+  .level .txt b {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .level .txt span {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+  }
+  .level.checked {
+    border-color: var(--accent);
+    background: rgba(255,255,255,0.55);
+  }
+  .level.checked .n {
+    color: var(--accent);
+  }
 
-  .pills{ display:flex; flex-wrap:wrap; gap:8px; }
-  .pill{
-    border:1px solid var(--hairline); border-radius:999px;
-    padding:8px 15px; cursor:pointer; user-select:none;
-    font-size:13px; letter-spacing:.04em; color:var(--ink-soft);
-    transition:border-color .35s,background .35s,color .35s;
+  .pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
-  .pill input{ position:absolute; opacity:0; pointer-events:none; }
-  .pill.checked{ border-color:var(--accent); background:rgba(255,255,255,.6); color:var(--ink); }
-  .pill .frac{ font-family:"Cormorant Garamond",serif; font-size:15.5px; font-weight:500; }
+  .pill {
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    padding: 8px 15px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    transition: border-color 0.35s,background 0.35s,color 0.35s;
+  }
+  .pill input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+  .pill.checked {
+    border-color: var(--accent);
+    background: rgba(255,255,255,0.6);
+    color: var(--ink);
+  }
+  .pill .frac {
+    font-family: 'Cormorant Garamond',serif;
+    font-size: 15.5px;
+    font-weight: 500;
+  }
 
-  .btn{
-    display:inline-flex; align-items:center; justify-content:center;
-    font-size:11px; letter-spacing:.26em; text-transform:uppercase; font-weight:600;
-    border-radius:999px; padding:13px 22px;
-    transition:transform .3s var(--ease-drift),background .35s,border-color .35s,color .35s;
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    letter-spacing: 0.26em;
+    text-transform: uppercase;
+    font-weight: 600;
+    border-radius: 999px;
+    padding: 13px 22px;
+    transition: transform 0.3s var(--ease-drift),background 0.35s,border-color 0.35s,color 0.35s;
   }
-  .btn:active{ transform:scale(.97); }
-  .btn-primary{
-    width:100%; background:var(--ink); color:#eef0f3;
-    border:1px solid var(--ink);
+  .btn:active {
+    transform: scale(0.97);
   }
-  .btn-primary:hover{ background:#2e3644; }
-  @media (prefers-reduced-motion:reduce){
-    .breath, #playBtn.idle::after{ animation:none !important; }
-    .rise{ animation-duration:.01s; }
-    #scoreSlide{ transition:none; }
+  .btn-primary {
+    width: 100%;
+    background: var(--ink);
+    color: #eef0f3;
+    border: 1px solid var(--ink);
+  }
+  .btn-primary:hover {
+    background: #2e3644;
+  }
+  @media (prefers-reduced-motion:reduce) {
+    .breath,
+    .play-btn.idle::after {
+      animation: none !important;
+    }
+    .rise {
+      animation-duration: 0.01s;
+    }
+    .score-slide {
+      transition: none;
+    }
   }
   /* ---------- responsive ----------
      Ordre volontaire : hauteur compacte, puis mobile étroit, puis paysage
@@ -467,93 +1042,225 @@
 
   /* écrans peu hauts (petits laptops, tablettes paysage) : tout se resserre
      pour tenir sans défilement — le tempo cède la place à la portée */
-  @media (max-height:800px){
-    main{
-      gap:clamp(10px,2.2vh,24px);
-      padding:clamp(56px,9vh,80px) 4vw clamp(44px,7vh,60px);
+  @media (max-height:800px) {
+    main {
+      gap: clamp(10px,2.2vh,24px);
+      padding: clamp(56px,9vh,80px) 4vw clamp(44px,7vh,60px);
     }
-    .tempo{ --tempo-fs:clamp(72px,min(12vw,15vh),124px); }
+    .tempo {
+      --tempo-fs: clamp(72px,min(12vw,15vh),124px);
+    }
   }
 
   /* mobile étroit : cibles tactiles ≥ 44 px, chrome resserré */
-  @media (max-width:640px){
-    header{ padding:14px 16px; }
-    #settingsBtn{ padding:13px 14px; }
-    .tempo{ gap:18px; --tempo-fs:clamp(56px,17vw,72px); }
-    .step-btn{ min-height:44px; padding:12px 17px; }
-    .score-stage{ width:94vw; }
-    #beats{ gap:12px; }
-    .beat{ width:32px; height:32px; }
+  @media (max-width:640px) {
+    header {
+      padding: 14px 16px;
+    }
+    .settings-btn {
+      padding: 13px 14px;
+    }
+    .tempo {
+      gap: 18px;
+      --tempo-fs: clamp(56px,17vw,72px);
+    }
+    .step-btn {
+      min-height: 44px;
+      padding: 12px 17px;
+    }
+    .score-stage {
+      width: 94vw;
+    }
+    .beats {
+      gap: 12px;
+    }
+    .beat {
+      width: 32px;
+      height: 32px;
+    }
     /* 5 éléments (aides, retour, play, repeat, copier) : repli sur plusieurs lignes si besoin */
-    .transport{ gap:11px; flex-wrap:wrap; justify-content:center; }
-    .seg button{ width:50px; height:46px; }
-    #playBtn{ width:68px; height:68px; }
-    #rewindBtn, #repeatBtn, #copyLinkBtn{ width:44px; height:44px; }
-    .hint{ display:none; }
+    .transport {
+      gap: 11px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .seg button {
+      width: 50px;
+      height: 46px;
+    }
+    .play-btn {
+      width: 68px;
+      height: 68px;
+    }
+    .rewind-btn,
+    .repeat-btn,
+    .copy-link-btn {
+      width: 44px;
+      height: 44px;
+    }
+    .hint {
+      display: none;
+    }
     /* tiroir : mêmes hairlines, gabarits tactiles */
-    #drawer{ padding:24px 22px 40px; }
-    .drawer-head{ margin-bottom:24px; }
-    #closeBtn{ padding:12px; }
-    .field{ margin-bottom:24px; }
-    .sound{ padding:7px 10px; min-height:52px; }
-    .sound .preview{ width:42px; height:42px; }
-    .sound .preview svg{ width:13px; height:13px; }
-    .fig{ min-height:46px; padding:8px 10px; }
-    .pill{ padding:13px 15px; }
-    #notePills .pill{ padding:13px 0; }
-    .level{ padding:13px 15px; }
-    .btn{ min-height:48px; }
+    .drawer {
+      padding: 24px 22px 40px;
+    }
+    .drawer-head {
+      margin-bottom: 24px;
+    }
+    .close-btn {
+      padding: 12px;
+    }
+    .field {
+      margin-bottom: 24px;
+    }
+    .sound {
+      padding: 7px 10px;
+      min-height: 52px;
+    }
+    .sound .preview {
+      width: 42px;
+      height: 42px;
+    }
+    .sound .preview svg {
+      width: 13px;
+      height: 13px;
+    }
+    .fig {
+      min-height: 46px;
+      padding: 8px 10px;
+    }
+    .pill {
+      padding: 13px 15px;
+    }
+    .note-pills .pill {
+      padding: 13px 0;
+    }
+    .level {
+      padding: 13px 15px;
+    }
+    .btn {
+      min-height: 48px;
+    }
   }
 
   /* paysage court (téléphone à l'horizontale) : la colonne unique ne tient
      pas en 390 px de haut — la scène passe en grille : tempo, curseur et
      pastilles à gauche, titre et portée à droite, transport en pied.
      Le header suit le flux pour ne jamais recouvrir la portée. */
-  @media (orientation:landscape) and (max-height:540px){
-    header{ position:absolute; padding:12px 20px; }
-    .hint{ display:none; }
-    main{
-      display:grid;
-      grid-template-columns:minmax(200px,auto) minmax(0,1fr);
-      grid-template-areas:
-        "tempo  title"
-        "tempo  score"
-        "beats  score"
-        "foot   foot";
-      align-content:center; justify-content:center; align-items:center;
-      column-gap:clamp(24px,4vw,56px);
-      row-gap:clamp(8px,2.5vh,16px);
-      padding:48px 5vw 16px;
-      max-width:1060px; margin:0 auto;
+  @media (orientation:landscape) and (max-height:540px) {
+    header {
+      position: absolute;
+      padding: 12px 20px;
     }
-    .tempo{ grid-area:tempo; justify-self:center; align-self:center; gap:12px; --tempo-fs:clamp(56px,22vh,100px); }
-    #exTitle{ grid-area:title; margin-bottom:0; font-size:15.5px; }
-    .score-stage{ grid-area:score; width:100%; }
-    #beats{ grid-area:beats; justify-self:center; gap:10px; }
-    .beat{ width:26px; height:26px; font-size:10.5px; }
-    .transport{ grid-area:foot; justify-self:center; gap:22px; }
-    #playBtn{ width:64px; height:64px; }
-    #playBtn svg{ width:20px; height:20px; }
-    #rewindBtn, #repeatBtn, #copyLinkBtn{ width:44px; height:44px; }
-    #countNum{ font-size:clamp(56px,18vh,110px); }
+    .hint {
+      display: none;
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(200px,auto) minmax(0,1fr);
+      grid-template-areas:
+        'tempo  title'
+        'tempo  score'
+        'beats  score'
+        'foot   foot';
+      align-content: center;
+      justify-content: center;
+      align-items: center;
+      column-gap: clamp(24px,4vw,56px);
+      row-gap: clamp(8px,2.5vh,16px);
+      padding: 48px 5vw 16px;
+      max-width: 1060px;
+      margin: 0 auto;
+    }
+    .tempo {
+      grid-area: tempo;
+      justify-self: center;
+      align-self: center;
+      gap: 12px;
+      --tempo-fs: clamp(56px,22vh,100px);
+    }
+    .ex-title {
+      grid-area: title;
+      margin-bottom: 0;
+      font-size: 15.5px;
+    }
+    .score-stage {
+      grid-area: score;
+      width: 100%;
+    }
+    .beats {
+      grid-area: beats;
+      justify-self: center;
+      gap: 10px;
+    }
+    .beat {
+      width: 26px;
+      height: 26px;
+      font-size: 10.5px;
+    }
+    .transport {
+      grid-area: foot;
+      justify-self: center;
+      gap: 22px;
+    }
+    .play-btn {
+      width: 64px;
+      height: 64px;
+    }
+    .play-btn svg {
+      width: 20px;
+      height: 20px;
+    }
+    .rewind-btn,
+    .repeat-btn,
+    .copy-link-btn {
+      width: 44px;
+      height: 44px;
+    }
+    .count-num {
+      font-size: clamp(56px,18vh,110px);
+    }
   }
 
   /* pointeur tactile, quelle que soit la largeur : gabarits de saisie */
-  @media (pointer:coarse){
-    .step-btn{ min-height:44px; padding:12px 17px; }
-    .seg button{ min-width:50px; min-height:46px; }
-    .sound .preview{ width:42px; height:42px; }
-    .pill{ padding:13px 15px; }
-    #notePills .pill{ padding:13px 0; }
-    .fig{ min-height:46px; }
-    .level{ padding:13px 15px; }
-    .btn{ min-height:48px; }
+  @media (pointer:coarse) {
+    .step-btn {
+      min-height: 44px;
+      padding: 12px 17px;
+    }
+    .seg button {
+      min-width: 50px;
+      min-height: 46px;
+    }
+    .sound .preview {
+      width: 42px;
+      height: 42px;
+    }
+    .pill {
+      padding: 13px 15px;
+    }
+    .note-pills .pill {
+      padding: 13px 0;
+    }
+    .fig {
+      min-height: 46px;
+    }
+    .level {
+      padding: 13px 15px;
+    }
+    .btn {
+      min-height: 48px;
+    }
   }
 
   /* très étroit (Android 360 px) : les aides se resserrent, le transport
      tient sur une ligne — après pointer:coarse pour gagner sur son min-width */
-  @media (max-width:400px){
-    .seg button{ width:46px; min-width:46px; }
+  @media (max-width:400px) {
+    .seg button {
+      width: 46px;
+      min-width: 46px;
+    }
   }
 </style>
 </head>
@@ -565,7 +1272,7 @@
 
 <header>
   <div class="wordmark">Rhythm Trainer</div>
-  <button id="settingsBtn" aria-label="Ouvrir les réglages" aria-controls="drawer" aria-expanded="false">
+  <button id="settings-btn" class="settings-btn" aria-label="Ouvrir les réglages" aria-controls="drawer" aria-expanded="false">
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M4 7h7.5M16.5 7H20"/><circle cx="14" cy="7" r="2.4"/>
       <path d="M4 12h2.5M11.5 12H20"/><circle cx="9" cy="12" r="2.4"/>
@@ -580,7 +1287,7 @@
   <div class="tempo rise d1">
     <button id="minus5" class="step-btn" aria-label="Diminuer le tempo de 5 BPM">−5</button>
     <div class="tempo-core">
-      <input id="tempoNum" type="text" inputmode="numeric" maxlength="3" value="60" autocomplete="off"
+      <input id="tempo-num" class="tempo-num" type="text" inputmode="numeric" maxlength="3" value="60" autocomplete="off"
              aria-label="Tempo en BPM" title="Cliquer pour saisir · glisser verticalement ou molette pour ajuster">
       <span class="bpm">BPM</span>
     </div>
@@ -588,51 +1295,51 @@
   </div>
 
   <!-- en-tête d'exercice (nᵒ de session + leçon Agostini, mis à jour à chaque génération) -->
-  <div id="exTitle" class="rise d2" aria-live="polite"></div>
+  <div id="ex-title" class="ex-title rise d2" aria-live="polite"></div>
 
   <!-- portée : fenêtre (overflow caché sur mobile) + glissière téléprompteur -->
   <div class="score-stage rise d2" id="stage">
-    <div id="scoreWin">
-      <div id="scoreSlide">
-        <div id="score"></div>
-        <div id="cursor"></div>
+    <div id="score-win" class="score-win">
+      <div id="score-slide" class="score-slide">
+        <div id="score" class="score"></div>
+        <div id="cursor" class="cursor"></div>
       </div>
     </div>
-    <div id="countVeil" aria-hidden="true"><span id="countNum"></span></div>
+    <div id="count-veil" class="count-veil" aria-hidden="true"><span id="count-num" class="count-num"></span></div>
   </div>
 
   <!-- pastilles de temps -->
-  <div id="beats" class="rise d3" aria-hidden="true"></div>
+  <div id="beats" class="beats rise d3" aria-hidden="true"></div>
 
   <!-- transport -->
   <div class="transport rise d4">
     <div class="seg" role="group" aria-label="Aides de lecture">
-      <button id="tglClick" class="active" title="Métronome — clics des temps" aria-pressed="true" aria-label="Métronome">
+      <button id="tgl-click" class="active" title="Métronome — clics des temps" aria-pressed="true" aria-label="Métronome">
         <svg viewBox="0 0 24 24"><path d="M9.3 4.5h5.4l2.8 15H6.5z"/><line x1="12" y1="15.5" x2="16" y2="6.8"/><line x1="8.4" y1="15.5" x2="15.6" y2="15.5"/></svg>
       </button>
-      <button id="tglVisual" class="active" title="Guide visuel — durée des notes et curseur" aria-pressed="true" aria-label="Guide visuel">
+      <button id="tgl-visual" class="active" title="Guide visuel — durée des notes et curseur" aria-pressed="true" aria-label="Guide visuel">
         <svg viewBox="0 0 24 24"><path d="M2.8 12s3.4-6 9.2-6 9.2 6 9.2 6-3.4 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.5"/></svg>
       </button>
-      <button id="tglSound" title="Son — rythmique jouée" aria-pressed="false" aria-label="Son">
+      <button id="tgl-sound" title="Son — rythmique jouée" aria-pressed="false" aria-label="Son">
         <svg viewBox="0 0 24 24"><path d="M4.5 9.6v4.8h3.2l4.5 3.7V5.9L7.7 9.6z"/><path d="M15.6 9.4a3.7 3.7 0 0 1 0 5.2M18.2 7.1a7 7 0 0 1 0 9.8"/></svg>
       </button>
     </div>
 
-    <button id="rewindBtn" aria-label="Retour au début" title="Retour au début">
+    <button id="rewind-btn" class="rewind-btn" aria-label="Retour au début" title="Retour au début">
       <svg viewBox="0 0 24 24"><line x1="7.4" y1="6.8" x2="7.4" y2="17.2"/><path d="M17.2 7.2v9.6L9.8 12z"/></svg>
     </button>
 
-    <button id="playBtn" class="idle" aria-label="Lancer la lecture">
-      <svg id="iconPlay" viewBox="0 0 24 24"><path d="M8.2 5.2v13.6L19.4 12z"/></svg>
-      <svg id="iconPause" viewBox="0 0 24 24" style="display:none"><rect x="7.2" y="5.5" width="2.6" height="13" rx="1.1"/><rect x="14.2" y="5.5" width="2.6" height="13" rx="1.1"/></svg>
+    <button id="play-btn" class="play-btn idle" aria-label="Lancer la lecture">
+      <svg id="icon-play" viewBox="0 0 24 24"><path d="M8.2 5.2v13.6L19.4 12z"/></svg>
+      <svg id="icon-pause" viewBox="0 0 24 24" style="display:none"><rect x="7.2" y="5.5" width="2.6" height="13" rx="1.1"/><rect x="14.2" y="5.5" width="2.6" height="13" rx="1.1"/></svg>
     </button>
 
-    <button id="repeatBtn" aria-label="Boucler l'exercice" aria-pressed="false" title="Boucler l'exercice">
+    <button id="repeat-btn" class="repeat-btn" aria-label="Boucler l'exercice" aria-pressed="false" title="Boucler l'exercice">
       <svg class="ico-repeat" viewBox="0 0 24 24"><path d="M16.6 3.6l3.3 3.2-3.3 3.2"/><path d="M4.1 12.5v-2.2a3.5 3.5 0 0 1 3.5-3.5h12"/><path d="M7.4 20.4l-3.3-3.2 3.3-3.2"/><path d="M19.9 11.5v2.2a3.5 3.5 0 0 1-3.5 3.5h-12"/></svg>
       <svg class="ico-inf" viewBox="0 0 24 24"><path d="M18.1 8.4c2 0 3.6 1.6 3.6 3.6s-1.6 3.6-3.6 3.6c-3.7 0-8.5-7.2-12.2-7.2-2 0-3.6 1.6-3.6 3.6s1.6 3.6 3.6 3.6c3.7 0 8.5-7.2 12.2-7.2z"/></svg>
     </button>
 
-    <button id="copyLinkBtn" aria-label="Copier le lien de la grille" title="Copier le lien de la grille">
+    <button id="copy-link-btn" class="copy-link-btn" aria-label="Copier le lien de la grille" title="Copier le lien de la grille">
       <svg class="ico-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></svg>
       <svg class="ico-done" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></svg>
     </button>
@@ -640,21 +1347,21 @@
 </main>
 
 <div class="hint">Espace — lancer ou suspendre la lecture</div>
-<div id="toast" role="status" aria-live="polite"></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <!-- tiroir de configuration -->
-<div id="veil"></div>
-<aside id="drawer" aria-hidden="true" aria-label="Réglages de l'exercice">
+<div id="veil" class="veil"></div>
+<aside id="drawer" class="drawer" aria-hidden="true" aria-label="Réglages de l'exercice">
   <div class="drawer-head">
     <h2>Réglages</h2>
-    <button id="closeBtn" aria-label="Fermer les réglages">
+    <button id="close-btn" class="close-btn" aria-label="Fermer les réglages">
       <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
   </div>
 
   <div class="field">
     <h3>Son</h3>
-    <div class="sounds" id="soundList">
+    <div class="sounds" id="sound-list">
       <label class="sound"><input type="radio" name="sound" value="growl" checked><span class="dot"></span><span class="name">Basse growl</span>
         <button type="button" class="preview" data-sound="growl" aria-label="Écouter la basse growl" title="Écouter"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
       <label class="sound"><input type="radio" name="sound" value="synth"><span class="dot"></span><span class="name">Synthé</span>
@@ -664,7 +1371,7 @@
       <label class="sound"><input type="radio" name="sound" value="arco"><span class="dot"></span><span class="name">Contrebasse à l'archet</span>
         <button type="button" class="preview" data-sound="arco" aria-label="Écouter la contrebasse à l'archet" title="Écouter"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
     </div>
-    <div class="pills" id="notePills" role="group" aria-label="Note d'entraînement">
+    <div class="pills note-pills" id="note-pills" role="group" aria-label="Note d'entraînement">
       <label class="pill"><input type="radio" name="note" value="E">E</label>
       <label class="pill"><input type="radio" name="note" value="F">F</label>
       <label class="pill"><input type="radio" name="note" value="G">G</label>
@@ -699,7 +1406,7 @@
 
   <div class="field">
     <h3>Signature</h3>
-    <div class="pills" id="sigPills">
+    <div class="pills" id="sig-pills">
       <label class="pill"><input type="radio" name="sig" value="2/4"><span class="frac">2/4</span></label>
       <label class="pill"><input type="radio" name="sig" value="3/4"><span class="frac">3/4</span></label>
       <label class="pill checked"><input type="radio" name="sig" value="4/4" checked><span class="frac">4/4</span></label>
@@ -711,7 +1418,7 @@
 
   <div class="field">
     <h3>Mesures</h3>
-    <div class="pills" id="mesPills">
+    <div class="pills" id="mes-pills">
       <label class="pill"><input type="radio" name="mes" value="4">4</label>
       <label class="pill checked"><input type="radio" name="mes" value="8" checked>8</label>
       <label class="pill"><input type="radio" name="mes" value="16">16</label>
@@ -719,7 +1426,7 @@
     </div>
   </div>
 
-  <button class="btn btn-primary" id="generateBtn">Générer</button>
+  <button class="btn btn-primary" id="generate-btn">Générer</button>
 </aside>
 
 <script src="vendor/abcjs-basic-min.js"></script>
@@ -744,27 +1451,27 @@
   var TOTAL_BEATS = 32;          // recalculé à chaque génération (mesures × temps par mesure)
   var currentSeed = 0;           // graine mulberry32 de la grille courante — reproductibilité + lien partageable
 
-  var exTitle = document.getElementById("exTitle");
+  var exTitle = document.getElementById("ex-title");
   var stage = document.getElementById("stage");
-  var scoreWin = document.getElementById("scoreWin");
-  var scoreSlide = document.getElementById("scoreSlide");
+  var scoreWin = document.getElementById("score-win");
+  var scoreSlide = document.getElementById("score-slide");
   var scoreEl = document.getElementById("score");
   var cursor = document.getElementById("cursor");
-  var countVeil = document.getElementById("countVeil");
-  var countNum = document.getElementById("countNum");
+  var countVeil = document.getElementById("count-veil");
+  var countNum = document.getElementById("count-num");
   var beatsEl = document.getElementById("beats");
-  var playBtn = document.getElementById("playBtn");
-  var rewindBtn = document.getElementById("rewindBtn");
-  var repeatBtn = document.getElementById("repeatBtn");
-  var iconPlay = document.getElementById("iconPlay");
-  var iconPause = document.getElementById("iconPause");
-  var tempoNum = document.getElementById("tempoNum");
+  var playBtn = document.getElementById("play-btn");
+  var rewindBtn = document.getElementById("rewind-btn");
+  var repeatBtn = document.getElementById("repeat-btn");
+  var iconPlay = document.getElementById("icon-play");
+  var iconPause = document.getElementById("icon-pause");
+  var tempoNum = document.getElementById("tempo-num");
   var plus5 = document.getElementById("plus5");
   var minus5 = document.getElementById("minus5");
   var drawer = document.getElementById("drawer");
   var veil = document.getElementById("veil");
-  var settingsBtn = document.getElementById("settingsBtn");
-  var copyLinkBtn = document.getElementById("copyLinkBtn");
+  var settingsBtn = document.getElementById("settings-btn");
+  var copyLinkBtn = document.getElementById("copy-link-btn");
   var toastEl = document.getElementById("toast");
 
   var bpm = 60;
@@ -1489,18 +2196,18 @@
       fn(on);
     });
   }
-  bindToggle("tglClick", function(on){
+  bindToggle("tgl-click", function(on){
     clickOn = on;
     if (playing && transport) transport.setClicksEnabled(on);
   });
-  bindToggle("tglVisual", function(on){
+  bindToggle("tgl-visual", function(on){
     visualOn = on;
     if (!on){
       clearLit();
       cursor.classList.remove("live");
     }
   });
-  bindToggle("tglSound", function(on){
+  bindToggle("tgl-sound", function(on){
     soundOn = on;
     if (playing && transport) transport.setNotesEnabled(on);
   });
@@ -1519,7 +2226,7 @@
     veil.classList.remove("show");
   }
   settingsBtn.addEventListener("click", openDrawer);
-  document.getElementById("closeBtn").addEventListener("click", closeDrawer);
+  document.getElementById("close-btn").addEventListener("click", closeDrawer);
   veil.addEventListener("click", closeDrawer);
   document.addEventListener("keydown", function(e){
     if (e.key === "Escape") closeDrawer();
@@ -1544,11 +2251,11 @@
       });
     });
   }
-  bindPills("sigPills", function(v){
+  bindPills("sig-pills", function(v){
     signature = v;
     buildBeats();
   });
-  bindPills("mesPills", function(v){
+  bindPills("mes-pills", function(v){
     measuresChoice = v;
   });
 
@@ -1564,13 +2271,13 @@
     return abc.slice(0, i + mark.length) +
       abc.slice(i + mark.length).replace(/[A-G],{0,2}/g, tok);
   }
-  document.querySelectorAll('#soundList input[name="sound"]').forEach(function(inp){
+  document.querySelectorAll('#sound-list input[name="sound"]').forEach(function(inp){
     inp.addEventListener("change", function(){
       if (!inp.checked) return;
       soundChoice = inp.value;
     });
   });
-  bindPills("notePills", function(v){
+  bindPills("note-pills", function(v){
     noteChoice = v;
     currentAbc = rePitchAbc(currentAbc, noteByLetter(v).abc);
     renderScore(true);
@@ -1583,7 +2290,7 @@
      premier clic crée l'AudioContext ; on attend le décodage du sample visé
      avant de jouer (repli synthé si échec). */
   var previewHandle = null;
-  document.querySelectorAll("#soundList .preview").forEach(function(btn){
+  document.querySelectorAll("#sound-list .preview").forEach(function(btn){
     btn.addEventListener("click", function(e){
       e.preventDefault();
       e.stopPropagation();
@@ -1821,7 +2528,7 @@
     computeLines();
     closeDrawer();
   }
-  document.getElementById("generateBtn").addEventListener("click", regenerate);
+  document.getElementById("generate-btn").addEventListener("click", regenerate);
 
   /* ---------- retour au début ----------
      En lecture : relance immédiate depuis le début de la grille, décompte
@@ -1979,9 +2686,9 @@
       l.classList.toggle("checked", l.querySelector("input").checked);
     });
     // signature / note / mesures : pastilles + variables d'état
-    setPill("sigPills", st.meter);    signature = st.meter;
-    setPill("notePills", st.note);    noteChoice = st.note;
-    setPill("mesPills", st.measures); measuresChoice = st.measures;
+    setPill("sig-pills", st.meter);    signature = st.meter;
+    setPill("note-pills", st.note);    noteChoice = st.note;
+    setPill("mes-pills", st.measures); measuresChoice = st.measures;
   }
 
   function readShareFromHash(){
