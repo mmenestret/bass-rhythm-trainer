@@ -290,7 +290,7 @@
   #copyLinkBtn.copied{ border-color:var(--accent); color:var(--ink); background:var(--accent-soft); }
   #copyLinkBtn.copied .ico-copy{ display:none; }
   #copyLinkBtn.copied .ico-done{ display:block; }
-  /* toast « lien copié » : brume de verre discrète, disparaît seule */
+  /* toast « Lien copié » : brume de verre discrète, disparaît seule */
   #toast{
     position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 26px);
     transform:translate(-50%, 12px);
@@ -1872,7 +1872,7 @@
     updateShareUrl(); // garantit que location.href reflète la grille affichée
     copyText(location.href).then(function(){
       flashCopied();
-      showToast("lien copié");
+      showToast("Lien copié");
     }, function(){
       showToast("copie impossible");
     });
