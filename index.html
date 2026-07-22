@@ -64,8 +64,18 @@
   }
 
   /* ---------- atmosphère : brume qui respire + grain ---------- */
-  .breath {
+  /* calque fixe clippé au viewport : contient les halos pour qu'ils ne
+     débordent jamais la page (sinon un transform d'ancêtre — extension — les
+     recale et crée un scroll horizontal). */
+  .breath-field {
     position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .breath {
+    position: absolute;
     border-radius: 50%;
     filter: blur(90px);
     pointer-events: none;
@@ -116,7 +126,7 @@
   body::after {
     content: '';
     position: fixed;
-    inset: -40px;
+    inset: 0;
     z-index: 300;
     pointer-events: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -823,12 +833,22 @@
     opacity: 1;
     pointer-events: auto;
   }
-  .drawer {
+  /* calque hors-champ des tiroirs : fixe, clippé au viewport, laisse passer
+     les clics (les tiroirs rétablissent pointer-events). Enfermer les tiroirs
+     ici les empêche d'élargir la page quand ils sont fermés (translateX hors
+     écran), y compris sous un ancêtre transformé par une extension. */
+  .offcanvas {
     position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 120;
+  }
+  .drawer {
+    position: absolute;
     top: 0;
     right: 0;
     bottom: 0;
-    z-index: 120;
     width: min(380px,94vw);
     background: rgba(240,240,242,0.86);
     -webkit-backdrop-filter: blur(26px) saturate(1.15);
@@ -837,6 +857,7 @@
     transform: translateX(102%);
     transition: transform 0.55s var(--ease-drift);
     overflow-y: auto;
+    pointer-events: auto;
     padding: 30px 30px 44px;
   }
   .drawer.open {
@@ -1631,9 +1652,15 @@
 </head>
 <body>
 
-<div class="breath breath-a"></div>
-<div class="breath breath-b"></div>
-<div class="breath breath-c"></div>
+<!-- halos d'arrière-plan, enfermés dans un calque fixe clippé au viewport :
+     ils débordent volontairement les bords (left/right négatifs) mais ne
+     peuvent jamais créer de scroll horizontal, même si une extension applique
+     un transform sur un ancêtre (ce qui recale les éléments fixes). -->
+<div class="breath-field" aria-hidden="true">
+  <div class="breath breath-a"></div>
+  <div class="breath breath-b"></div>
+  <div class="breath breath-c"></div>
+</div>
 
 <header>
   <div class="wordmark">Rhythm Trainer</div>
@@ -1741,6 +1768,10 @@
 
 <!-- tiroir de configuration -->
 <div id="veil" class="veil"></div>
+<!-- calque hors-champ : les tiroirs glissent depuis la droite (translateX hors
+     écran quand fermés). Enfermés ici (fixe, clippé, sans capture de clic), ils
+     ne peuvent pas élargir la page, même sous un ancêtre transformé. -->
+<div class="offcanvas">
 <aside id="drawer" class="drawer" aria-hidden="true" aria-label="Jouer — réglages de l'exercice">
   <div class="drawer-head">
     <h2>Jouer</h2>
@@ -1857,6 +1888,7 @@
 
   <button class="btn btn-primary composer-play" id="composer-play">Jouer</button>
 </aside>
+</div><!-- .offcanvas -->
 
 <script src="vendor/abcjs-basic-min.js"></script>
 <script src="js/generator.js"></script>
