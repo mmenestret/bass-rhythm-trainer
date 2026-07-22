@@ -166,6 +166,11 @@
     stroke-width: 1.5;
     stroke-linecap: round;
   }
+  /* tête de note pleine dans l'icône « Jouer » (croche) */
+  .settings-btn svg .note-head {
+    fill: currentColor;
+    stroke: none;
+  }
   .settings-btn:hover {
     color: var(--ink);
     background: var(--glass);
@@ -702,6 +707,88 @@
   }
   .seg button:hover:not(.active) {
     color: var(--ink-soft);
+  }
+
+  /* aides de lecture repliées : un seul cercle déclencheur, sœur du retour /
+     repeat / copier, qui déplie les trois bascules dans un flotteur ancré
+     au-dessus. La rangée reste symétrique et le play centré, panneau ouvert
+     ou fermé. */
+  .aids {
+    position: relative;
+    display: flex;
+  }
+  .aids-toggle {
+    position: relative;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: 1px solid var(--hairline);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink-soft);
+    transition: transform 0.4s var(--ease-drift),border-color 0.4s,color 0.4s,background 0.4s;
+  }
+  .aids-toggle svg {
+    width: 17px;
+    height: 17px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .aids-toggle:hover {
+    border-color: var(--hairline-strong);
+    color: var(--ink);
+    background: var(--glass);
+  }
+  .aids-toggle:active {
+    transform: scale(0.94);
+  }
+  .aids.open .aids-toggle {
+    border-color: var(--accent);
+    color: var(--ink);
+    background: var(--accent-soft);
+  }
+  /* pastille d'accent : au moins une aide reste active, panneau replié */
+  .aids-badge {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    opacity: 0;
+    transform: scale(0.4);
+    transition: opacity 0.3s,transform 0.3s var(--ease-drift);
+  }
+  .aids.has-active .aids-badge {
+    opacity: 1;
+    transform: scale(1);
+  }
+  /* le flotteur des trois bascules : ancré et centré au-dessus du déclencheur,
+     hors flux pour ne pas décaler la rangée ; se déplie en fondu + échelle */
+  .aids .seg {
+    position: absolute;
+    bottom: calc(100% + 12px);
+    left: 50%;
+    transform: translateX(-50%) translateY(6px) scale(0.94);
+    transform-origin: bottom center;
+    background: var(--glass);
+    -webkit-backdrop-filter: blur(9px);
+    backdrop-filter: blur(9px);
+    box-shadow: 0 10px 30px rgba(74,84,102,0.16);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 20;
+    transition: opacity 0.32s var(--ease-drift),transform 0.32s var(--ease-drift);
+  }
+  .aids.open .seg {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(-50%) translateY(0) scale(1);
   }
 
   .hint {
@@ -1368,6 +1455,7 @@
       width: 68px;
       height: 68px;
     }
+    .aids-toggle,
     .rewind-btn,
     .repeat-btn,
     .copy-link-btn {
@@ -1488,6 +1576,7 @@
       width: 20px;
       height: 20px;
     }
+    .aids-toggle,
     .rewind-btn,
     .repeat-btn,
     .copy-link-btn {
@@ -1557,9 +1646,8 @@
     </button>
     <button id="settings-btn" class="settings-btn" aria-label="Jouer — réglages et génération de l'exercice" aria-controls="drawer" aria-expanded="false">
       <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 7h7.5M16.5 7H20"/><circle cx="14" cy="7" r="2.4"/>
-        <path d="M4 12h2.5M11.5 12H20"/><circle cx="9" cy="12" r="2.4"/>
-        <path d="M4 17h10.5M19.5 17H20"/><circle cx="17" cy="17" r="2.4"/>
+        <ellipse class="note-head" cx="8" cy="17.5" rx="3" ry="2.2" transform="rotate(-20 8 17.5)"/>
+        <path d="M10.7 16.4V5.5"/><path d="M10.7 5.5c3.4 1 5 2.7 4.7 6.2"/>
       </svg>
       <span class="btn-label">Jouer</span>
     </button>
@@ -1597,16 +1685,22 @@
 
   <!-- transport -->
   <div class="transport rise d4 player-only">
-    <div class="seg" role="group" aria-label="Aides de lecture">
-      <button id="tgl-click" class="active" title="Métronome — clics des temps" aria-pressed="true" aria-label="Métronome">
-        <svg viewBox="0 0 24 24"><path d="M9.3 4.5h5.4l2.8 15H6.5z"/><line x1="12" y1="15.5" x2="16" y2="6.8"/><line x1="8.4" y1="15.5" x2="15.6" y2="15.5"/></svg>
+    <div class="aids" id="aids">
+      <button id="aids-toggle" class="aids-toggle" aria-expanded="false" aria-controls="aids-panel" aria-haspopup="true" title="Aides de lecture" aria-label="Aides de lecture — métronome, guide visuel, son">
+        <svg viewBox="0 0 24 24"><line x1="4" y1="8.5" x2="20" y2="8.5"/><circle cx="9.5" cy="8.5" r="2.4"/><line x1="4" y1="15.5" x2="20" y2="15.5"/><circle cx="14.5" cy="15.5" r="2.4"/></svg>
+        <span class="aids-badge" aria-hidden="true"></span>
       </button>
-      <button id="tgl-visual" class="active" title="Guide visuel — durée des notes et curseur" aria-pressed="true" aria-label="Guide visuel">
-        <svg viewBox="0 0 24 24"><path d="M2.8 12s3.4-6 9.2-6 9.2 6 9.2 6-3.4 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.5"/></svg>
-      </button>
-      <button id="tgl-sound" title="Son — rythmique jouée" aria-pressed="false" aria-label="Son">
-        <svg viewBox="0 0 24 24"><path d="M4.5 9.6v4.8h3.2l4.5 3.7V5.9L7.7 9.6z"/><path d="M15.6 9.4a3.7 3.7 0 0 1 0 5.2M18.2 7.1a7 7 0 0 1 0 9.8"/></svg>
-      </button>
+      <div class="seg" id="aids-panel" role="group" aria-label="Aides de lecture">
+        <button id="tgl-click" class="active" title="Métronome — clics des temps" aria-pressed="true" aria-label="Métronome">
+          <svg viewBox="0 0 24 24"><path d="M9.3 4.5h5.4l2.8 15H6.5z"/><line x1="12" y1="15.5" x2="16" y2="6.8"/><line x1="8.4" y1="15.5" x2="15.6" y2="15.5"/></svg>
+        </button>
+        <button id="tgl-visual" class="active" title="Guide visuel — durée des notes et curseur" aria-pressed="true" aria-label="Guide visuel">
+          <svg viewBox="0 0 24 24"><path d="M2.8 12s3.4-6 9.2-6 9.2 6 9.2 6-3.4 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.5"/></svg>
+        </button>
+        <button id="tgl-sound" title="Son — rythmique jouée" aria-pressed="false" aria-label="Son">
+          <svg viewBox="0 0 24 24"><path d="M4.5 9.6v4.8h3.2l4.5 3.7V5.9L7.7 9.6z"/><path d="M15.6 9.4a3.7 3.7 0 0 1 0 5.2M18.2 7.1a7 7 0 0 1 0 9.8"/></svg>
+        </button>
+      </div>
     </div>
 
     <button id="rewind-btn" class="rewind-btn" aria-label="Retour au début" title="Retour au début">
@@ -2586,6 +2680,51 @@
     soundOn = on;
     if (playing && transport) transport.setNotesEnabled(on);
   });
+
+  /* Déclencheur des aides : un seul cercle qui déplie le flotteur des trois
+     bascules. La rangée reste symétrique (play centré) ; le flotteur se referme
+     au clic ailleurs ou sur Échap, mais reste ouvert quand on enchaîne les
+     bascules. Une pastille signale qu'au moins une aide est active, replié. */
+  (function(){
+    var aids = document.getElementById("aids");
+    var aidsToggle = document.getElementById("aids-toggle");
+    var aidsPanel = document.getElementById("aids-panel");
+    if (!aids || !aidsToggle || !aidsPanel) return;
+    var aidIds = ["tgl-click","tgl-visual","tgl-sound"];
+
+    function closeAids(){
+      aids.classList.remove("open");
+      aidsToggle.setAttribute("aria-expanded", "false");
+    }
+    aidsToggle.addEventListener("click", function(e){
+      e.stopPropagation();
+      var open = !aids.classList.contains("open");
+      aids.classList.toggle("open", open);
+      aidsToggle.setAttribute("aria-expanded", String(open));
+    });
+    // clic dans le flotteur : on garde ouvert pour enchaîner les bascules
+    aidsPanel.addEventListener("click", function(e){ e.stopPropagation(); });
+    document.addEventListener("click", function(){
+      if (aids.classList.contains("open")) closeAids();
+    });
+    document.addEventListener("keydown", function(e){
+      if (e.key === "Escape") closeAids();
+    });
+
+    // pastille : reflète l'état des bascules après chaque changement
+    function refreshAidsBadge(){
+      var any = aidIds.some(function(id){
+        var b = document.getElementById(id);
+        return b && b.classList.contains("active");
+      });
+      aids.classList.toggle("has-active", any);
+    }
+    aidIds.forEach(function(id){
+      var b = document.getElementById(id);
+      if (b) b.addEventListener("click", refreshAidsBadge);
+    });
+    refreshAidsBadge();
+  })();
 
   /* ---------- tiroir ---------- */
   /* Le bandeau de retour n'apparaît que lorsqu'une grille composée est chargée
