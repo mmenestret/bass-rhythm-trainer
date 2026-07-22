@@ -25,6 +25,12 @@
  * vaut une blanche : les mêmes cellules se transposent automatiquement
  * (la noire y joue le rôle de la croche, etc.).
  *
+ * Grille composée (mode Composer) : assembleComposed(measures, config) rend le
+ * même { abc, notes, bars, header } à partir d'une suite de mesures construites
+ * à la main — l'assemblage (chooseUnit + barText) est partagé, sans duplication.
+ * encodeComposed / decodeComposed sérialisent son CONTENU dans le hash d'URL
+ * (second format, coexistant avec la graine) : cf. docs/adr/0001-partage-grille-composee.md.
+ *
  * UMD minimal : window.BassRhythmGenerator dans la page, module.exports sous Node.
  */
 (function (root, factory) {
@@ -143,6 +149,14 @@
   /* Convertit une durée en temps vers une durée en 64e de ronde. */
   function beatsTo64(d, den) {
     return Math.round(d * 64 / den);
+  }
+
+  /* Durée en temps d'une figure sous une signature (dénominateur den),
+     éventuellement pointée (×1,5). En x/2 le temps vaut une blanche : la même
+     figure s'y transpose (la noire y vaut un demi-temps). Partagée par la
+     composition manuelle (pose, invariant, codec) et ses tests. */
+  function figureBeats(fig, den, dot) {
+    return FIGURE_64[fig] * den / 64 * (dot ? 1.5 : 1);
   }
 
   function gcd(a, b) {
@@ -300,47 +314,80 @@
 
   /* ---------- assemblage ABC + timeline ---------- */
 
-  function assemble(measures, config, m) {
-    var den = m.den;
-    var noteTok = config.note || "D,";
-    var i, j;
-
-    /* Unité L: adaptée à la plus petite durée réellement générée (max 1/64). */
+  /*
+   * Unité L: de la grille : la plus fine réellement présente, entre 1/8 et
+   * 1/64 (une grille sans événement retombe sur 1/8). Partagée par le tirage
+   * aléatoire et la composition manuelle — même choix d'unité des deux côtés.
+   */
+  function chooseUnit(measures, den) {
     var g = 0;
-    for (i = 0; i < measures.length; i++) {
-      for (j = 0; j < measures[i].length; j++) {
+    for (var i = 0; i < measures.length; i++) {
+      for (var j = 0; j < measures[i].length; j++) {
         g = gcd(g, beatsTo64(measures[i][j].d, den));
       }
     }
-    var unit = gcd(g, 8); /* L: entre 1/8 et 1/64 */
+    return gcd(g, 8);
+  }
+
+  /*
+   * Texte ABC d'une mesure. Une valeur d'au moins un temps reste isolée ; les
+   * valeurs plus courtes sont ligaturées par temps (regroupées tant qu'elles
+   * partagent le même temps entier). noteTok = jeton de la note (les silences
+   * s'écrivent "z"), le suffixe "-" marque une liaison vers l'événement
+   * suivant. Fonction pure, réutilisée par l'assemblage et la scène de
+   * composition (mesure ouverte gravée en direct).
+   */
+  function barText(events, unit, den, noteTok) {
+    var groups = [];   /* chaînes (tokens isolés) ou { beat, toks } (ligature par temps) */
+    var current = null;
+    var pos = 0;
+    for (var j = 0; j < events.length; j++) {
+      var e = events[j];
+      var mult = beatsTo64(e.d, den) / unit;
+      var tok = (e.rest ? "z" : noteTok) + (mult === 1 ? "" : mult) + (e.tie ? "-" : "");
+      if (e.d >= 1) {
+        groups.push(tok);
+        current = null;
+      } else {
+        var beatIdx = Math.floor(pos + 1e-6);
+        if (current && current.beat === beatIdx) {
+          current.toks.push(tok);
+        } else {
+          current = { beat: beatIdx, toks: [tok] };
+          groups.push(current);
+        }
+      }
+      pos += e.d;
+    }
+    var parts = [];
+    for (var g = 0; g < groups.length; g++) {
+      parts.push(typeof groups[g] === "string" ? groups[g] : groups[g].toks.join(""));
+    }
+    return parts.join(" ");
+  }
+
+  /* En-tête ABC commun (X/M/L/K) : note fixe en clé de Fa, unité L:1/lden.
+     Un seul endroit décrit ce format — partagé par l'assemblage et la scène de
+     composition (gravure en direct). */
+  function abcHeader(meter, lden) {
+    return "X:1\nM:" + meter + "\nL:1/" + lden + "\nK:C clef=bass\n";
+  }
+
+  function assemble(measures, config, m) {
+    var den = m.den;
+    var noteTok = config.note || "D,";
+    var unit = chooseUnit(measures, den);
     var lden = 64 / unit;
 
     var notes = [];
     var barTexts = [];
     var globalStart = 0;
 
-    for (i = 0; i < measures.length; i++) {
+    for (var i = 0; i < measures.length; i++) {
       var events = measures[i];
-      var groups = [];   /* chaînes (tokens isolés) ou { beat, toks } (ligature par temps) */
-      var current = null;
       var pos = 0;
-      for (j = 0; j < events.length; j++) {
+      for (var j = 0; j < events.length; j++) {
         var e = events[j];
-        var mult = beatsTo64(e.d, den) / unit;
-        var tok = (e.rest ? "z" : noteTok) + (mult === 1 ? "" : mult) + (e.tie ? "-" : "");
-        if (e.d >= 1) {
-          /* une valeur d'au moins un temps reste isolée */
-          groups.push(tok);
-          current = null;
-        } else {
-          var beatIdx = Math.floor(pos + 1e-6);
-          if (current && current.beat === beatIdx) {
-            current.toks.push(tok);
-          } else {
-            current = { beat: beatIdx, toks: [tok] };
-            groups.push(current);
-          }
-        }
         notes.push({
           startBeats: globalStart + pos,
           durationBeats: e.d,
@@ -350,17 +397,10 @@
         pos += e.d;
       }
       globalStart += m.beats;
-      var parts = [];
-      for (j = 0; j < groups.length; j++) {
-        parts.push(typeof groups[j] === "string" ? groups[j] : groups[j].toks.join(""));
-      }
-      barTexts.push(parts.join(" "));
+      barTexts.push(barText(events, unit, den, noteTok));
     }
 
-    var header = "X:1\n" +
-      "M:" + config.meter + "\n" +
-      "L:1/" + lden + "\n" +
-      "K:C clef=bass\n";
+    var header = abcHeader(config.meter, lden);
 
     /* abc : découpage par défaut (4 mesures par système) ; bars + header
        permettent au client de re-découper via joinBars sans regénérer. */
@@ -370,6 +410,43 @@
       bars: barTexts,
       header: header
     };
+  }
+
+  /*
+   * Assemble une grille COMPOSÉE à la main — une suite de mesures d'événements
+   * { d (temps), rest, tie } — au même contrat que generateExercise :
+   * { abc, notes, bars, header }. Réutilise assemble (aucune logique
+   * d'assemblage dupliquée) : une grille composée devient un artefact
+   * strictement identique à une grille générée et se rebranche sur toute la
+   * chaîne de lecture. Le point est déjà porté par la durée de l'événement
+   * (noire pointée = d 1,5) ; une liaison n'est valide que vers une note
+   * suivante : une liaison en fin de grille ou vers un silence est neutralisée
+   * (la chaîne se referme proprement, comme le tolère déjà le moteur).
+   */
+  function assembleComposed(measures, config) {
+    if (!config || typeof config !== "object") {
+      throw new Error("Configuration manquante.");
+    }
+    var m = parseMeter(config.meter);
+    var cleaned = [];
+    var order = [];
+    var i, j;
+    for (i = 0; i < measures.length; i++) {
+      var bar = [];
+      for (j = 0; j < measures[i].length; j++) {
+        var e = measures[i][j];
+        var copy = { d: e.d, rest: !!e.rest, tie: !!e.tie };
+        bar.push(copy);
+        order.push(copy);
+      }
+      cleaned.push(bar);
+    }
+    for (i = 0; i < order.length; i++) {
+      if (order[i].tie && (i + 1 >= order.length || order[i + 1].rest)) {
+        order[i].tie = false;
+      }
+    }
+    return assemble(cleaned, config, m);
   }
 
   /* Assemble les mesures en lignes ABC — perLine mesures par système (les
@@ -477,6 +554,101 @@
     };
   }
 
+  /* ---------- partage d'une grille composée : contenu complet ----------
+   *
+   * Une grille composée n'est PAS une graine : aucun PRNG ne la représente. On
+   * sérialise donc son CONTENU — signature + note d'entraînement + la suite des
+   * événements (figures / silences / points / liaisons) — dans un second format
+   * d'URL, coexistant avec le format graine (encodeShare/decodeShare). Chaque
+   * événement tient sur un caractère base36 : une figure (0–6) éventuellement
+   * pointée et/ou liée, ou un silence — 35 combinaisons (les silences ne sont
+   * ni pointés ni liés). Le format porte un marqueur de version (c=1) et une
+   * clé « e » ; decodeComposed le distingue du format graine (clés s/f/x) et
+   * rejette proprement (null) tout lien hors domaine ou invalide (mesure qui
+   * déborde, grille non close sur la signature). Cf. docs/adr/0001-*.
+   */
+  var COMPOSED_FIGS = ["ronde", "blanche", "noire", "croche", "double", "triple", "quadruple"];
+
+  function encodeComposed(state) {
+    var events = state.events || [];
+    var chars = "";
+    for (var i = 0; i < events.length; i++) {
+      var ev = events[i];
+      var fi = COMPOSED_FIGS.indexOf(ev.fig);
+      if (fi === -1) continue;
+      var code = ev.rest ? 28 + fi : fi + (ev.dot ? 7 : 0) + (ev.tie ? 14 : 0);
+      chars += code.toString(36);
+    }
+    return "c=1" +
+      "&m=" + String(state.meter).replace("/", "") +
+      "&n=" + state.note +
+      "&e=" + chars;
+  }
+
+  function decodeComposed(str) {
+    if (typeof str !== "string" || !str) return null;
+    var map = {};
+    var parts = str.split("&");
+    for (var i = 0; i < parts.length; i++) {
+      var kv = parts[i].split("=");
+      if (kv.length === 2 && kv[0]) map[kv[0]] = kv[1];
+    }
+    if (!("c" in map && "m" in map && "n" in map && "e" in map)) return null;
+    if (map.c !== "1") return null; /* version inconnue : rejet */
+
+    if (!/^[2-4][2-4]$/.test(map.m)) return null;
+    var meter = map.m.charAt(0) + "/" + map.m.charAt(1);
+    if (METERS.indexOf(meter) === -1) return null;
+    if (!/^[A-G]$/.test(map.n)) return null;
+
+    var parsed = parseMeter(meter);
+    var beats = parsed.beats;
+    var den = parsed.den;
+
+    var events = [];
+    for (i = 0; i < map.e.length; i++) {
+      var ch = map.e.charAt(i);
+      if (!/^[0-9a-y]$/.test(ch)) return null;
+      var code = parseInt(ch, 36);
+      if (!isFinite(code) || code < 0 || code > 34) return null;
+      var ev;
+      if (code >= 28) {
+        ev = { fig: COMPOSED_FIGS[code - 28], rest: true, dot: false, tie: false };
+      } else {
+        ev = {
+          fig: COMPOSED_FIGS[code % 7],
+          rest: false,
+          dot: code >= 7 && code < 14 || code >= 21,
+          tie: code >= 14
+        };
+      }
+      events.push(ev);
+    }
+    if (!events.length) return null;
+
+    /* Reconstruire les mesures : remplissage strict, chaque mesure close
+       exactement sur la signature (invariant d'une grille valide). Tout
+       dépassement ou reste non nul (grille incomplète) invalide le lien. */
+    var measures = [];
+    var bar = [];
+    var sum = 0;
+    for (i = 0; i < events.length; i++) {
+      var e = events[i];
+      var d = figureBeats(e.fig, den, e.dot);
+      if (sum + d > beats + 1e-9) return null;
+      bar.push(e);
+      sum += d;
+      if (Math.abs(sum - beats) < 1e-9) {
+        measures.push(bar);
+        bar = [];
+        sum = 0;
+      }
+    }
+    if (bar.length || !measures.length) return null;
+
+    return { meter: meter, note: map.n, events: events, measures: measures };
+  }
+
   /* ---------- point d'entrée ---------- */
 
   function generateExercise(config) {
@@ -523,11 +695,18 @@
 
   return {
     generateExercise: generateExercise,
+    assembleComposed: assembleComposed,
+    barText: barText,
+    chooseUnit: chooseUnit,
+    figureBeats: figureBeats,
+    abcHeader: abcHeader,
     joinBars: joinBars,
     availableCells: availableCells,
     makeRng: makeRng,
     encodeShare: encodeShare,
     decodeShare: decodeShare,
+    encodeComposed: encodeComposed,
+    decodeComposed: decodeComposed,
     FIGURE_64: FIGURE_64,
     METERS: METERS
   };

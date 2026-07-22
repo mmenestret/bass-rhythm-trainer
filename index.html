@@ -1024,6 +1024,244 @@
   .btn-primary:hover {
     background: #2e3644;
   }
+
+  /* ---------- en-tête : deux actions ---------- */
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ---------- mode Composer : bascule des vues ----------
+     Composer affiche la portée composée en direct ; la vue lecteur s'efface.
+     La scène n'est jamais grisée (pas de voile) : elle reste interactive. */
+  .composer-view {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(14px,3vh,34px);
+    width: 100%;
+  }
+  body.composing main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  body.composing .player-only {
+    display: none;
+  }
+  body.composing .composer-view {
+    display: flex;
+  }
+  @media (min-width:760px) {
+    body.composing main {
+      padding-right: 404px;
+    }
+  }
+
+  .composer-label {
+    margin-bottom: 0;
+  }
+  /* la scène composée tient dans l'espace laissé par le tiroir (pas de
+     débordement à gauche quand le tiroir réduit la largeur utile) */
+  .composer-stage {
+    width: min(940px,100%);
+  }
+  .composer-staff-wrap {
+    position: relative;
+    z-index: 1;
+  }
+  .composer-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .composer-readout {
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    color: var(--ink-faint);
+    text-align: center;
+    min-height: 1.2em;
+  }
+  .composer-readout b {
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+
+  /* zones de sélection de mesure (duplication sur la portée) */
+  .measure-zone {
+    position: absolute;
+    border-radius: 7px;
+    pointer-events: auto;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .measure-zone:hover {
+    background: var(--accent-soft);
+  }
+  .measure-zone.sel {
+    background: rgba(126,147,168,0.34);
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+  /* barrette flottante des actions de duplication */
+  .float-bar {
+    position: absolute;
+    z-index: 8;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px;
+    border-radius: 999px;
+    background: #20232b;
+    box-shadow: 0 6px 20px rgba(20,24,32,0.3);
+    transform: translate(-50%,-118%);
+    white-space: nowrap;
+  }
+  .float-bar button {
+    color: #eef1f6;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    padding: 5px 12px;
+    border-radius: 999px;
+    transition: background 0.3s;
+  }
+  .float-bar button:hover {
+    background: rgba(255,255,255,0.14);
+  }
+  .float-bar .float-bar-label {
+    color: #9db4cc;
+    font-size: 12px;
+    padding: 5px 6px 5px 10px;
+    letter-spacing: 0.02em;
+  }
+  .float-bar .sep {
+    width: 1px;
+    align-self: stretch;
+    background: rgba(255,255,255,0.2);
+    margin: 3px 2px;
+  }
+
+  /* ---------- tiroir Composer ---------- */
+  .families {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .fam {
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline);
+    color: var(--ink-faint);
+    transition: color 0.3s,border-color 0.3s,background 0.3s;
+  }
+  .fam:hover:not(:disabled):not(.on) {
+    color: var(--ink-soft);
+    border-color: var(--hairline-strong);
+  }
+  .fam.on {
+    color: var(--ink);
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .fam:disabled {
+    cursor: default;
+  }
+
+  .composer-palette-field {
+    margin-bottom: 24px;
+  }
+  .palette-group {
+    margin-bottom: 14px;
+  }
+  .palette-family {
+    font-size: 9px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 600;
+    margin: 0 0 8px 2px;
+  }
+  .palette-items {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .palette-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 64px;
+    height: 68px;
+    border-radius: 12px;
+    border: 1px solid var(--hairline);
+    background: var(--glass);
+    transition: border-color 0.22s,transform 0.22s var(--ease-drift);
+  }
+  .palette-item:hover:not(:disabled) {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+  .palette-item:disabled {
+    opacity: 0.26;
+    cursor: default;
+  }
+  .palette-glyph {
+    height: 28px;
+    width: auto;
+    object-fit: contain;
+  }
+  .palette-glyph.rest {
+    opacity: 0.32;
+  }
+  .palette-label {
+    font-size: 9px;
+    line-height: 1.05;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+  .palette-item.mod .mod-glyph {
+    font-size: 24px;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .palette-item.mod.on {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .composer-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+  }
+  .ghost-btn {
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--hairline-strong);
+    color: var(--ink-soft);
+    font-size: 13px;
+    transition: color 0.3s,background 0.3s;
+  }
+  .ghost-btn:hover {
+    color: var(--ink);
+    background: var(--glass);
+  }
+  .composer-play {
+    margin-top: auto;
+  }
+  .composer-play:disabled {
+    opacity: 0.4;
+    cursor: default;
+    background: var(--ink-faint);
+    border-color: transparent;
+  }
+
   @media (prefers-reduced-motion:reduce) {
     .breath,
     .play-btn.idle::after {
@@ -1059,6 +1297,13 @@
     }
     .settings-btn {
       padding: 13px 14px;
+    }
+    /* deux actions côte à côte : icônes seules pour tenir la largeur */
+    .header-actions .btn-label {
+      display: none;
+    }
+    body.composing main {
+      padding-right: 0;
     }
     .tempo {
       gap: 18px;
@@ -1272,19 +1517,27 @@
 
 <header>
   <div class="wordmark">Rhythm Trainer</div>
-  <button id="settings-btn" class="settings-btn" aria-label="Ouvrir les réglages" aria-controls="drawer" aria-expanded="false">
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M4 7h7.5M16.5 7H20"/><circle cx="14" cy="7" r="2.4"/>
-      <path d="M4 12h2.5M11.5 12H20"/><circle cx="9" cy="12" r="2.4"/>
-      <path d="M4 17h10.5M19.5 17H20"/><circle cx="17" cy="17" r="2.4"/>
-    </svg>
-    Réglages
-  </button>
+  <div class="header-actions">
+    <button id="composer-btn" class="settings-btn" aria-label="Composer une grille" aria-controls="composer-drawer" aria-expanded="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 20h6"/><path d="M14.5 5.6l3.9 3.9L9 18.9l-4.4 1.1 1.1-4.4z"/>
+      </svg>
+      <span class="btn-label">Composer</span>
+    </button>
+    <button id="settings-btn" class="settings-btn" aria-label="Ouvrir les réglages" aria-controls="drawer" aria-expanded="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 7h7.5M16.5 7H20"/><circle cx="14" cy="7" r="2.4"/>
+        <path d="M4 12h2.5M11.5 12H20"/><circle cx="9" cy="12" r="2.4"/>
+        <path d="M4 17h10.5M19.5 17H20"/><circle cx="17" cy="17" r="2.4"/>
+      </svg>
+      <span class="btn-label">Réglages</span>
+    </button>
+  </div>
 </header>
 
 <main>
   <!-- tempo : une seule ligne, −5 à gauche, +5 à droite -->
-  <div class="tempo rise d1">
+  <div class="tempo rise d1 player-only">
     <button id="minus5" class="step-btn" aria-label="Diminuer le tempo de 5 BPM">−5</button>
     <div class="tempo-core">
       <input id="tempo-num" class="tempo-num" type="text" inputmode="numeric" maxlength="3" value="60" autocomplete="off"
@@ -1295,10 +1548,10 @@
   </div>
 
   <!-- en-tête d'exercice (nᵒ de session + leçon Agostini, mis à jour à chaque génération) -->
-  <div id="ex-title" class="ex-title rise d2" aria-live="polite"></div>
+  <div id="ex-title" class="ex-title rise d2 player-only" aria-live="polite"></div>
 
   <!-- portée : fenêtre (overflow caché sur mobile) + glissière téléprompteur -->
-  <div class="score-stage rise d2" id="stage">
+  <div class="score-stage rise d2 player-only" id="stage">
     <div id="score-win" class="score-win">
       <div id="score-slide" class="score-slide">
         <div id="score" class="score"></div>
@@ -1309,10 +1562,10 @@
   </div>
 
   <!-- pastilles de temps -->
-  <div id="beats" class="beats rise d3" aria-hidden="true"></div>
+  <div id="beats" class="beats rise d3 player-only" aria-hidden="true"></div>
 
   <!-- transport -->
-  <div class="transport rise d4">
+  <div class="transport rise d4 player-only">
     <div class="seg" role="group" aria-label="Aides de lecture">
       <button id="tgl-click" class="active" title="Métronome — clics des temps" aria-pressed="true" aria-label="Métronome">
         <svg viewBox="0 0 24 24"><path d="M9.3 4.5h5.4l2.8 15H6.5z"/><line x1="12" y1="15.5" x2="16" y2="6.8"/><line x1="8.4" y1="15.5" x2="15.6" y2="15.5"/></svg>
@@ -1343,6 +1596,18 @@
       <svg class="ico-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></svg>
       <svg class="ico-done" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></svg>
     </button>
+  </div>
+
+  <!-- vue Composer : portée composée gravée en direct + sélection de plage -->
+  <div class="composer-view" id="composer-view">
+    <div class="ex-title composer-label">grille composée · <span id="composer-meta"></span></div>
+    <div class="score-stage composer-stage" id="composer-stage">
+      <div class="composer-staff-wrap" id="composer-staff-wrap">
+        <div class="score" id="composer-staff"></div>
+        <div class="composer-overlay" id="composer-overlay"></div>
+      </div>
+    </div>
+    <div class="composer-readout" id="composer-readout" aria-live="polite"></div>
   </div>
 </main>
 
@@ -1429,6 +1694,38 @@
   <button class="btn btn-primary" id="generate-btn">Générer</button>
 </aside>
 
+<!-- tiroir Composer : mêmes gabarits que les réglages, mais sans voile
+     (la scène reste vivante et interactive derrière) -->
+<aside id="composer-drawer" class="drawer composer-drawer" aria-hidden="true" aria-label="Composer une grille">
+  <div class="drawer-head">
+    <h2>Composer</h2>
+    <button id="composer-close-btn" class="close-btn" aria-label="Fermer Composer">
+      <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+
+  <div class="field">
+    <h3>Signature</h3>
+    <div class="pills" id="composer-sig-pills"></div>
+  </div>
+
+  <div class="field">
+    <h3>Familles</h3>
+    <div class="families" id="composer-families" role="group" aria-label="Familles de la palette"></div>
+  </div>
+
+  <div class="field composer-palette-field">
+    <div id="composer-palette"></div>
+  </div>
+
+  <div class="composer-actions">
+    <button id="composer-backspace" class="ghost-btn" aria-label="Effacer le dernier élément">⌫ Effacer</button>
+    <button id="composer-clear" class="ghost-btn">Tout effacer</button>
+  </div>
+
+  <button class="btn btn-primary composer-play" id="composer-play">Jouer</button>
+</aside>
+
 <script src="vendor/abcjs-basic-min.js"></script>
 <script src="js/generator.js"></script>
 <script src="js/engine.js"></script>
@@ -1450,6 +1747,7 @@
   var currentHeader = "";        // en-tête ABC (X/M/L/K) de la grille courante
   var TOTAL_BEATS = 32;          // recalculé à chaque génération (mesures × temps par mesure)
   var currentSeed = 0;           // graine mulberry32 de la grille courante — reproductibilité + lien partageable
+  var composedGrid = null;       // grille composée active dans le lecteur { meter, events, measures } — bascule le partage en format contenu (null = grille générée)
 
   var exTitle = document.getElementById("ex-title");
   var stage = document.getElementById("stage");
@@ -2214,6 +2512,7 @@
 
   /* ---------- tiroir ---------- */
   function openDrawer(){
+    closeComposer(); // Réglages et Composer ne s'ouvrent jamais ensemble
     drawer.classList.add("open");
     drawer.setAttribute("aria-hidden", "false");
     settingsBtn.setAttribute("aria-expanded", "true");
@@ -2229,7 +2528,7 @@
   document.getElementById("close-btn").addEventListener("click", closeDrawer);
   veil.addEventListener("click", closeDrawer);
   document.addEventListener("keydown", function(e){
-    if (e.key === "Escape") closeDrawer();
+    if (e.key === "Escape"){ closeDrawer(); closeComposer(); }
   });
 
   /* états visuels des radios du tiroir */
@@ -2282,6 +2581,7 @@
     currentAbc = rePitchAbc(currentAbc, noteByLetter(v).abc);
     renderScore(true);
     computeLines();
+    updateShareUrl(); // la note fait partie du lien (graine comme contenu composé)
     // en lecture, les attaques suivantes prennent la nouvelle hauteur
   });
 
@@ -2389,6 +2689,15 @@
   }
 
   function shareHash(){
+    // Grille composée : contenu complet (second format d'URL, cf. ADR 0001) ;
+    // grille générée : graine + réglages.
+    if (composedGrid){
+      return "#" + window.BassRhythmGenerator.encodeComposed({
+        meter: composedGrid.meter,
+        note: noteChoice,
+        events: composedGrid.events
+      });
+    }
     return "#" + window.BassRhythmGenerator.encodeShare(shareState());
   }
 
@@ -2451,6 +2760,7 @@
   function generateGrid(animate, seed){
     if (!window.BassRhythmGenerator) return false;
     var cfg = readConfig();
+    composedGrid = null; // Générer produit une grille générée : le partage repasse en format graine
     // Graine imposée (restauration depuis l'URL) : reproduction exacte, sans
     // anti-doublon. Sinon graine tirée au sort à chaque génération.
     var fixed = (typeof seed === "number");
@@ -2645,6 +2955,7 @@
     var t = e.target;
     if (t && (t.tagName === "INPUT" || t.tagName === "BUTTON" || t.tagName === "SELECT" || t.tagName === "TEXTAREA")) return;
     if (drawer.classList.contains("open")) return;
+    if (composer.active) return; // en composition, la barre d'espace ne lance pas le lecteur
     e.preventDefault();
     togglePlay();
   });
@@ -2657,6 +2968,7 @@
   window.addEventListener("resize", function(){
     clearTimeout(resizeT);
     resizeT = setTimeout(function(){
+      if (composer.active) buildComposerOverlays(); // la portée composée se recale sur la nouvelle largeur
       if (measuresPerLine() !== perLine || perLine === 2) renderScore(false);
       computeLines();
     }, 200);
@@ -2691,20 +3003,606 @@
     setPill("mes-pills", st.measures); measuresChoice = st.measures;
   }
 
+  /* Le hash peut porter DEUX formats : contenu complet (grille composée) ou
+     graine + réglages (grille générée). On détecte lequel — le codec du
+     mauvais format rend null — et on rejette silencieusement un lien invalide
+     (démarrage normal). */
   function readShareFromHash(){
     if (!window.BassRhythmGenerator) return null;
     var raw = (location.hash || "").replace(/^#/, "");
     if (!raw) return null;
+    var comp = window.BassRhythmGenerator.decodeComposed(raw);
+    if (comp) return { kind: "composed", state: comp };
     var st = window.BassRhythmGenerator.decodeShare(raw);
-    if (st) applyState(st); // hash invalide -> ignoré, démarrage normal
-    return st;
+    if (st){ applyState(st); return { kind: "seed", state: st }; }
+    return null;
   }
 
+  /* ==================================================================== */
+  /* Mode Composer — construction manuelle d'une grille (grille composée).  */
+  /* ==================================================================== */
+
+  var COMPOSER_METERS = ["2/4", "3/4", "4/4", "2/2", "3/2", "4/2"];
+  var COMPOSER_FIGS = ["ronde", "blanche", "noire", "croche", "double", "triple", "quadruple"];
+  var FIG_NAMES = {
+    ronde: "Ronde", blanche: "Blanche", noire: "Noire", croche: "Croche",
+    double: "Double", triple: "Triple", quadruple: "Quadruple"
+  };
+  var COMPOSER_EPSILON = 1e-6;
+
+  /* Glyphes des figures : on réutilise les images déjà présentes dans les
+     réglages (chemin en version dossier, data URI dans le fichier unique) —
+     ainsi la palette n'introduit aucune nouvelle référence externe. */
+  var FIG_SRC = {};
+  document.querySelectorAll(".figs .fig").forEach(function(lbl){
+    var inp = lbl.querySelector("input");
+    var img = lbl.querySelector("img");
+    if (inp && img) FIG_SRC[inp.value] = img.getAttribute("src");
+  });
+
+  /* État du Composer. measures : chaque mesure est une liste d'événements
+     « riches » { fig, rest, dot, tie } ; la DERNIÈRE mesure est toujours la
+     mesure ouverte (partielle ou vide). L'invariant — toute mesure pleine vaut
+     exactement la signature — est rétabli après chaque mutation par
+     normalizeComposer(). La composition persiste pendant la session (rouvrir
+     le tiroir ne l'efface pas). */
+  var composer = {
+    active: false,
+    meter: "4/4",
+    measures: [[]],
+    families: { silences: false, modif: false },
+    selection: null
+  };
+
+  var composerBtn = document.getElementById("composer-btn");
+  var composerDrawer = document.getElementById("composer-drawer");
+
+  /* ---------- durées et invariant (logique pure) ---------- */
+  function composerDen(){ return parseInt(composer.meter.split("/")[1], 10); }
+  function composerBeats(){ return parseInt(composer.meter.split("/")[0], 10); }
+  function figBeats(fig, dot){
+    return window.BassRhythmGenerator.figureBeats(fig, composerDen(), dot);
+  }
+  function eventDur(ev){ return figBeats(ev.fig, ev.dot); }
+  function measSum(m){
+    var s = 0;
+    for (var i = 0; i < m.length; i++) s += eventDur(m[i]);
+    return s;
+  }
+  function openMeasure(){ return composer.measures[composer.measures.length - 1]; }
+  function composerRemaining(){ return composerBeats() - measSum(openMeasure()); }
+  function fullMeasureCount(){ return composer.measures.length - 1; }
+  function lastPlacedEvent(){
+    for (var i = composer.measures.length - 1; i >= 0; i--){
+      var m = composer.measures[i];
+      if (m.length) return m[m.length - 1];
+    }
+    return null;
+  }
+  /* Place restante dans la mesure qui contient la dernière note posée (0 si
+     cette note ferme déjà sa mesure — le point n'y tient alors pas). */
+  function remainingOfLast(){
+    for (var i = composer.measures.length - 1; i >= 0; i--){
+      if (composer.measures[i].length){
+        return composerBeats() - measSum(composer.measures[i]);
+      }
+    }
+    return composerBeats();
+  }
+  function pendingTie(){
+    var e = lastPlacedEvent();
+    return !!(e && e.tie && !e.rest);
+  }
+  function fitsFigure(fig){ return figBeats(fig, false) <= composerRemaining() + COMPOSER_EPSILON; }
+
+  /* Rétablit l'invariant : re-répartit tous les événements en mesures pleines
+     (remplissage strict, chaque mesure close pile sur la signature) suivies
+     d'une mesure ouverte (le reste, éventuellement vide). Après n'importe
+     quelle mutation, l'état reste toujours valide — jamais de mesure à moitié
+     pleine gravée de travers. */
+  function normalizeComposer(){
+    var flat = [];
+    var i, j;
+    for (i = 0; i < composer.measures.length; i++){
+      for (j = 0; j < composer.measures[i].length; j++) flat.push(composer.measures[i][j]);
+    }
+    var out = [];
+    var bar = [];
+    var sum = 0;
+    var beats = composerBeats();
+    for (i = 0; i < flat.length; i++){
+      bar.push(flat[i]);
+      sum += eventDur(flat[i]);
+      if (Math.abs(sum - beats) < COMPOSER_EPSILON){ out.push(bar); bar = []; sum = 0; }
+    }
+    out.push(bar); // mesure ouverte
+    composer.measures = out;
+  }
+
+  /* ---------- pose et modificateurs ---------- */
+  function placeFigure(fig, isRest){
+    if (isRest && pendingTie()) return; // on ne lie pas vers un silence
+    if (!fitsFigure(fig)) return;       // ne rentre pas dans la place restante
+    openMeasure().push({ fig: fig, rest: !!isRest, dot: false, tie: false });
+    composer.selection = null;
+    normalizeComposer();
+    refreshComposer();
+  }
+  function backspaceComposer(){
+    var ms = composer.measures;
+    var open = ms[ms.length - 1];
+    if (!open.length){
+      if (ms.length === 1) return; // grille vide
+      ms.pop();
+      open = ms[ms.length - 1];
+    }
+    open.pop();
+    composer.selection = null;
+    normalizeComposer();
+    refreshComposer();
+  }
+  function clearComposer(){
+    composer.measures = [[]];
+    composer.selection = null;
+    refreshComposer();
+  }
+  function setComposerMeter(v){
+    if (v === composer.meter) return;
+    if (fullMeasureCount() > 0 || openMeasure().length){
+      if (!window.confirm("Changer la signature réinitialise la grille composée. Continuer ?")) return;
+    }
+    composer.meter = v;
+    composer.measures = [[]];
+    composer.selection = null;
+    refreshComposer();
+  }
+  /* Point : allonge la dernière note de moitié (bascule). Grisé si la dernière
+     n'est pas une note, ou si le demi-temps supplémentaire ne rentre pas. */
+  function pointState(){
+    var e = lastPlacedEvent();
+    if (!e || e.rest) return { on: false, disabled: true };
+    if (e.dot) return { on: true, disabled: false };
+    var fits = figBeats(e.fig, false) * 0.5 <= remainingOfLast() + COMPOSER_EPSILON;
+    return { on: false, disabled: !fits };
+  }
+  function togglePoint(){
+    var st = pointState();
+    if (st.disabled) return;
+    var e = lastPlacedEvent();
+    e.dot = !e.dot;
+    normalizeComposer();
+    refreshComposer();
+  }
+  /* Liaison : la dernière note est liée à la suivante (bascule). Grisée si la
+     dernière n'est pas une note. */
+  function tieState(){
+    var e = lastPlacedEvent();
+    if (!e || e.rest) return { on: false, disabled: true };
+    return { on: !!e.tie, disabled: false };
+  }
+  function toggleTie(){
+    var e = lastPlacedEvent();
+    if (!e || e.rest) return;
+    e.tie = !e.tie;
+    refreshComposer();
+  }
+
+  /* ---------- duplication de plage (sélection sur la portée) ---------- */
+  function cloneMeasure(m){
+    return m.map(function(e){ return { fig: e.fig, rest: e.rest, dot: e.dot, tie: e.tie }; });
+  }
+  function selectComposerRange(a, b){
+    composer.selection = { start: Math.min(a, b), end: Math.max(a, b) };
+  }
+  function inComposerSel(i){
+    return composer.selection && i >= composer.selection.start && i <= composer.selection.end;
+  }
+  function dupComposerHere(){
+    if (!composer.selection) return;
+    var s = composer.selection, copies = [], i;
+    for (i = s.start; i <= s.end; i++) copies.push(cloneMeasure(composer.measures[i]));
+    Array.prototype.splice.apply(composer.measures, [s.end + 1, 0].concat(copies));
+    composer.selection = { start: s.end + 1, end: s.end + copies.length };
+    normalizeComposer();
+    refreshComposer();
+  }
+  function dupComposerEnd(){
+    if (!composer.selection) return;
+    var s = composer.selection, copies = [], i;
+    for (i = s.start; i <= s.end; i++) copies.push(cloneMeasure(composer.measures[i]));
+    var at = fullMeasureCount(); // insérer juste avant la mesure ouverte
+    Array.prototype.splice.apply(composer.measures, [at, 0].concat(copies));
+    composer.selection = { start: at, end: at + copies.length - 1 };
+    normalizeComposer();
+    refreshComposer();
+  }
+  function delComposerSel(){
+    if (!composer.selection) return;
+    var s = composer.selection;
+    composer.measures.splice(s.start, s.end - s.start + 1);
+    if (!composer.measures.length) composer.measures = [[]];
+    composer.selection = null;
+    normalizeComposer();
+    refreshComposer();
+  }
+
+  /* ---------- gravure en direct (mêmes options que la vue de jeu) ---------- */
+  function toDModel(measures){
+    return measures.map(function(m){
+      return m.map(function(ev){ return { d: eventDur(ev), rest: ev.rest, tie: ev.tie }; });
+    });
+  }
+  function sumD(m){
+    var s = 0;
+    for (var i = 0; i < m.length; i++) s += m[i].d;
+    return s;
+  }
+  function composerAbc(){
+    var G = window.BassRhythmGenerator;
+    var den = composerDen(), beats = composerBeats();
+    var noteTok = noteByLetter(noteChoice).abc;
+    var dModel = toDModel(composer.measures);
+    var unit = G.chooseUnit(dModel, den);
+    var lden = 64 / unit;
+    var bars = dModel.map(function(m, mi){
+      var t = G.barText(m, unit, den, noteTok);
+      if (mi === dModel.length - 1){
+        // mesure ouverte : la partie vide est comblée par un silence invisible
+        var rem = beats - sumD(m);
+        if (rem > COMPOSER_EPSILON){
+          var mu = Math.round(rem * 64 / den) / unit;
+          t = (t ? t + " " : "") + "x" + (mu === 1 ? "" : mu);
+        } else if (!t){
+          t = "x" + (Math.round(beats * 64 / den) / unit);
+        }
+      }
+      return t;
+    });
+    // La mesure ouverte garde une liaison PENDANTE (arc vers le silence
+    // invisible) comme repère visuel « la prochaine note sera liée » ; à Jouer,
+    // assembleComposed la neutralise (une liaison sans cible ne se joue pas).
+    return G.abcHeader(composer.meter, lden) + G.joinBars(bars, 4);
+  }
+  function renderComposerStaff(){
+    var el = document.getElementById("composer-staff");
+    if (!el) return;
+    if (!window.ABCJS){
+      el.innerHTML = '<div class="score-fallback">La partition n’a pas pu se charger.</div>';
+      return;
+    }
+    ABCJS.renderAbc(el, composerAbc(), { add_classes: true, responsive: "resize" });
+    buildComposerOverlays();
+  }
+
+  /* ---------- zones de sélection + barrette flottante ---------- */
+  function composerMeasureEls(svg, i){
+    var direct = svg.querySelectorAll(".abcjs-mm" + i);
+    if (direct.length) return direct;
+    var line = Math.floor(i / 4), within = i % 4;
+    return svg.querySelectorAll(".abcjs-l" + line + ".abcjs-m" + within);
+  }
+  function buildComposerOverlays(){
+    var layer = document.getElementById("composer-overlay");
+    if (!layer) return;
+    layer.innerHTML = "";
+    var svg = document.querySelector("#composer-staff svg");
+    if (!svg) return;
+    var base = layer.getBoundingClientRect();
+    for (var i = 0; i < fullMeasureCount(); i++){
+      var els = composerMeasureEls(svg, i);
+      if (!els.length) continue;
+      var l = 1e9, r = -1e9, t = 1e9, b = -1e9;
+      els.forEach(function(e){
+        var bb = e.getBoundingClientRect();
+        l = Math.min(l, bb.left); r = Math.max(r, bb.right);
+        t = Math.min(t, bb.top); b = Math.max(b, bb.bottom);
+      });
+      var z = document.createElement("div");
+      z.className = "measure-zone" + (inComposerSel(i) ? " sel" : "");
+      z.dataset.mm = i;
+      z.style.left = (l - base.left - 5) + "px";
+      z.style.width = (r - l + 10) + "px";
+      z.style.top = (t - base.top - 6) + "px";
+      z.style.height = (b - t + 12) + "px";
+      layer.appendChild(z);
+    }
+    placeComposerFloatbar();
+  }
+  function placeComposerFloatbar(){
+    var host = document.getElementById("composer-stage");
+    if (!host) return;
+    var old = host.querySelector(".float-bar");
+    if (old) old.remove();
+    if (!composer.selection) return;
+    var sel = [].slice.call(document.querySelectorAll("#composer-overlay .measure-zone.sel"));
+    if (!sel.length) return;
+    var l = 1e9, r = -1e9, t = 1e9;
+    sel.forEach(function(e){
+      var bb = e.getBoundingClientRect();
+      l = Math.min(l, bb.left); r = Math.max(r, bb.right); t = Math.min(t, bb.top);
+    });
+    var hb = host.getBoundingClientRect();
+    var n = composer.selection.end - composer.selection.start + 1;
+    var atEnd = composer.selection.end === fullMeasureCount() - 1;
+    var bar = document.createElement("div");
+    bar.className = "float-bar";
+    bar.innerHTML =
+      '<span class="float-bar-label">' + (n > 1 ? n + " mesures" : "1 mesure") + '</span>' +
+      '<button type="button" data-cact="dup-here">Dupliquer à droite</button>' +
+      (atEnd ? "" : '<button type="button" data-cact="dup-end">Dupliquer à la fin</button>') +
+      '<span class="sep"></span>' +
+      '<button type="button" data-cact="del">Supprimer</button>';
+    bar.style.left = Math.max(120, (l + r) / 2 - hb.left) + "px";
+    bar.style.top = (t - hb.top) + "px";
+    host.appendChild(bar);
+  }
+  function updateComposerSelectionVisual(){
+    document.querySelectorAll("#composer-overlay .measure-zone").forEach(function(z){
+      z.classList.toggle("sel", inComposerSel(+z.dataset.mm));
+    });
+    placeComposerFloatbar();
+  }
+
+  /* ---------- fragments du tiroir ---------- */
+  function setHTMLById(id, html){
+    var el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  }
+  function composerSigPillsHTML(){
+    return COMPOSER_METERS.map(function(k){
+      return '<button type="button" class="pill' + (k === composer.meter ? " checked" : "") +
+        '" data-csig="' + k + '"><span class="frac">' + k + '</span></button>';
+    }).join("");
+  }
+  function composerFamiliesHTML(){
+    var f = composer.families;
+    return '<button type="button" class="fam on" data-cfam="notes" aria-pressed="true" disabled>Notes</button>' +
+      '<button type="button" class="fam' + (f.silences ? " on" : "") + '" data-cfam="silences" aria-pressed="' + f.silences + '">Silences</button>' +
+      '<button type="button" class="fam' + (f.modif ? " on" : "") + '" data-cfam="modif" aria-pressed="' + f.modif + '">Modificateurs</button>';
+  }
+  function composerItemHTML(fig, isRest){
+    var ok = fitsFigure(fig) && !(isRest && pendingTie());
+    return '<button type="button" class="palette-item" data-cfig="' + fig + '" data-crest="' + isRest + '"' +
+      (ok ? "" : " disabled") + '>' +
+      '<img class="palette-glyph' + (isRest ? " rest" : "") + '" src="' + (FIG_SRC[fig] || "") + '" alt="">' +
+      '<span class="palette-label">' + FIG_NAMES[fig] + (isRest ? "<br>silence" : "") + '</span></button>';
+  }
+  function composerPaletteHTML(){
+    var html = '<div class="palette-group"><div class="palette-family">Notes</div><div class="palette-items">';
+    var i;
+    for (i = 0; i < COMPOSER_FIGS.length; i++) html += composerItemHTML(COMPOSER_FIGS[i], false);
+    html += '</div></div>';
+    if (composer.families.silences){
+      html += '<div class="palette-group"><div class="palette-family">Silences</div><div class="palette-items">';
+      for (i = 0; i < COMPOSER_FIGS.length; i++) html += composerItemHTML(COMPOSER_FIGS[i], true);
+      html += '</div></div>';
+    }
+    if (composer.families.modif){
+      var pt = pointState(), ti = tieState();
+      html += '<div class="palette-group"><div class="palette-family">Modificateurs</div><div class="palette-items">' +
+        '<button type="button" class="palette-item mod' + (pt.on ? " on" : "") + '" data-cmod="dot"' +
+          (pt.disabled ? " disabled" : "") + ' aria-pressed="' + pt.on + '">' +
+          '<span class="mod-glyph">•</span><span class="palette-label">Note<br>pointée</span></button>' +
+        '<button type="button" class="palette-item mod' + (ti.on ? " on" : "") + '" data-cmod="tie"' +
+          (ti.disabled ? " disabled" : "") + ' aria-pressed="' + ti.on + '">' +
+          '<span class="mod-glyph">⌢</span><span class="palette-label">Lier à<br>la suivante</span></button>' +
+        '</div></div>';
+    }
+    return html;
+  }
+  function round2(x){ return Math.round(x * 100) / 100; }
+  function composerReadoutHTML(){
+    var placed = round2(measSum(openMeasure()));
+    var total = composerBeats();
+    var rem = round2(composerRemaining());
+    var extra = pendingTie() ? ' · <b>liaison en attente</b>' : "";
+    return "Mesure en cours : <b>" + placed + " / " + total + "</b> temps · reste <b>" + rem + "</b>" + extra;
+  }
+  function updateComposerMeta(){
+    var el = document.getElementById("composer-meta");
+    if (el) el.textContent = composer.meter + " · " + fullMeasureCount() + " mesure(s)";
+  }
+  function updateComposerPlayEnabled(){
+    var btn = document.getElementById("composer-play");
+    if (btn) btn.disabled = fullMeasureCount() === 0;
+  }
+  function refreshComposer(){
+    setHTMLById("composer-sig-pills", composerSigPillsHTML());
+    setHTMLById("composer-families", composerFamiliesHTML());
+    setHTMLById("composer-palette", composerPaletteHTML());
+    setHTMLById("composer-readout", composerReadoutHTML());
+    updateComposerMeta();
+    updateComposerPlayEnabled();
+    renderComposerStaff();
+  }
+
+  /* ---------- ouverture / fermeture du mode ---------- */
+  function openComposer(){
+    closeDrawer(); // les deux tiroirs ne s'ouvrent jamais ensemble
+    if (playing) pausePlayback();
+    composer.active = true;
+    document.body.classList.add("composing");
+    composerDrawer.classList.add("open");
+    composerDrawer.setAttribute("aria-hidden", "false");
+    composerBtn.setAttribute("aria-expanded", "true");
+    refreshComposer();
+    setTimeout(buildComposerOverlays, 560); // overlays recalés une fois la scène élargie
+  }
+  function closeComposer(){
+    if (!composer.active){
+      composerDrawer.classList.remove("open");
+      return;
+    }
+    composer.active = false;
+    document.body.classList.remove("composing");
+    composerDrawer.classList.remove("open");
+    composerDrawer.setAttribute("aria-hidden", "true");
+    composerBtn.setAttribute("aria-expanded", "false");
+    composer.selection = null;
+  }
+  function toggleComposer(){
+    if (composer.active) closeComposer();
+    else openComposer();
+  }
+
+  /* ---------- Jouer : charger la grille composée dans le lecteur ---------- */
+  function flattenMeasures(ms){
+    var f = [], i, j;
+    for (i = 0; i < ms.length; i++) for (j = 0; j < ms[i].length; j++) f.push(ms[i][j]);
+    return f;
+  }
+  function loadComposedIntoPlayer(artifact, meta, autoplay){
+    stopAndReset();
+    closeComposer();
+    infiniteOn = false;
+    streamCfg = null;
+    composedGrid = meta; // { meter, events, measures }
+    signature = meta.meter;
+    setPill("sig-pills", signature);
+    currentAbc = artifact.abc;
+    currentNotes = artifact.notes;
+    currentBars = artifact.bars;
+    currentHeader = artifact.header;
+    TOTAL_BEATS = meta.measures.length * parseInt(meta.meter.split("/")[0], 10);
+    // Grille finie : jamais de flux ∞ ; le repeat redevient une commande.
+    repeatBtn.classList.remove("inf");
+    repeatBtn.disabled = false;
+    repeatBtn.classList.toggle("active", repeatOn);
+    repeatBtn.setAttribute("aria-pressed", String(repeatOn));
+    repeatBtn.setAttribute("aria-label", "Boucler l'exercice");
+    repeatBtn.title = "Boucler l'exercice";
+    exTitle.textContent = "grille composée";
+    buildBeats();
+    renderScore(true);
+    computeLines();
+    updateShareUrl();
+    if (autoplay) startPlayback(0);
+  }
+  function composerPlay(){
+    if (!window.BassRhythmGenerator || fullMeasureCount() === 0) return;
+    var full = composer.measures.slice(0, fullMeasureCount());
+    var dModel = toDModel(full);
+    var artifact;
+    try {
+      artifact = window.BassRhythmGenerator.assembleComposed(dModel, {
+        meter: composer.meter, note: noteByLetter(noteChoice).abc
+      });
+    } catch (e){ return; }
+    var richFull = full.map(cloneMeasure);
+    loadComposedIntoPlayer(artifact, {
+      meter: composer.meter,
+      events: flattenMeasures(richFull),
+      measures: richFull
+    }, true);
+  }
+  /* Restaure une grille composée depuis un lien : composition en mémoire +
+     chargement dans le lecteur (prête à jouer, sans démarrer). */
+  function restoreComposedFromShare(state){
+    noteChoice = state.note;
+    setPill("note-pills", state.note);
+    composer.meter = state.meter;
+    var full = state.measures.map(function(bar){
+      return bar.map(function(e){ return { fig: e.fig, rest: !!e.rest, dot: !!e.dot, tie: !!e.tie }; });
+    });
+    composer.measures = full.map(cloneMeasure);
+    composer.measures.push([]); // mesure ouverte
+    composer.selection = null;
+    var artifact = window.BassRhythmGenerator.assembleComposed(toDModel(full), {
+      meter: composer.meter, note: noteByLetter(noteChoice).abc
+    });
+    loadComposedIntoPlayer(artifact, {
+      meter: composer.meter,
+      events: flattenMeasures(full),
+      measures: full
+    }, false);
+  }
+
+  /* ---------- câblage des événements du Composer ---------- */
+  composerBtn.addEventListener("click", toggleComposer);
+  document.getElementById("composer-close-btn").addEventListener("click", closeComposer);
+  document.getElementById("composer-play").addEventListener("click", composerPlay);
+  document.getElementById("composer-backspace").addEventListener("click", backspaceComposer);
+  document.getElementById("composer-clear").addEventListener("click", clearComposer);
+
+  composerDrawer.addEventListener("click", function(e){
+    var el;
+    if ((el = e.target.closest("[data-cfig]"))){
+      if (!el.disabled) placeFigure(el.dataset.cfig, el.dataset.crest === "true");
+      return;
+    }
+    if ((el = e.target.closest("[data-cmod]"))){
+      if (el.disabled) return;
+      if (el.dataset.cmod === "dot") togglePoint();
+      else toggleTie();
+      return;
+    }
+    if ((el = e.target.closest("[data-cfam]"))){
+      if (el.dataset.cfam === "notes") return;
+      composer.families[el.dataset.cfam] = !composer.families[el.dataset.cfam];
+      refreshComposer();
+      return;
+    }
+    if ((el = e.target.closest("[data-csig]"))){
+      setComposerMeter(el.dataset.csig);
+      return;
+    }
+  });
+
+  /* Sélection de plage sur la portée : clic = ancre, glisser ou maj+clic
+     étend la plage contiguë ; clic en dehors de la sélection en sort. */
+  var composerDrag = { on: false, anchor: 0 };
+  document.addEventListener("mousedown", function(e){
+    if (!composer.active) return;
+    if (e.target.closest(".float-bar")) return; // laisser agir les boutons de la barrette
+    var z = e.target.closest("#composer-overlay .measure-zone");
+    if (z){
+      var idx = +z.dataset.mm;
+      if (e.shiftKey){
+        selectComposerRange(composerDrag.anchor, idx);
+      } else {
+        composerDrag.on = true;
+        composerDrag.anchor = idx;
+        selectComposerRange(idx, idx);
+      }
+      updateComposerSelectionVisual();
+      return;
+    }
+    if (composer.selection){ composer.selection = null; updateComposerSelectionVisual(); }
+  });
+  document.addEventListener("mouseover", function(e){
+    if (!composer.active || !composerDrag.on) return;
+    var z = e.target.closest("#composer-overlay .measure-zone");
+    if (!z) return;
+    selectComposerRange(composerDrag.anchor, +z.dataset.mm);
+    updateComposerSelectionVisual();
+  });
+  document.addEventListener("mouseup", function(){ composerDrag.on = false; });
+  document.addEventListener("click", function(e){
+    if (!composer.active) return;
+    var b = e.target.closest(".float-bar [data-cact]");
+    if (!b) return;
+    var a = b.dataset.cact;
+    if (a === "dup-here") dupComposerHere();
+    else if (a === "dup-end") dupComposerEnd();
+    else if (a === "del") delComposerSel();
+  });
+  document.addEventListener("keydown", function(e){
+    if (!composer.active || e.key !== "Backspace") return;
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+    e.preventDefault();
+    backspaceComposer();
+  });
+
   /* ---------- init ---------- */
-  var restored = readShareFromHash(); // grille partagée dans l'URL -> réglages + graine restaurés
-  generateGrid(false, restored ? restored.seed : undefined); // la partition affichée au chargement est déjà une grille générée
-  renderScore(false);
-  computeLines();      // fenêtre téléprompteur dimensionnée dès le chargement
+  var restored = readShareFromHash(); // grille partagée dans l'URL -> réglages restaurés
+  if (restored && restored.kind === "composed"){
+    restoreComposedFromShare(restored.state); // grille composée : contenu complet restauré
+  } else {
+    generateGrid(false, restored ? restored.state.seed : undefined); // la partition affichée au chargement est déjà une grille générée
+    renderScore(false);
+    computeLines();      // fenêtre téléprompteur dimensionnée dès le chargement
+  }
   buildBeats();
 })();
 </script>
