@@ -1252,6 +1252,25 @@
     color: var(--ink);
     background: var(--glass);
   }
+  /* bandeau « grille composée chargée » en tête du tiroir Jouer */
+  .composed-banner {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 28px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--hairline-strong);
+    background: var(--accent-soft);
+  }
+  .composed-banner[hidden] {
+    display: none;
+  }
+  .composed-banner-text {
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    color: var(--ink-soft);
+  }
   .composer-play {
     margin-top: auto;
   }
@@ -1524,13 +1543,13 @@
       </svg>
       <span class="btn-label">Composer</span>
     </button>
-    <button id="settings-btn" class="settings-btn" aria-label="Ouvrir les réglages" aria-controls="drawer" aria-expanded="false">
+    <button id="settings-btn" class="settings-btn" aria-label="Jouer — réglages et génération de l'exercice" aria-controls="drawer" aria-expanded="false">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 7h7.5M16.5 7H20"/><circle cx="14" cy="7" r="2.4"/>
         <path d="M4 12h2.5M11.5 12H20"/><circle cx="9" cy="12" r="2.4"/>
         <path d="M4 17h10.5M19.5 17H20"/><circle cx="17" cy="17" r="2.4"/>
       </svg>
-      <span class="btn-label">Réglages</span>
+      <span class="btn-label">Jouer</span>
     </button>
   </div>
 </header>
@@ -1616,12 +1635,19 @@
 
 <!-- tiroir de configuration -->
 <div id="veil" class="veil"></div>
-<aside id="drawer" class="drawer" aria-hidden="true" aria-label="Réglages de l'exercice">
+<aside id="drawer" class="drawer" aria-hidden="true" aria-label="Jouer — réglages de l'exercice">
   <div class="drawer-head">
-    <h2>Réglages</h2>
-    <button id="close-btn" class="close-btn" aria-label="Fermer les réglages">
+    <h2>Jouer</h2>
+    <button id="close-btn" class="close-btn" aria-label="Fermer le panneau Jouer">
       <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
+  </div>
+
+  <!-- affiché seulement quand une grille composée est chargée dans le lecteur :
+       raccourci pour l'abandonner et revenir à une grille générée classique -->
+  <div id="composed-banner" class="composed-banner" hidden>
+    <span class="composed-banner-text">Grille composée chargée.</span>
+    <button type="button" id="back-to-generated" class="ghost-btn">Revenir à une grille générée</button>
   </div>
 
   <div class="field">
@@ -1874,6 +1900,33 @@
       return currentHeader + window.BassRhythmGenerator.joinBars(currentBars, pl);
     return currentAbc; // grille de secours : découpage figé à 4
   }
+  /* Centre une portée gravée qui ne remplit pas la scène. En mode responsive,
+     abcjs cale la musique à gauche d'un viewBox large (largeur de portée par
+     défaut) et laisse du vide à droite : une grille courte apparaît minuscule
+     et décalée. On resserre le viewBox sur le contenu réel (getBBox) puis on
+     centre le SVG (positionné en absolu par abcjs). No-op dès que le contenu
+     remplit déjà la largeur — une grille pleine reste inchangée. */
+  function centerStaffSvg(svg){
+    if (!svg) return;
+    var vbAttr = svg.getAttribute("viewBox");
+    if (!vbAttr) return;
+    var vb = vbAttr.split(/\s+/).map(Number);
+    if (vb.length < 4) return;
+    var bb;
+    try { bb = svg.getBBox(); } catch (e){ return; }
+    if (!bb || !bb.width) return;
+    var hostW = svg.parentNode.getBoundingClientRect().width;
+    var pad = 12;
+    var contentW = bb.width + pad * 2;
+    if (contentW >= hostW - 1) return; // remplit déjà la scène : rien à centrer
+    svg.setAttribute("viewBox", (bb.x - pad) + " " + vb[1] + " " + contentW + " " + vb[3]);
+    svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+    svg.style.width = contentW + "px";
+    svg.style.left = "50%";
+    svg.style.right = "auto";
+    svg.style.transform = "translateX(-50%)";
+  }
+
   function renderScore(animate){
     if (!window.ABCJS){
       scoreEl.innerHTML = '<div class="score-fallback">La partition n’a pas pu se charger (abcjs indisponible hors ligne).</div>';
@@ -1906,6 +1959,10 @@
       opts.paddingright = 0;
     }
     ABCJS.renderAbc(scoreEl, currentAbcFor(perLine), opts);
+    // Grille finie courte (ex. grille composée d'une poignée de mesures) :
+    // on la recentre pour qu'elle ait l'allure d'une partition habituelle. Le
+    // flux ∞ garde ses abscisses exactes (recalage de fenêtre) — on n'y touche pas.
+    if (!infiniteOn) centerStaffSvg(scoreEl.querySelector("svg"));
     mapScoreNotes();
     if (animate){
       scoreEl.classList.remove("regen");
@@ -2511,8 +2568,15 @@
   });
 
   /* ---------- tiroir ---------- */
+  /* Le bandeau de retour n'apparaît que lorsqu'une grille composée est chargée
+     dans le lecteur : il offre un raccourci explicite vers une grille générée. */
+  function updateComposedBanner(){
+    var banner = document.getElementById("composed-banner");
+    if (banner) banner.hidden = !composedGrid;
+  }
   function openDrawer(){
-    closeComposer(); // Réglages et Composer ne s'ouvrent jamais ensemble
+    closeComposer(); // Jouer et Composer ne s'ouvrent jamais ensemble
+    updateComposedBanner();
     drawer.classList.add("open");
     drawer.setAttribute("aria-hidden", "false");
     settingsBtn.setAttribute("aria-expanded", "true");
@@ -2839,6 +2903,9 @@
     closeDrawer();
   }
   document.getElementById("generate-btn").addEventListener("click", regenerate);
+  // « Revenir à une grille générée » : abandonne la grille composée et regénère
+  // une grille classique (regenerate remet composedGrid à null et ferme le tiroir).
+  document.getElementById("back-to-generated").addEventListener("click", regenerate);
 
   /* ---------- retour au début ----------
      En lecture : relance immédiate depuis le début de la grille, décompte
@@ -3271,6 +3338,9 @@
       return;
     }
     ABCJS.renderAbc(el, composerAbc(), { add_classes: true, responsive: "resize" });
+    // la ligne en travail reste centrée et s'écarte depuis le centre au fur et
+    // à mesure du remplissage (même helper que la vue de jeu)
+    centerStaffSvg(el.querySelector("svg"));
     buildComposerOverlays();
   }
 

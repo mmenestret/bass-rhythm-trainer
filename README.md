@@ -39,14 +39,18 @@ affichée — graine et réglages — et la rejoue à l'identique chez qui l'ouv
 basse Ergo, contrebasse à l'archet — avec préécoute), note d'entraînement
 (E à D), niveau 1–3, figures de notes, signature, nombre de mesures.
 
-**Composer** (bouton dans l'en-tête, à côté de Réglages) : construire une
-grille à la main figure par figure au lieu de la tirer au sort. Tiroir à
-droite (signature, familles Notes / Silences / Modificateurs, palette, point
-et liaison), scène non grisée où la portée se grave en direct ; remplissage
-strict (chaque mesure vaut exactement la signature) ; duplication de mesures
-par sélection sur la portée ; **Jouer** charge la grille composée dans le
-lecteur comme une grille générée. Une grille composée se partage aussi par
-lien (second format d'URL, contenu complet — cf. `docs/adr/0001-*`).
+**Composer** (bouton dans l'en-tête, à côté de **Jouer** — le panneau de
+réglages et de génération) : construire une grille à la main figure par figure
+au lieu de la tirer au sort. Tiroir à droite (signature, familles Notes /
+Silences / Modificateurs, palette, point et liaison), scène non grisée où la
+portée en travail reste centrée et s'écarte depuis le centre au fil du
+remplissage ; remplissage strict (chaque mesure vaut exactement la signature) ;
+duplication de mesures par sélection sur la portée ; **Jouer** charge la grille
+composée dans le lecteur comme une grille générée (une grille courte y est
+recentrée, à l'allure d'une partition habituelle). Le panneau **Jouer** propose
+alors un retour explicite vers une grille générée. Une grille composée se
+partage aussi par lien (second format d'URL, contenu complet — cf.
+`docs/adr/0001-*`).
 
 ## Build du fichier unique
 
