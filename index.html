@@ -1216,8 +1216,20 @@
     width: auto;
     object-fit: contain;
   }
-  .palette-glyph.rest {
-    opacity: 0.32;
+  /* silence : vrai symbole de repos gravé (SVG), centré dans la case */
+  .palette-rest {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .palette-rest svg {
+    height: 26px;
+    width: auto;
+    display: block;
+  }
+  .palette-rest svg path,
+  .palette-rest svg rect {
+    fill: var(--ink);
   }
   .palette-label {
     font-size: 9px;
@@ -2057,14 +2069,17 @@
   }
 
   /* ---------- fenêtre téléprompteur ----------
-     Sur écran étroit (2 mesures/système) — et en flux ∞ sur tous les
-     écrans — la fenêtre clampe la scène à 3 systèmes et la glissière garde
-     la ligne JOUÉE AU CENTRE : la précédente au-dessus, la suivante en
-     dessous. L'œil vise toujours la même hauteur, y compris dès la première
-     ligne (cran virtuel : vide assumé au-dessus) et sur la dernière (vide en
-     dessous). Partition entière visible dans les autres cas. */
+     Comportement unique à la LECTURE, quel que soit l'écran, le nombre de
+     mesures ou l'origine de la grille (générée, composée, flux ∞) : dès qu'il
+     y a plus d'une ligne, la fenêtre clampe la scène à 3 systèmes et la
+     glissière garde la ligne JOUÉE AU CENTRE — la précédente au-dessus, la
+     suivante en dessous. L'œil vise toujours la même hauteur, y compris dès la
+     première ligne (cran virtuel : vide assumé au-dessus, on ne voit alors que
+     2 lignes) et sur la dernière (vide en dessous). Seule une grille d'une
+     seule ligne (≤ 4 mesures en 4/système) s'affiche entière. Le mode Composer
+     échappe à cette règle : il grave hors de cette fenêtre (portée complète). */
   function scoreWindowActive(){
-    return (perLine === 2 || infiniteOn) && lines.length > 3;
+    return lines.length > 1;
   }
   function lineOfGridBeat(g, bpb){
     var bar = Math.floor((g - renderBaseBeat) / bpb);
@@ -2095,7 +2110,12 @@
   }
   function layoutScoreWindow(){
     if (scoreWindowActive()){
-      scoreWin.style.height = Math.round(lines[2].y1 - lines[0].y0) + "px";
+      // hauteur de 3 systèmes ; avec exactement 2 lignes, on complète d'un cran
+      // vide pour garder la ligne jouée à la même hauteur d'œil.
+      var winH = lines.length >= 3
+        ? lines[2].y1 - lines[0].y0
+        : (lines[1].y1 - lines[0].y0) + (lines[1].y0 - lines[0].y0);
+      scoreWin.style.height = Math.round(winH) + "px";
       followedLine = -99;
       followScoreLine(
         lineOfGridBeat(playing ? lastHeardBeat : pausedGridBeat, playing ? activeBpb : beatsPerBar()),
@@ -3430,11 +3450,50 @@
       '<button type="button" class="fam' + (f.silences ? " on" : "") + '" data-cfam="silences" aria-pressed="' + f.silences + '">Silences</button>' +
       '<button type="button" class="fam' + (f.modif ? " on" : "") + '" data-cfam="modif" aria-pressed="' + f.modif + '">Modificateurs</button>';
   }
+  /* Glyphe de silence : la palette n'a pas d'images de silence (seulement des
+     notes) ; on grave le vrai symbole de repos avec abcjs — le même moteur que
+     la portée — puis on retire les lignes de portée et on resserre le viewBox
+     sur le seul glyphe. Rendu une fois par figure, mémoïsé. Aucune ressource
+     externe ajoutée : abcjs est déjà embarqué. */
+  var restGlyphCache = {};
+  function restGlyphSvg(fig){
+    if (restGlyphCache.hasOwnProperty(fig)) return restGlyphCache[fig];
+    var svg = "";
+    if (window.ABCJS && window.BassRhythmGenerator){
+      var n64 = window.BassRhythmGenerator.figureBeats(fig, 64, false);
+      var tmp = document.createElement("div");
+      tmp.style.cssText = "position:absolute;left:-9999px;top:0";
+      document.body.appendChild(tmp);
+      try {
+        window.ABCJS.renderAbc(tmp, "X:1\nL:1/64\nK:C clef=none\nz" + n64, { add_classes: true });
+        var s = tmp.querySelector("svg");
+        if (s){
+          s.querySelectorAll(".abcjs-staff, style, title").forEach(function(e){ e.remove(); });
+          var rest = s.querySelector(".abcjs-rest");
+          if (rest){
+            var bb = rest.getBBox();
+            var pad = 4;
+            s.setAttribute("viewBox", (bb.x - pad) + " " + (bb.y - pad) + " " + (bb.width + pad * 2) + " " + (bb.height + pad * 2));
+            s.setAttribute("preserveAspectRatio", "xMidYMid meet");
+            s.removeAttribute("width");
+            s.removeAttribute("height");
+            svg = s.outerHTML;
+          }
+        }
+      } catch (e){ svg = ""; }
+      document.body.removeChild(tmp);
+    }
+    restGlyphCache[fig] = svg;
+    return svg;
+  }
   function composerItemHTML(fig, isRest){
     var ok = fitsFigure(fig) && !(isRest && pendingTie());
+    var glyph = isRest
+      ? '<span class="palette-glyph palette-rest">' + restGlyphSvg(fig) + '</span>'
+      : '<img class="palette-glyph" src="' + (FIG_SRC[fig] || "") + '" alt="">';
     return '<button type="button" class="palette-item" data-cfig="' + fig + '" data-crest="' + isRest + '"' +
       (ok ? "" : " disabled") + '>' +
-      '<img class="palette-glyph' + (isRest ? " rest" : "") + '" src="' + (FIG_SRC[fig] || "") + '" alt="">' +
+      glyph +
       '<span class="palette-label">' + FIG_NAMES[fig] + (isRest ? "<br>silence" : "") + '</span></button>';
   }
   function composerPaletteHTML(){
