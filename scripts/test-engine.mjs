@@ -11,7 +11,11 @@
  *  (c) mapping mesure/temps pour 2/4, 3/4, 4/4, 2/2, 3/2, 4/2 ;
  *  (d) décompte d'une mesure correct pour chaque signature (départ et
  *      reprise en cours de grille) ;
- *  (e) +5 BPM en vol sans dérive sur les 100 temps suivants.
+ *  (e) +5 BPM en vol sans dérive sur les 100 temps suivants ;
+ *  (f) describeLoopedBeat : identique à describeBeat sous totalBeats, cycles
+ *      repliés sans fin ni décompte tant que la boucle est armée, fin à la
+ *      prochaine frontière de grille quand elle se coupe, jamais de fin en
+ *      totalBeats infini (flux ∞).
  * Code de sortie non nul si échec.
  */
 import { createRequire } from "node:module";
@@ -26,6 +30,7 @@ const {
   countInBeats,
   barBeat,
   describeBeat,
+  describeLoopedBeat,
 } = require(enginePath);
 
 let checks = 0;
@@ -196,6 +201,64 @@ for (const [meter] of SIGNATURES) {
   }
   expect(maxErr <= 1e-9, `+5 BPM — dérive ${maxErr} s sur les 100 temps suivants`);
   expect(close(clock.positionAt(8 + 10 * spb), 18), "+5 BPM — position continue incohérente après le changement");
+}
+
+/* ---------- (f) describeLoopedBeat : repeat sans couture, flux ∞ ---------- */
+{
+  // Sous totalBeats : champ pour champ identique à describeBeat (boucle ou non).
+  for (let step = 0; step < 4 + 32; step++) {
+    const a = describeBeat(step, 0, 4, 32);
+    const b = describeLoopedBeat(step, 0, 4, 32, true);
+    const c = describeLoopedBeat(step, 0, 4, 32, false);
+    expect(
+      a.type === b.type && a.gridBeat === b.gridBeat && a.pulseIndex === b.pulseIndex &&
+      a.accent === b.accent && a.countNumber === b.countNumber && !b.wrapped,
+      `boucle — pas ${step} : divergence describeBeat/describeLoopedBeat sous totalBeats (boucle armée)`
+    );
+    expect(
+      a.type === c.type && a.gridBeat === c.gridBeat && a.pulseIndex === c.pulseIndex,
+      `boucle — pas ${step} : divergence sous totalBeats (boucle coupée)`
+    );
+  }
+  // Boucle coupée : fin exactement à la frontière (identique à describeBeat).
+  expect(describeLoopedBeat(4 + 32, 0, 4, 32, false).type === "end",
+    "boucle coupée — pas de fin à la frontière de grille");
+  // Boucle armée : la frontière est un battement replié — temps 1 accentué,
+  // jamais de décompte, cycles suivants idem.
+  for (const cycles of [1, 2, 5]) {
+    const d = describeLoopedBeat(4 + 32 * cycles, 0, 4, 32, true);
+    expect(
+      d.type === "beat" && d.gridBeat === 0 && d.pulseIndex === 0 && d.accent === true && d.wrapped === true,
+      `boucle armée — frontière du cycle ${cycles} : attendu temps 1 replié, reçu ${JSON.stringify(d)}`
+    );
+  }
+  const mid = describeLoopedBeat(4 + 32 + 13, 0, 4, 32, true);
+  expect(
+    mid.type === "beat" && mid.gridBeat === 13 && mid.pulseIndex === 1 &&
+    mid.measure === 4 && mid.beatInBar === 2 && mid.accent === false,
+    `boucle armée — cycle 2 temps 13 : mesure 4 temps 2 attendu, reçu ${JSON.stringify(mid)}`
+  );
+  // Reprise en cours de grille (startGridBeat 8) : le repli reste calé sur la
+  // grille, pas sur le point de reprise.
+  const res = describeLoopedBeat(4 + (32 - 8) + 5, 8, 4, 32, true);
+  expect(
+    res.type === "beat" && res.gridBeat === 5 && res.wrapped === true,
+    `boucle armée — reprise à 8 : temps 5 du cycle suivant attendu, reçu ${JSON.stringify(res)}`
+  );
+  // Coupure en vol : fin à la PROCHAINE frontière seulement — les battements
+  // du cycle en cours restent des battements.
+  expect(describeLoopedBeat(4 + 32 + 13, 0, 4, 32, false).type === "beat",
+    "boucle coupée en vol — le cycle en cours doit se terminer");
+  expect(describeLoopedBeat(4 + 64, 0, 4, 32, false).type === "end",
+    "boucle coupée en vol — pas de fin à la frontière suivante");
+  // Flux ∞ : jamais de fin, quel que soit l'état de la boucle.
+  for (const step of [4, 4 + 999, 4 + 100000]) {
+    expect(describeLoopedBeat(step, 0, 4, Infinity, false).type === "beat",
+      `flux ∞ — fin inattendue au pas ${step}`);
+  }
+  // Décompte : intact dans tous les modes.
+  const ci = describeLoopedBeat(2, 0, 4, 32, true);
+  expect(ci.type === "countin" && ci.countNumber === 3, "boucle — décompte altéré");
 }
 
 /* ---------- bilan ---------- */

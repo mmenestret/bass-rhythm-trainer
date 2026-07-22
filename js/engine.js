@@ -20,6 +20,11 @@
  *      du transport — décompte d'une mesure, puis battements de la grille à
  *      partir de startGridBeat (reprise après pause incluse), puis fin —
  *      avec accent sur le temps 1.
+ *    - describeLoopedBeat(step, start, bpb, totalBeats, loopOn) : variante
+ *      bouclée — battements repliés modulo totalBeats tant que loopOn (repeat
+ *      sans couture, sans nouveau décompte), fin à la prochaine frontière de
+ *      grille quand la boucle se coupe, jamais de fin si totalBeats infini
+ *      (flux ∞).
  *    - litIndicesAt(notes, gridBeat) : indices des notes « allumées » à une
  *      position en temps (guidage visuel, mode 2) — silences exclus, chaînes
  *      liées allumées d'un seul tenant sur la durée cumulée.
@@ -50,7 +55,7 @@
  *    - playNotePreview(ctx, v, seconds) : préécoute hors transport (~1,5 s),
  *      rend { stop() }.
  *    - createTransport({ ctx, bpm, beatsPerBar, totalBeats, startGridBeat,
- *      noteEvents, notesEnabled, clicksEnabled, getNoteVoice }) :
+ *      noteEvents, notesEnabled, clicksEnabled, getNoteVoice, loop }) :
  *      horloge à lookahead (setInterval ~25 ms, horizon ~120 ms), chaque clic
  *      programmé sur ctx.currentTime — jamais de setTimeout cumulatif.
  *      Clic = oscillateur sinus court avec enveloppe douce (esthétique Apnée) ;
@@ -174,6 +179,35 @@
     return {
       measure: Math.floor(gridBeat / beatsPerBar) + 1,
       beat: (gridBeat % beatsPerBar) + 1
+    };
+  }
+
+  /*
+   * Variante bouclée de describeBeat, pour le repeat et le flux infini :
+   *  - totalBeats infini : jamais de fin (flux ∞) ;
+   *  - loopOn : les battements au-delà de totalBeats sont REPLIÉS
+   *    (modulo totalBeats, champs wrapped recalculés, marqueur wrapped) —
+   *    le cycle recommence sans couture, sans nouveau décompte ;
+   *  - loop coupé en vol : la fin tombe sur la PROCHAINE frontière de grille
+   *    (multiple de totalBeats) — le cycle en cours se termine toujours.
+   * Sous totalBeats, rend exactement le même battement que describeBeat.
+   */
+  function describeLoopedBeat(step, startGridBeat, beatsPerBar, totalBeats, loopOn) {
+    var d = describeBeat(step, startGridBeat, beatsPerBar, Infinity);
+    if (d.type !== "beat" || d.gridBeat < totalBeats) return d;
+    if (!loopOn && d.gridBeat % totalBeats === 0) {
+      return { type: "end", gridBeat: d.gridBeat };
+    }
+    var w = d.gridBeat % totalBeats;
+    var bb = barBeat(w, beatsPerBar);
+    return {
+      type: "beat",
+      gridBeat: w,
+      measure: bb.measure,
+      beatInBar: bb.beat,
+      pulseIndex: w % beatsPerBar,
+      accent: bb.beat === 1,
+      wrapped: true
     };
   }
 
@@ -441,6 +475,8 @@
     var endTime = Infinity;  // instant de fin (un battement après le dernier clic)
     var allScheduled = false;
     var stopped = false;
+    var loopOn = !!opts.loop; // boucle sans couture (repeat) — bascule en vol via setLoop
+    var everLooped = false;   // au moins un battement replié émis (pour la reprise)
 
     /* Son des notes : événements { startBeats, holdBeats } triés, fournis par
        noteSoundEvents. On ne rejoue jamais une attaque antérieure au point de
@@ -452,6 +488,7 @@
     var clicksOn = opts.clicksEnabled !== false;
     var getNoteVoice = opts.getNoteVoice || function () { return null; };
     var noteIdx = 0;
+    var cycleBase = 0;       // décalage en temps des cycles de boucle déjà recyclés
     while (noteIdx < noteEvents.length && noteEvents[noteIdx].startBeats < startGridBeat) noteIdx += 1;
     var liveNotes = [];      // voix actives { src, cut, start } pour coupure/annulation
 
@@ -527,17 +564,26 @@
        exacts de la grille (positions fractionnaires via clock.timeAt). Une
        attaque déjà passée — son coupé au moment où elle devait sonner — est
        sautée : réactiver le mode 3 fait sonner les prochaines notes, pas
-       celle en cours. */
+       celle en cours. En boucle (repeat), le tableau est recyclé cycle après
+       cycle avec un décalage de totalBeats — sans couture, sans décompte.
+       Le tableau noteEvents est lu par référence : le flux ∞ y POUSSE de
+       nouveaux événements en cours de lecture, programmés au fil de l'eau. */
     function scheduleNotes(horizon) {
       if (!notesOn) return;
       var now = ctx.currentTime;
-      while (noteIdx < noteEvents.length) {
+      for (;;) {
+        if (noteIdx >= noteEvents.length) {
+          if (!loopOn || !isFinite(totalBeats) || !noteEvents.length) break;
+          noteIdx = 0;
+          cycleBase += totalBeats;
+        }
         var ev = noteEvents[noteIdx];
-        var step = countInBeats(bpb) + (ev.startBeats - startGridBeat);
+        var step = countInBeats(bpb) + (cycleBase + ev.startBeats - startGridBeat);
         var t = clock.timeAt(step);
         if (t >= horizon) break;
         noteIdx += 1;
         if (t < now) continue;
+        if (allScheduled && t >= endTime) break; // fin décidée : rien après la barre finale
         scheduleNoteVoice(t, ev.holdBeats);
       }
     }
@@ -546,19 +592,23 @@
        notes du mode 3 — qui tombent dans l'horizon, sur l'horloge audio
        (ctx.currentTime). Elle ne s'éteint que lorsque clics ET notes sont
        programmés ; notes coupées, elle reste en veille pour une réactivation
-       en vol (stop() la coupe dans tous les cas). */
+       en vol (stop() la coupe dans tous les cas).
+       Le battement de FIN n'est jamais consommé sur l'horloge : tant qu'il
+       n'est pas atteint, armer le repeat (setLoop) le transforme en premier
+       battement du cycle suivant — boucle sans couture. */
     function pump() {
       if (stopped) return;
       var horizon = ctx.currentTime + SCHEDULE_HORIZON_S;
       if (!allScheduled) {
         while (clock.nextTime() < horizon) {
-          var ev = clock.advance();
-          var d = describeBeat(ev.index, startGridBeat, bpb, totalBeats);
+          var d = describeLoopedBeat(clock.nextIndex(), startGridBeat, bpb, totalBeats, loopOn);
           if (d.type === "end") {
-            endTime = ev.time;
+            endTime = clock.nextTime();
             allScheduled = true;
             break;
           }
+          var ev = clock.advance();
+          if (d.wrapped) everLooped = true;
           // Métronome coupé : les battements avancent et les visuels restent
           // (pastilles), seuls les clics de grille se taisent. Le décompte
           // reste toujours audible : c'est le repère de départ.
@@ -601,6 +651,20 @@
         return due;
       },
       isFinished: function (t) { return allScheduled && t >= endTime; },
+      /* Boucle (repeat) en vol. Armer la boucle avant que la fin ne soit
+         atteinte ré-ouvre la grille : le battement de fin (jamais consommé)
+         redevient le premier battement du cycle suivant. La couper laisse le
+         cycle en cours se terminer (fin à la prochaine frontière de grille). */
+      setLoop: function (on) {
+        on = !!on;
+        if (on === loopOn) return;
+        loopOn = on;
+        if (on && allScheduled && !stopped && ctx.currentTime < endTime) {
+          allScheduled = false;
+          endTime = Infinity;
+          pump();
+        }
+      },
       /* Bascule du son des notes en vol (mode 3 <-> 1/2), sans toucher à la
          lecture ni au métronome : coupure = release court sur la note en
          cours + annulation des attaques programmées ; réactivation = les
@@ -663,9 +727,13 @@
         var heard = now - outputLatencySeconds(ctx);
         var pos = startGridBeat + (clock.positionAt(heard) - countInBeats(bpb));
         if (pos < startGridBeat) pos = startGridBeat; // pause pendant le décompte
-        if (pos > totalBeats) pos = totalBeats;
+        if (pos > totalBeats) {
+          // Cycles de boucle : position repliée dans la grille ; sinon
+          // (léger dépassement en toute fin) borne à la fin.
+          pos = everLooped ? pos % totalBeats : totalBeats;
+        }
         var resumeBeat = Math.floor(pos / bpb) * bpb;
-        if (resumeBeat > totalBeats - bpb) resumeBeat = totalBeats - bpb;
+        if (isFinite(totalBeats) && resumeBeat > totalBeats - bpb) resumeBeat = totalBeats - bpb;
         if (resumeBeat < 0) resumeBeat = 0;
         return { position: pos, resumeBeat: resumeBeat };
       }
@@ -682,6 +750,7 @@
     countInBeats: countInBeats,
     barBeat: barBeat,
     describeBeat: describeBeat,
+    describeLoopedBeat: describeLoopedBeat,
     litIndicesAt: litIndicesAt,
     noteSoundEvents: noteSoundEvents,
     noteCutSeconds: noteCutSeconds,

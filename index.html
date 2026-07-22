@@ -253,17 +253,18 @@
     70%{ transform:scale(1.34); opacity:0; }
   }
 
-  /* retour au début : cercle hairline discret, petit frère du play */
-  #rewindBtn{
+  /* retour au début + repeat : cercles hairline discrets, petits frères du play */
+  #rewindBtn, #repeatBtn{
     width:46px; height:46px; border-radius:50%;
     border:1px solid var(--hairline);
     display:flex; align-items:center; justify-content:center;
     color:var(--ink-soft);
     transition:transform .4s var(--ease-drift),border-color .4s,color .4s,background .4s;
   }
-  #rewindBtn svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
-  #rewindBtn:hover{ border-color:var(--hairline-strong); color:var(--ink); background:var(--glass); }
-  #rewindBtn:active{ transform:scale(.94); }
+  #rewindBtn svg, #repeatBtn svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+  #rewindBtn:hover, #repeatBtn:hover{ border-color:var(--hairline-strong); color:var(--ink); background:var(--glass); }
+  #rewindBtn:active, #repeatBtn:active{ transform:scale(.94); }
+  #repeatBtn.active{ border-color:var(--accent); color:var(--ink); background:var(--accent-soft); }
 
   /* aides de lecture : trois bascules indépendantes en ligne, centrée
      verticalement sur le bouton play (align-items:center du transport) */
@@ -439,8 +440,11 @@
     .score-stage{ width:94vw; }
     #beats{ gap:12px; }
     .beat{ width:32px; height:32px; }
-    .transport{ gap:16px; flex-wrap:wrap; justify-content:center; }
+    /* 4 éléments (aides, retour, play, repeat) sur une seule ligne */
+    .transport{ gap:11px; flex-wrap:wrap; justify-content:center; }
     .seg button{ width:50px; height:46px; }
+    #playBtn{ width:68px; height:68px; }
+    #rewindBtn, #repeatBtn{ width:44px; height:44px; }
     .hint{ display:none; }
     /* tiroir : mêmes hairlines, gabarits tactiles */
     #drawer{ padding:24px 22px 40px; }
@@ -487,7 +491,7 @@
     .transport{ grid-area:foot; justify-self:center; gap:22px; }
     #playBtn{ width:64px; height:64px; }
     #playBtn svg{ width:20px; height:20px; }
-    #rewindBtn{ width:44px; height:44px; }
+    #rewindBtn, #repeatBtn{ width:44px; height:44px; }
     #countNum{ font-size:clamp(56px,18vh,110px); }
   }
 
@@ -501,6 +505,12 @@
     .fig{ min-height:46px; }
     .level{ padding:13px 15px; }
     .btn{ min-height:48px; }
+  }
+
+  /* très étroit (Android 360 px) : les aides se resserrent, le transport
+     tient sur une ligne — après pointer:coarse pour gagner sur son min-width */
+  @media (max-width:400px){
+    .seg button{ width:46px; min-width:46px; }
   }
 </style>
 </head>
@@ -572,6 +582,10 @@
     <button id="playBtn" class="idle" aria-label="Lancer la lecture">
       <svg id="iconPlay" viewBox="0 0 24 24"><path d="M8.2 5.2v13.6L19.4 12z"/></svg>
       <svg id="iconPause" viewBox="0 0 24 24" style="display:none"><rect x="7.2" y="5.5" width="2.6" height="13" rx="1.1"/><rect x="14.2" y="5.5" width="2.6" height="13" rx="1.1"/></svg>
+    </button>
+
+    <button id="repeatBtn" aria-label="Boucler l'exercice" aria-pressed="false" title="Boucler l'exercice">
+      <svg viewBox="0 0 24 24"><path d="M16.6 3.6l3.3 3.2-3.3 3.2"/><path d="M4.1 12.5v-2.2a3.5 3.5 0 0 1 3.5-3.5h12"/><path d="M7.4 20.4l-3.3-3.2 3.3-3.2"/><path d="M19.9 11.5v2.2a3.5 3.5 0 0 1-3.5 3.5h-12"/></svg>
     </button>
   </div>
 </main>
@@ -651,6 +665,7 @@
       <label class="pill"><input type="radio" name="mes" value="4">4</label>
       <label class="pill checked"><input type="radio" name="mes" value="8" checked>8</label>
       <label class="pill"><input type="radio" name="mes" value="16">16</label>
+      <label class="pill"><input type="radio" name="mes" value="inf" aria-label="Mesures illimitées, générées en continu">∞</label>
     </div>
   </div>
 
@@ -689,6 +704,7 @@
   var beatsEl = document.getElementById("beats");
   var playBtn = document.getElementById("playBtn");
   var rewindBtn = document.getElementById("rewindBtn");
+  var repeatBtn = document.getElementById("repeatBtn");
   var iconPlay = document.getElementById("iconPlay");
   var iconPause = document.getElementById("iconPause");
   var tempoNum = document.getElementById("tempoNum");
@@ -709,7 +725,22 @@
   var cursorAnchors = null; // [{ beat, x, line }] — une ancre par événement de currentNotes (curseur asservi aux notes)
   var lineEndXs = [];       // abscisse de fin de chaque ligne (repère glissière)
   var perLine = 4;          // mesures par système au dernier rendu (2 sur écran étroit)
-  var followedLine = -1;    // système calé en haut de la fenêtre téléprompteur (-1 : fenêtre inactive)
+  var followedLine = -99;   // cran haut de la fenêtre téléprompteur (-1 = 1re ligne centrée, -99 = à recadrer)
+  var repeatOn = false;     // bouclage de l'exercice (bouton repeat)
+  var infiniteOn = false;   // mesures ∞ : grille générée en flux
+  var streamCfg = null;     // config du flux (mêmes réglages pour chaque chunk)
+  var streamBars = [];      // mesures ABC générées du flux
+  var streamNotes = [];     // timeline complète du flux (startBeats globaux)
+  var streamBeats = 0;      // temps déjà générés
+  var streamHeader = "";    // en-tête ABC du flux
+  var winStartBar = 0;      // première mesure rendue (fenêtre de rendu glissante du flux)
+  var renderBaseBeat = 0;   // temps de grille de la première mesure rendue (0 en fini)
+  var liveNoteEvents = null;// tableau d'événements du transport actif (∞ : on y pousse la suite)
+  var lastHeardBeat = 0;    // dernière position entendue (recadrages en cours de lecture)
+  var lastCycle = 0;        // cycle de boucle courant (repeat) — recadrage net au rebouclage
+  var shiftT = null;        // recalage différé de la fenêtre de rendu (∞)
+  var CHUNK_BARS = 8;       // taille de génération du flux ∞
+  var RENDER_LINES = 6;     // systèmes rendus à la fois en flux ∞
   var signature = "4/4";
   var measuresChoice = "8";
   var beatEls = [];
@@ -769,6 +800,14 @@
     return stage.clientWidth < 620 ? 2 : 4;
   }
   function currentAbcFor(pl){
+    if (infiniteOn && streamBars.length){
+      // Flux ∞ : tranche glissante de RENDER_LINES systèmes ; la barre finale
+      // devient une simple barre, le flux continue au-delà du rendu.
+      var endBar = Math.min(streamBars.length, winStartBar + RENDER_LINES * pl);
+      return streamHeader +
+        window.BassRhythmGenerator.joinBars(streamBars.slice(winStartBar, endBar), pl)
+          .replace(/ \|\]$/, " |");
+    }
     if (currentBars && window.BassRhythmGenerator)
       return currentHeader + window.BassRhythmGenerator.joinBars(currentBars, pl);
     return currentAbc; // grille de secours : découpage figé à 4
@@ -781,6 +820,22 @@
       return;
     }
     perLine = measuresPerLine();
+    if (infiniteOn){
+      // La timeline visible (mapping/allumage/ancres) = la tranche rendue,
+      // en temps GLOBAUX du flux.
+      var bpb0 = beatsPerBar();
+      var endBar0 = Math.min(streamBars.length, winStartBar + RENDER_LINES * perLine);
+      renderBaseBeat = winStartBar * bpb0;
+      var endBeat0 = endBar0 * bpb0;
+      currentNotes = [];
+      for (var si = 0; si < streamNotes.length; si++){
+        var sn = streamNotes[si];
+        if (sn.startBeats >= endBeat0) break;
+        if (sn.startBeats >= renderBaseBeat) currentNotes.push(sn);
+      }
+    } else {
+      renderBaseBeat = 0;
+    }
     var opts = { add_classes: true, responsive: "resize" };
     if (perLine === 2){
       opts.staffwidth = stage.clientWidth;
@@ -882,24 +937,31 @@
   }
 
   /* ---------- fenêtre téléprompteur ----------
-     Sur écran étroit (2 mesures/système) et plus de 2 systèmes, la fenêtre
-     clampe la scène à 2 systèmes et la glissière suit la lecture : système
-     joué en haut, le suivant visible dessous — jamais découvert au dernier
-     moment. Sur la dernière paire, la fenêtre s'arrête. Partition entière
-     visible dans tous les autres cas. */
+     Sur écran étroit (2 mesures/système) — et en flux ∞ sur tous les
+     écrans — la fenêtre clampe la scène à 3 systèmes et la glissière garde
+     la ligne JOUÉE AU CENTRE : la précédente au-dessus, la suivante en
+     dessous. L'œil vise toujours la même hauteur, y compris dès la première
+     ligne (cran virtuel : vide assumé au-dessus) et sur la dernière (vide en
+     dessous). Partition entière visible dans les autres cas. */
   function scoreWindowActive(){
-    return perLine === 2 && lines.length > 2;
+    return (perLine === 2 || infiniteOn) && lines.length > 3;
   }
   function lineOfGridBeat(g, bpb){
-    var bar = Math.floor(g / bpb);
+    var bar = Math.floor((g - renderBaseBeat) / bpb);
     return Math.floor(bar / perLine);
+  }
+  /* Ordonnée du haut de fenêtre pour un cran donné — le cran -1 (première
+     ligne centrée) est virtuel, un pas de système au-dessus de la ligne 0. */
+  function slideTopY(top){
+    if (top >= 0) return lines[top].y0;
+    return lines[0].y0 - (lines[1].y0 - lines[0].y0);
   }
   function followScoreLine(l, instant){
     if (!scoreWindowActive()) return;
-    var target = Math.max(0, Math.min(l, lines.length - 2));
-    if (target === followedLine) return;
-    followedLine = target;
-    setSlideY(-lines[target].y0, instant);
+    var top = Math.max(-1, Math.min(l - 1, lines.length - 2)); // ligne jouée au centre
+    if (top === followedLine) return;
+    followedLine = top;
+    setSlideY(-slideTopY(top), instant);
   }
   function setSlideY(y, instant){
     if (instant){
@@ -913,12 +975,15 @@
   }
   function layoutScoreWindow(){
     if (scoreWindowActive()){
-      scoreWin.style.height = Math.round(lines[1].y1 - lines[0].y0) + "px";
-      followedLine = -1;
-      followScoreLine(lineOfGridBeat(pausedGridBeat, beatsPerBar()), true);
+      scoreWin.style.height = Math.round(lines[2].y1 - lines[0].y0) + "px";
+      followedLine = -99;
+      followScoreLine(
+        lineOfGridBeat(playing ? lastHeardBeat : pausedGridBeat, playing ? activeBpb : beatsPerBar()),
+        true
+      );
     } else {
       scoreWin.style.height = "";
-      followedLine = -1;
+      followedLine = -99;
       setSlideY(0, true);
     }
   }
@@ -1165,6 +1230,7 @@
 
   function haltTransport(){
     playing = false;
+    liveNoteEvents = null;
     if (rafId) cancelAnimationFrame(rafId);
     if (transport){ transport.stop(); transport = null; }
   }
@@ -1176,21 +1242,26 @@
     if (!ctx) return;
     computeLines();
     activeBpb = beatsPerBar();
+    lastHeardBeat = fromGridBeat || 0;
+    lastCycle = 0;
     // La fenêtre se cale sur le point de départ pendant le décompte : la
     // première mesure jouée est déjà sous les yeux, pas découverte à l'attaque.
     followScoreLine(lineOfGridBeat(fromGridBeat || 0, activeBpb), false);
+    // Une attaque par note (chaîne liée = une seule, durée cumulée),
+    // programmée par la même pompe lookahead que les clics. Le tableau est
+    // gardé par référence : le flux ∞ y pousse la suite en cours de lecture.
+    liveNoteEvents = window.BassRhythmEngine.noteSoundEvents(infiniteOn ? streamNotes : currentNotes);
     transport = window.BassRhythmEngine.createTransport({
       ctx: ctx,
       bpm: bpm,
       beatsPerBar: activeBpb,
       totalBeats: TOTAL_BEATS,
       startGridBeat: fromGridBeat || 0,
-      // Une attaque par note (chaîne liée = une seule, durée cumulée),
-      // programmée par la même pompe lookahead que les clics.
-      noteEvents: window.BassRhythmEngine.noteSoundEvents(currentNotes),
+      noteEvents: liveNoteEvents,
       notesEnabled: soundOn,
       clicksEnabled: clickOn,
-      getNoteVoice: currentVoice
+      getNoteVoice: currentVoice,
+      loop: repeatOn && !infiniteOn
     });
     playing = true;
     playBtn.classList.remove("idle");
@@ -1210,6 +1281,7 @@
     var info = transport.stop();
     transport = null;
     playing = false;
+    liveNoteEvents = null;
     if (rafId) cancelAnimationFrame(rafId);
     pausedGridBeat = info ? info.resumeBeat : 0;
     settleTransportUi();
@@ -1217,7 +1289,10 @@
 
   function stopAndReset(){
     haltTransport();
+    clearShift();
     pausedGridBeat = 0;
+    lastHeardBeat = 0;
+    lastCycle = 0;
     settleTransportUi();
     followScoreLine(0, false); // la fenêtre revient doucement au début
   }
@@ -1247,6 +1322,8 @@
       }
     }
 
+    if (transport.isFinished(vNow)){ stopAndReset(); return; }
+
     var pos = transport.positionAt(vNow);
     if (pos.countIn){
       countVeil.classList.add("show");
@@ -1254,9 +1331,25 @@
     } else {
       countVeil.classList.remove("show");
 
+      // Position entendue, repliée dans la grille quand le repeat boucle ;
+      // au rebouclage, la fenêtre se recale net sur le début (pas de glissée
+      // à rebours à travers toute la partition).
+      var gPos = Math.max(0, pos.gridBeat);
+      if (isFinite(TOTAL_BEATS) && gPos >= TOTAL_BEATS){
+        var cyc = Math.floor(gPos / TOTAL_BEATS);
+        gPos -= cyc * TOTAL_BEATS;
+        if (cyc !== lastCycle){
+          lastCycle = cyc;
+          followedLine = -99;
+          followScoreLine(lineOfGridBeat(gPos, activeBpb), true);
+        }
+      }
+      lastHeardBeat = gPos;
+
       // Fenêtre téléprompteur : suit la mesure ENTENDUE, même guide visuel
       // coupé — c'est le cadrage de la partition, pas une aide de lecture.
-      followScoreLine(lineOfGridBeat(Math.max(0, pos.gridBeat), activeBpb), false);
+      followScoreLine(lineOfGridBeat(gPos, activeBpb), false);
+      if (infiniteOn) streamTick(gPos);
 
       if (visualOn){
         // Guide visuel : allumage des notes et curseur, tous deux à la position
@@ -1264,9 +1357,9 @@
         // en temps entre les abscisses réellement gravées, saut net au
         // changement de ligne — jamais en avance ni en retard sur la note
         // allumée. Repli linéaire par ligne si la géométrie manque.
-        if (noteEls.length) updateLit(pos.gridBeat);
+        if (noteEls.length) updateLit(gPos);
         if (lines.length){
-          var g = Math.max(0, Math.min(TOTAL_BEATS, pos.gridBeat));
+          var g = gPos;
           var L = null, x = 0;
           var cs = cursorAnchors
             ? window.BassRhythmEngine.cursorXAt(cursorAnchors, lineEndXs, TOTAL_BEATS, g)
@@ -1275,7 +1368,8 @@
             L = lines[cs.line];
             x = cs.x;
           } else {
-            var lf = (g / TOTAL_BEATS) * lines.length;
+            var span = isFinite(TOTAL_BEATS) ? TOTAL_BEATS : (streamBeats || 1);
+            var lf = (g / span) * lines.length;
             var li = Math.min(lines.length - 1, Math.floor(lf));
             L = lines[li];
             x = L.x0 + (L.x1 - L.x0) * (lf - li);
@@ -1293,8 +1387,26 @@
       }
     }
 
-    if (transport.isFinished(vNow)){ stopAndReset(); return; }
     rafId = requestAnimationFrame(tick);
+  }
+
+  /* ---------- flux ∞ : extension + recalage de la fenêtre de rendu ----------
+     Extension : toujours ~2 chunks générés devant la tête de lecture (les
+     attaques poussées dans le tableau vivant du transport). Recalage : une
+     fois la glissée posée (cran >= 2), la tranche rendue avance pour ramener
+     la ligne jouée à l'index 1 — mêmes pixels après re-rendu (chaque système
+     est gravé indépendamment), hors du moment critique de l'entrée de ligne. */
+  function streamTick(g){
+    if (streamBeats - g < 2 * CHUNK_BARS * activeBpb) extendStream();
+    if (followedLine >= 2 && !shiftT){
+      shiftT = setTimeout(function(){
+        shiftT = null;
+        if (!infiniteOn || !playing) return;
+        winStartBar += followedLine * perLine;
+        renderScore(false);
+        computeLines();
+      }, 600);
+    }
   }
 
   function togglePlay(){
@@ -1436,29 +1548,83 @@
       figures.push(inp.value);
     });
     var lvl = document.querySelector('input[name="niveau"]:checked');
+    var inf = measuresChoice === "inf";
     return {
       figures: figures,
       level: lvl ? parseInt(lvl.value, 10) : 1,
       meter: signature,
-      measures: parseInt(measuresChoice, 10),
-      note: noteByLetter(noteChoice).abc
+      // ∞ : le flux est généré par chunks de CHUNK_BARS avec ces réglages
+      measures: inf ? CHUNK_BARS : parseInt(measuresChoice, 10),
+      note: noteByLetter(noteChoice).abc,
+      infinite: inf
     };
+  }
+
+  function clearShift(){
+    if (shiftT){ clearTimeout(shiftT); shiftT = null; }
+  }
+
+  /* Étend le flux ∞ d'un chunk : mesures et timeline (temps globaux), et —
+     lecture en cours — pousse les attaques correspondantes dans le tableau
+     d'événements que la pompe du transport lit par référence. */
+  function extendStream(){
+    if (!window.BassRhythmGenerator || !streamCfg) return;
+    var res = window.BassRhythmGenerator.generateExercise(streamCfg);
+    var base = streamBeats;
+    var added = [];
+    for (var i = 0; i < res.bars.length; i++) streamBars.push(res.bars[i]);
+    for (i = 0; i < res.notes.length; i++){
+      var n = res.notes[i];
+      var ev = {
+        startBeats: base + n.startBeats,
+        durationBeats: n.durationBeats,
+        isRest: n.isRest,
+        tiedToNext: n.tiedToNext
+      };
+      streamNotes.push(ev);
+      added.push(ev);
+    }
+    streamBeats += res.bars.length * beatsPerBar();
+    streamHeader = res.header;
+    if (liveNoteEvents){
+      var evs = window.BassRhythmEngine.noteSoundEvents(added);
+      for (i = 0; i < evs.length; i++) liveNoteEvents.push(evs[i]);
+    }
   }
 
   function generateGrid(animate){
     if (!window.BassRhythmGenerator) return false;
     var cfg = readConfig();
     try {
-      var res = window.BassRhythmGenerator.generateExercise(cfg);
-      for (var i = 0; i < 7 && res.abc === currentAbc; i++){
-        // deux clics successifs doivent donner deux grilles différentes
-        res = window.BassRhythmGenerator.generateExercise(cfg);
+      clearShift();
+      infiniteOn = !!cfg.infinite;
+      if (infiniteOn){
+        streamCfg = cfg;
+        streamBars = [];
+        streamNotes = [];
+        streamBeats = 0;
+        winStartBar = 0;
+        lastHeardBeat = 0;
+        extendStream();
+        extendStream(); // 2 chunks d'avance avant lecture
+        currentBars = null;
+        currentHeader = "";
+        TOTAL_BEATS = Infinity;
+      } else {
+        streamCfg = null;
+        var res = window.BassRhythmGenerator.generateExercise(cfg);
+        for (var i = 0; i < 7 && res.abc === currentAbc; i++){
+          // deux clics successifs doivent donner deux grilles différentes
+          res = window.BassRhythmGenerator.generateExercise(cfg);
+        }
+        currentAbc = res.abc;
+        currentNotes = res.notes; // alimente l'allumage des notes (mode 2)
+        currentBars = res.bars || null;     // re-découpage responsive (2 ou 4 mesures/système)
+        currentHeader = res.header || "";
+        TOTAL_BEATS = cfg.measures * beatsPerBar();
       }
-      currentAbc = res.abc;
-      currentNotes = res.notes; // alimente l'allumage des notes (mode 2)
-      currentBars = res.bars || null;     // re-découpage responsive (2 ou 4 mesures/système)
-      currentHeader = res.header || "";
-      TOTAL_BEATS = cfg.measures * beatsPerBar();
+      // Boucler un flux sans fin n'a pas de sens : le repeat disparaît en ∞.
+      repeatBtn.style.display = infiniteOn ? "none" : "";
       updateExerciseTitle(cfg, animate); // l'en-tête suit chaque grille réellement affichée
       return true;
     } catch (err) {
@@ -1487,6 +1653,14 @@
      sans lancer la lecture. NB : une pause en mesure 1 mémorise déjà 0 —
      elle suit alors le même chemin que l'arrêt, sans rien perdre. */
   function rewindToStart(){
+    clearShift();
+    if (infiniteOn && winStartBar !== 0){
+      // Flux ∞ : la fenêtre de rendu revient au début du flux déjà généré.
+      winStartBar = 0;
+      lastHeardBeat = 0;
+      renderScore(false);
+      computeLines();
+    }
     if (playing){
       stopAndReset();
       startPlayback(0);
@@ -1498,6 +1672,16 @@
     }
   }
   rewindBtn.addEventListener("click", rewindToStart);
+
+  /* ---------- repeat : boucle sans couture (pas de nouveau décompte) ----------
+     Armé, l'exercice reboucle sur lui-même à la barre finale ; coupé en vol,
+     le cycle en cours se termine normalement. Sans objet en flux ∞ (masqué). */
+  repeatBtn.addEventListener("click", function(){
+    repeatOn = !repeatOn;
+    repeatBtn.classList.toggle("active", repeatOn);
+    repeatBtn.setAttribute("aria-pressed", String(repeatOn));
+    if (playing && transport) transport.setLoop(repeatOn && !infiniteOn);
+  });
 
   /* ---------- tempo : saisie directe, ±5, molette, glisser vertical ---------- */
   playBtn.addEventListener("click", togglePlay);

@@ -29,8 +29,10 @@ Deux façons de lancer l'application, strictement équivalentes :
 Dans l'application : tempo 40–200 BPM saisissable au clavier, aux boutons ±5,
 à la molette ou au glisser vertical ; décompte d'une mesure ; trois aides
 de lecture indépendantes (métronome, guide visuel, son) débrayables en vol ;
-sur écran étroit, partition en 2 mesures par système gravées pleine largeur,
-avec fenêtre de lecture qui suit la mesure jouée (la suivante reste visible) ;
+bouclage de l'exercice (repeat, sans nouveau décompte) ; sur écran étroit,
+partition en 2 mesures par système gravées pleine largeur, avec fenêtre de
+lecture de 3 systèmes qui garde la mesure jouée au centre ; mesures ∞ :
+grille générée en continu pendant la lecture (fenêtre de rendu glissante) ;
 réglages : son (basse growl, synthé, basse Ergo, contrebasse à l'archet —
 avec préécoute), note d'entraînement (E à D), niveau 1–3, figures de notes,
 signature, nombre de mesures.
