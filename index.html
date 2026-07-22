@@ -265,6 +265,14 @@
   #rewindBtn:hover, #repeatBtn:hover{ border-color:var(--hairline-strong); color:var(--ink); background:var(--glass); }
   #rewindBtn:active, #repeatBtn:active{ transform:scale(.94); }
   #repeatBtn.active{ border-color:var(--accent); color:var(--ink); background:var(--accent-soft); }
+  /* mesures ∞ : le même emplacement devient témoin du mode (non cliquable) */
+  #repeatBtn .ico-inf{ display:none; }
+  #repeatBtn.inf .ico-repeat{ display:none; }
+  #repeatBtn.inf .ico-inf{ display:block; }
+  #repeatBtn.inf{
+    pointer-events:none;
+    border-color:var(--accent); color:var(--ink); background:var(--accent-soft);
+  }
 
   /* aides de lecture : trois bascules indépendantes en ligne, centrée
      verticalement sur le bouton play (align-items:center du transport) */
@@ -585,7 +593,8 @@
     </button>
 
     <button id="repeatBtn" aria-label="Boucler l'exercice" aria-pressed="false" title="Boucler l'exercice">
-      <svg viewBox="0 0 24 24"><path d="M16.6 3.6l3.3 3.2-3.3 3.2"/><path d="M4.1 12.5v-2.2a3.5 3.5 0 0 1 3.5-3.5h12"/><path d="M7.4 20.4l-3.3-3.2 3.3-3.2"/><path d="M19.9 11.5v2.2a3.5 3.5 0 0 1-3.5 3.5h-12"/></svg>
+      <svg class="ico-repeat" viewBox="0 0 24 24"><path d="M16.6 3.6l3.3 3.2-3.3 3.2"/><path d="M4.1 12.5v-2.2a3.5 3.5 0 0 1 3.5-3.5h12"/><path d="M7.4 20.4l-3.3-3.2 3.3-3.2"/><path d="M19.9 11.5v2.2a3.5 3.5 0 0 1-3.5 3.5h-12"/></svg>
+      <svg class="ico-inf" viewBox="0 0 24 24"><path d="M18.1 8.4c2 0 3.6 1.6 3.6 3.6s-1.6 3.6-3.6 3.6c-3.7 0-8.5-7.2-12.2-7.2-2 0-3.6 1.6-3.6 3.6s1.6 3.6 3.6 3.6c3.7 0 8.5-7.2 12.2-7.2z"/></svg>
     </button>
   </div>
 </main>
@@ -738,9 +747,9 @@
   var liveNoteEvents = null;// tableau d'événements du transport actif (∞ : on y pousse la suite)
   var lastHeardBeat = 0;    // dernière position entendue (recadrages en cours de lecture)
   var lastCycle = 0;        // cycle de boucle courant (repeat) — recadrage net au rebouclage
-  var shiftT = null;        // recalage différé de la fenêtre de rendu (∞)
+  var shiftAt = 0;          // instant (performance.now) du recalage différé de la fenêtre de rendu (∞)
   var CHUNK_BARS = 8;       // taille de génération du flux ∞
-  var RENDER_LINES = 6;     // systèmes rendus à la fois en flux ∞
+  var RENDER_LINES = 8;     // systèmes rendus à la fois en flux ∞ (marge sous la ligne jouée)
   var signature = "4/4";
   var measuresChoice = "8";
   var beatEls = [];
@@ -802,9 +811,13 @@
   function currentAbcFor(pl){
     if (infiniteOn && streamBars.length){
       // Flux ∞ : tranche glissante de RENDER_LINES systèmes ; la barre finale
-      // devient une simple barre, le flux continue au-delà du rendu.
+      // devient une simple barre, le flux continue au-delà du rendu. La
+      // signature de temps n'apparaît que sur la toute première ligne du
+      // flux : les tranches décalées passent en M:none (et les notes de la
+      // ligne de tête gardent EXACTEMENT leurs abscisses au recalage).
+      var head = winStartBar > 0 ? streamHeader.replace(/^M:.*$/m, "M:none") : streamHeader;
       var endBar = Math.min(streamBars.length, winStartBar + RENDER_LINES * pl);
-      return streamHeader +
+      return head +
         window.BassRhythmGenerator.joinBars(streamBars.slice(winStartBar, endBar), pl)
           .replace(/ \|\]$/, " |");
     }
@@ -821,6 +834,7 @@
     }
     perLine = measuresPerLine();
     if (infiniteOn){
+      ensureStreamDepth(); // la tranche rendue est TOUJOURS pleine
       // La timeline visible (mapping/allumage/ancres) = la tranche rendue,
       // en temps GLOBAUX du flux.
       var bpb0 = beatsPerBar();
@@ -1391,22 +1405,26 @@
   }
 
   /* ---------- flux ∞ : extension + recalage de la fenêtre de rendu ----------
-     Extension : toujours ~2 chunks générés devant la tête de lecture (les
-     attaques poussées dans le tableau vivant du transport). Recalage : une
-     fois la glissée posée (cran >= 2), la tranche rendue avance pour ramener
-     la ligne jouée à l'index 1 — mêmes pixels après re-rendu (chaque système
-     est gravé indépendamment), hors du moment critique de l'entrée de ligne. */
+     Extension : la tranche rendue est toujours pleine plus un chunk d'avance
+     (les attaques sont poussées dans le tableau vivant du transport).
+     Recalage : une fois la glissée posée (cran >= 2), la tranche avance pour
+     ramener la ligne jouée à l'index 1 — mêmes pixels après re-rendu (chaque
+     système est gravé indépendamment et la signature ne bouge pas, M:none),
+     hors du moment critique de l'entrée de ligne. Piloté par la rAF (les
+     setTimeout sont throttlés sur mobile), avec filet de sécurité : si la
+     ligne sous la ligne jouée n'était pas rendue, recalage immédiat. */
+  function doStreamShift(){
+    shiftAt = 0;
+    if (!infiniteOn || followedLine < 1) return;
+    winStartBar += followedLine * perLine;
+    renderScore(false);
+    computeLines();
+  }
   function streamTick(g){
-    if (streamBeats - g < 2 * CHUNK_BARS * activeBpb) extendStream();
-    if (followedLine >= 2 && !shiftT){
-      shiftT = setTimeout(function(){
-        shiftT = null;
-        if (!infiniteOn || !playing) return;
-        winStartBar += followedLine * perLine;
-        renderScore(false);
-        computeLines();
-      }, 600);
-    }
+    ensureStreamDepth();
+    if (followedLine >= 2 && !shiftAt) shiftAt = performance.now() + 600;
+    if (shiftAt && performance.now() >= shiftAt) doStreamShift();
+    if (lineOfGridBeat(g, activeBpb) + 1 >= lines.length) doStreamShift();
   }
 
   function togglePlay(){
@@ -1561,7 +1579,15 @@
   }
 
   function clearShift(){
-    if (shiftT){ clearTimeout(shiftT); shiftT = null; }
+    shiftAt = 0;
+  }
+
+  /* Le flux garde toujours de quoi remplir la tranche rendue plus un chunk
+     d'avance — appelé avant chaque rendu et à chaque image de lecture : la
+     portée ne peut jamais « arriver » à l'écran. */
+  function ensureStreamDepth(){
+    var needBars = winStartBar + RENDER_LINES * perLine + CHUNK_BARS;
+    while (streamBars.length < needBars) extendStream();
   }
 
   /* Étend le flux ∞ d'un chunk : mesures et timeline (temps globaux), et —
@@ -1605,8 +1631,7 @@
         streamBeats = 0;
         winStartBar = 0;
         lastHeardBeat = 0;
-        extendStream();
-        extendStream(); // 2 chunks d'avance avant lecture
+        extendStream(); // le rendu remplit ensuite via ensureStreamDepth
         currentBars = null;
         currentHeader = "";
         TOTAL_BEATS = Infinity;
@@ -1623,8 +1648,21 @@
         currentHeader = res.header || "";
         TOTAL_BEATS = cfg.measures * beatsPerBar();
       }
-      // Boucler un flux sans fin n'a pas de sens : le repeat disparaît en ∞.
-      repeatBtn.style.display = infiniteOn ? "none" : "";
+      // Boucler un flux sans fin n'a pas de sens : l'emplacement du repeat
+      // devient le témoin ∞ du mode (non cliquable).
+      repeatBtn.classList.toggle("inf", infiniteOn);
+      repeatBtn.disabled = infiniteOn;
+      if (infiniteOn){
+        repeatBtn.classList.remove("active");
+        repeatBtn.removeAttribute("aria-pressed");
+        repeatBtn.setAttribute("aria-label", "Exercice illimité — mesures générées en continu");
+        repeatBtn.title = "Exercice illimité — mesures générées en continu";
+      } else {
+        repeatBtn.classList.toggle("active", repeatOn);
+        repeatBtn.setAttribute("aria-pressed", String(repeatOn));
+        repeatBtn.setAttribute("aria-label", "Boucler l'exercice");
+        repeatBtn.title = "Boucler l'exercice";
+      }
       updateExerciseTitle(cfg, animate); // l'en-tête suit chaque grille réellement affichée
       return true;
     } catch (err) {
@@ -1677,6 +1715,7 @@
      Armé, l'exercice reboucle sur lui-même à la barre finale ; coupé en vol,
      le cycle en cours se termine normalement. Sans objet en flux ∞ (masqué). */
   repeatBtn.addEventListener("click", function(){
+    if (infiniteOn) return; // témoin ∞, pas une commande
     repeatOn = !repeatOn;
     repeatBtn.classList.toggle("active", repeatOn);
     repeatBtn.setAttribute("aria-pressed", String(repeatOn));
