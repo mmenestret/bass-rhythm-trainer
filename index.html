@@ -159,10 +159,8 @@
   /* fenêtre téléprompteur : sur écran étroit, hauteur clampée à 2 systèmes
      par le JS (layoutScoreWindow) et glissière qui suit la lecture */
   #scoreWin{ position:relative; z-index:1; overflow:hidden; }
-  /* courbe douce entrée-sortie : la glissée se lit comme un travelling ;
-     la durée est posée en inline par le JS (adaptée au creux musical) */
-  #scoreSlide{ position:relative; transition:transform .45s cubic-bezier(.45,.05,.35,.95); will-change:transform; }
-  #scoreSlide.snap{ transition:none !important; }
+  #scoreSlide{ position:relative; transition:transform .45s var(--ease-drift); will-change:transform; }
+  #scoreSlide.snap{ transition:none; }
   #score{ transition:opacity .9s var(--ease-drift),filter .9s var(--ease-drift); }
   #score svg{ display:block; }
   #score path, #score text{ fill:#39424f; }
@@ -712,8 +710,6 @@
   var lineEndXs = [];       // abscisse de fin de chaque ligne (repère glissière)
   var perLine = 4;          // mesures par système au dernier rendu (2 sur écran étroit)
   var followedLine = -1;    // système calé en haut de la fenêtre téléprompteur (-1 : fenêtre inactive)
-  var lineLastAtk = [];     // dernière attaque de chaque système (temps de grille, liaisons fusionnées)
-  var reducedMotion = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   var signature = "4/4";
   var measuresChoice = "8";
   var beatEls = [];
@@ -890,16 +886,7 @@
      clampe la scène à 2 systèmes et la glissière suit la lecture : système
      joué en haut, le suivant visible dessous — jamais découvert au dernier
      moment. Sur la dernière paire, la fenêtre s'arrête. Partition entière
-     visible dans tous les autres cas.
-
-     La glissée est MUSICALE : elle part après la DERNIÈRE ATTAQUE de la
-     ligne — pendant une tenue ou un silence, jamais pendant qu'il y a
-     quelque chose à lire — à 10 % du creux qui va de cette attaque à la
-     barre, dure 65 % du creux (bornée à 0,9 s) et se pose donc 25 % du
-     creux AVANT la première note de la ligne suivante : le moment critique
-     (l'attaque qui vient) garde la marge la plus large, même si une frame
-     saute. Une note liée à travers la barre n'est pas une nouvelle
-     attaque : le creux s'étend naturellement. */
+     visible dans tous les autres cas. */
   function scoreWindowActive(){
     return perLine === 2 && lines.length > 2;
   }
@@ -907,52 +894,25 @@
     var bar = Math.floor(g / bpb);
     return Math.floor(bar / perLine);
   }
-  function computeLineAttacks(){
-    lineLastAtk = [];
-    var bpl = beatsPerBar() * perLine;
-    for (var k = 0; k < lines.length; k++) lineLastAtk.push(k * bpl);
-    for (var i = 0; i < currentNotes.length; i++){
-      var n = currentNotes[i];
-      if (n.isRest) continue;
-      if (i > 0 && currentNotes[i - 1].tiedToNext && !currentNotes[i - 1].isRest) continue; // prolongation
-      var k2 = Math.floor(n.startBeats / bpl);
-      if (k2 < lineLastAtk.length && n.startBeats > lineLastAtk[k2]) lineLastAtk[k2] = n.startBeats;
-    }
-  }
-  function followScoreForBeat(g, bpb){
-    var bpl = bpb * perLine;
-    var k = Math.floor(g / bpl);
-    if (k + 1 < lineLastAtk.length){
-      var barBeat = (k + 1) * bpl;                 // barre de fin de la ligne k
-      var gap = barBeat - lineLastAtk[k];          // creux : dernière attaque -> barre
-      if (g >= barBeat - 0.9 * gap){
-        followScoreLine(k + 1, false, Math.min(.9, .65 * gap * 60 / bpm));
-        return;
-      }
-    }
-    followScoreLine(k, false);
-  }
-  function followScoreLine(l, instant, durS){
+  function followScoreLine(l, instant){
     if (!scoreWindowActive()) return;
     var target = Math.max(0, Math.min(l, lines.length - 2));
     if (target === followedLine) return;
     followedLine = target;
-    setSlideY(-lines[target].y0, instant, durS);
+    setSlideY(-lines[target].y0, instant);
   }
-  function setSlideY(y, instant, durS){
-    if (instant || reducedMotion){
+  function setSlideY(y, instant){
+    if (instant){
       scoreSlide.classList.add("snap");
       scoreSlide.style.transform = "translateY(" + y + "px)";
       void scoreSlide.offsetWidth;
       scoreSlide.classList.remove("snap");
     } else {
-      scoreSlide.style.transitionDuration = (durS || .45).toFixed(3) + "s";
       scoreSlide.style.transform = "translateY(" + y + "px)";
     }
   }
   function layoutScoreWindow(){
     if (scoreWindowActive()){
-      computeLineAttacks();
       scoreWin.style.height = Math.round(lines[1].y1 - lines[0].y0) + "px";
       followedLine = -1;
       followScoreLine(lineOfGridBeat(pausedGridBeat, beatsPerBar()), true);
@@ -1294,11 +1254,9 @@
     } else {
       countVeil.classList.remove("show");
 
-      // Fenêtre téléprompteur : suit la position ENTENDUE, même guide visuel
+      // Fenêtre téléprompteur : suit la mesure ENTENDUE, même guide visuel
       // coupé — c'est le cadrage de la partition, pas une aide de lecture.
-      // La glissée vers la ligne suivante part dans le creux musical après
-      // la dernière attaque de la ligne en cours.
-      followScoreForBeat(Math.max(0, pos.gridBeat), activeBpb);
+      followScoreLine(lineOfGridBeat(Math.max(0, pos.gridBeat), activeBpb), false);
 
       if (visualOn){
         // Guide visuel : allumage des notes et curseur, tous deux à la position
