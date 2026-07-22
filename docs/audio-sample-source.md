@@ -8,14 +8,18 @@ mentions de courtoisie possibles ci-dessous.
 Contrainte de sélection : chaque son doit pouvoir **tenir une ronde**
 (4 s à 60 BPM, 6 s à 40 BPM), naturellement ou par boucle de sustain.
 
-## Basse growl — `growl-Db2.m4a`
+## Basse growl — `growl-Db1.m4a`
 
 - **Jeu** : « Growlybass » de Karoryfer Samples — Squier Jazz Bass attaquée
   fort, cordes qui claquent contre les frettes, DI brut.
 - **Dépôt** : <https://github.com/sfzinstruments/karoryfer.growlybass>
   (licence CC0 dans `LICENSE`), fichier `sustain/db2_f_rr1.wav`.
-- **Hauteur** : nommage scientifique — `db2` = MIDI 37 (C#2, ~69,3 Hz),
-  vérifié dans `growlybass_clean.sfz` (`pitch_keycenter=37`).
+- **Hauteur** : le nommage source (`db2`, `pitch_keycenter=37` dans le sfz)
+  est décalé d'une octave vs la hauteur sonnante — même décalage que
+  constaté sur l'Ergo. Hauteur réelle **vérifiée par autocorrélation et
+  spectre** (série harmonique espacée de ~34,6 Hz) : **C#1, MIDI 25**
+  (juste à ±10 cents). Fichier renommé `growl-Db1.m4a` en conséquence ;
+  avec l'ancien MIDI 37, tout sonnait une octave sous les autres sons.
 - **Sustain** : 6,0 s sans boucle — la ronde passe sur toute la plage de
   tempo (à 40 BPM, dernier souffle en fondu naturel).
 - **Conversion** : normalisation du pic à −1 dBFS, fade-out anti-clic 80 ms,
@@ -29,9 +33,11 @@ Contrainte de sélection : chaque son doit pouvoir **tenir une ronde**
   CC0-1.0), dossier `ergo/pizz/`, une prise par note retenue à l'audition.
 - **Hauteurs** : le nommage source est décalé vs la hauteur sonnante — les
   fichiers ont été renommés à la hauteur réelle, **vérifiée par
-  autocorrélation** (fenêtre RMS max, correction d'octave) : `ergo-C1`=24,
-  `ergo-Eb1`=27, `ergo-Gb1`=30, `ergo-A1`=33, `ergo-C2`=36 (±0,11 demi-ton
-  mesuré).
+  autocorrélation** (médiane sur fenêtres de 0,5 s couvrant le corps de la
+  note) : `ergo-C1`=23,98, `ergo-Eb1`=27,03, `ergo-Gb1`=**30,06**,
+  `ergo-A1`=**33,08**, `ergo-C2`=36,00. Les deux prises hautes de 6 et
+  8 cents portent leur valeur mesurée dans le registre `SOUNDS` (les trois
+  autres restent à l'entier, écart ≤ 3 cents) : F, G et A sonnent juste.
 - **Sustain** : décroissance naturelle 3,5–6,2 s, sans boucle — la ronde aux
   tempos lents (6 s à 40 BPM) s'éteint en fondu, limite assumée au choix du
   son.
@@ -47,6 +53,10 @@ Contrainte de sélection : chaque son doit pouvoir **tenir une ronde**
 - **Hauteurs** : nommage scientifique vérifié dans
   `Programs/arco_looped_basic_map.sfz` — `eb1`=27, `gb1`=30, `a1`=33,
   `c2`=36, `eb2`=39 (5 fichiers livrés : `arco-Eb1/Gb1/A1/C2/Eb2.wav`).
+  Hauteur sonnante mesurée par autocorrélation : `gb1/a1/c2/eb2` justes
+  (±3 cents), mais la prise `eb1` est **23 cents basse** (MIDI mesuré
+  26,77, stable sur toute la durée) — registre `SOUNDS` à 26,77 pour que
+  le E (transposé depuis ce sample) tombe juste sur 41,2 Hz.
 - **Sustain** : **tenue infinie** — points de boucle lus dans le chunk `smpl`
   de chaque WAV source et recopiés dans le registre `SOUNDS` d'index.html
   (`loopStart`/`loopEnd` en secondes ; la lecture boucle sur cette fenêtre).
@@ -59,9 +69,15 @@ Contrainte de sélection : chaque son doit pouvoir **tenir une ronde**
 L'app propose 7 notes (E1 à D2 sonnant, écrit une octave au-dessus en clé de
 fa). La voix prend le sample du son le plus proche de la cible et le
 transpose par `playbackRate = 2^(Δ demi-tons/12)` — au plus ±1 demi-ton pour
-l'archet, ±2 pour l'Ergo. Le growl n'a qu'un sample (C#2) : jusqu'à
-−9 demi-tons vers E1, timbre plus sombre et attaque plus molle assumés.
-Sample indisponible → repli synthé à la hauteur choisie.
+l'archet, ±2 pour l'Ergo. Le `midi` du registre est la hauteur sonnante
+MESURÉE de chaque fichier (pas le nommage source) : chaque note tombe ainsi
+sur sa hauteur cible — E sur le E1 d'une basse (41,2 Hz) — vérifié à
+±7 cents près sur les 7 notes × 4 sons (médiane multi-fenêtres, boucle de
+sustain pour l'archet ; le growl, à −6 cents constants, fluctue lui-même de
+±15 cents sur sa durée). Le growl n'a qu'un sample (C#1) : de +3 demi-tons (E1) à +13 (D2)
+vers l'aigu — timbre plus brillant et tenue raccourcie en montant (6 s
+source → ~5 s en E1, ~2,8 s en D2), assumés. Sample indisponible → repli
+synthé à la hauteur choisie.
 
 ## Mentions de courtoisie
 
