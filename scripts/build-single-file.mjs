@@ -77,6 +77,12 @@ html = html.replace(
   (_, file) => `src="${dataUri(path.join("assets/figures", file), "image/png")}"`
 );
 
+// (2b) Favicon : ICO + PNG (variantes claires du mode sombre incluses) en data URI.
+html = html.replace(
+  /href="assets\/favicon\/([a-z0-9-]+\.(?:png|ico))"/g,
+  (_, file) => `href="${dataUri(path.join("assets/favicon", file), file.endsWith(".ico") ? "image/x-icon" : "image/png")}"`
+);
+
 // (3) Scripts inline (licence abcjs conservée : elle vit en tête du fichier).
 for (const rel of ["vendor/abcjs-basic-min.js", "js/generator.js", "js/engine.js"]) {
   const tag = `<script src="${rel}"></script>`;

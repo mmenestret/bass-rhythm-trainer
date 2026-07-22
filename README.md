@@ -33,9 +33,11 @@ bouclage de l'exercice (repeat, sans nouveau décompte) ; sur écran étroit,
 partition en 2 mesures par système gravées pleine largeur, avec fenêtre de
 lecture de 3 systèmes qui garde la mesure jouée au centre ; mesures ∞ :
 grille générée en continu pendant la lecture (fenêtre de rendu glissante) ;
-réglages : son (basse growl, synthé, basse Ergo, contrebasse à l'archet —
-avec préécoute), note d'entraînement (E à D), niveau 1–3, figures de notes,
-signature, nombre de mesures.
+bouton **copier le lien** (à côté du repeat/∞) : l'URL encode la grille
+affichée — graine et réglages — et la rejoue à l'identique chez qui l'ouvre
+(l'appli la restaure au chargement) ; réglages : son (basse growl, synthé,
+basse Ergo, contrebasse à l'archet — avec préécoute), note d'entraînement
+(E à D), niveau 1–3, figures de notes, signature, nombre de mesures.
 
 ## Build du fichier unique
 
@@ -68,7 +70,7 @@ dist/                      # fichier unique généré par le build
 
 ## Tests
 
-Cinq harnais Node, sans dépendance ni navigateur (code de sortie non nul
+Six harnais Node, sans dépendance ni navigateur (code de sortie non nul
 en cas d'échec) :
 
 ```sh
@@ -77,6 +79,7 @@ node scripts/test-engine.mjs      # transport : battements exacts, tempo en vol,
 node scripts/test-guidage.mjs     # allumage des notes : durées, liaisons, frontières, cas dégradés
 node scripts/test-son.mjs         # son des notes : une attaque par note, liaisons cumulées, coupes
 node scripts/test-sync.mjs        # synchronisation de bout en bout (mock AudioContext, latence)
+node scripts/test-share.mjs       # graine + lien partageable : reproductibilité, flux ∞, aller-retour du codec d'URL
 ```
 
 ## Décisions validées
@@ -91,6 +94,11 @@ node scripts/test-sync.mjs        # synchronisation de bout en bout (mock AudioC
   le sample le plus proche et re-hausse la portée sans changer le rythme.
 - Ludique sans scoring ; un seul fichier HTML autonome généré depuis la même
   source que la version dossier.
+- Partage d'une grille par lien : la génération est seedée (`makeRng`,
+  mulberry32 déterministe injectée dans le générateur) ; le hash de l'URL
+  encode graine + réglages, mis à jour en continu et restauré au chargement.
+  Copie robuste (repli `execCommand` là où l'API Clipboard exige https).
+  Volontairement dépouillé : pas de scoring, de défi ni de suivi.
 - Parké v2 : mesures composées (6/8…), streaks, détection micro.
 
 ## Crédits et licences

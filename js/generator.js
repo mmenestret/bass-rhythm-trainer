@@ -385,6 +385,98 @@
     return lines.join("\n");
   }
 
+  /* ---------- graine déterministe & partage d'une grille ----------
+   *
+   * makeRng(seed) : PRNG mulberry32, une graine uint32 -> fonction rng() dans
+   * [0,1). Injectée dans generateExercise via config.rng, elle rend une grille
+   * exactement reproductible. En flux ∞, la MÊME instance doit être réutilisée
+   * d'une tranche à l'autre (l'état avance) pour un flux déterministe et varié.
+   *
+   * encodeShare / decodeShare : sérialisent l'état minimal qui détermine une
+   * grille (graine + figures + niveau + signature + note + nombre de mesures)
+   * en une chaîne compacte pour le hash d'URL, et l'inverse (null si invalide).
+   */
+  function makeRng(seed) {
+    var a = seed >>> 0;
+    return function () {
+      a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  var FIG_CODE = {
+    ronde: "r", blanche: "b", noire: "n", croche: "c",
+    double: "d", triple: "t", quadruple: "q"
+  };
+  var CODE_FIG = {};
+  for (var _f in FIG_CODE) {
+    if (FIG_CODE.hasOwnProperty(_f)) CODE_FIG[FIG_CODE[_f]] = _f;
+  }
+  var MEASURE_CHOICES = ["4", "8", "16", "inf"];
+
+  function encodeShare(state) {
+    var figs = "";
+    for (var i = 0; i < state.figures.length; i++) {
+      var code = FIG_CODE[state.figures[i]];
+      if (code) figs += code;
+    }
+    var meas = state.measures === "inf" ? "i" : String(state.measures);
+    return "s=" + ((state.seed >>> 0).toString(36)) +
+      "&f=" + figs +
+      "&l=" + state.level +
+      "&m=" + String(state.meter).replace("/", "") +
+      "&n=" + state.note +
+      "&x=" + meas;
+  }
+
+  function decodeShare(str) {
+    if (typeof str !== "string" || !str) return null;
+    var map = {};
+    var parts = str.split("&");
+    for (var i = 0; i < parts.length; i++) {
+      var kv = parts[i].split("=");
+      if (kv.length === 2 && kv[0]) map[kv[0]] = kv[1];
+    }
+    if (!("s" in map && "f" in map && "l" in map && "m" in map && "n" in map && "x" in map)) {
+      return null;
+    }
+
+    var seed = parseInt(map.s, 36);
+    if (!isFinite(seed) || seed < 0) return null;
+    seed = seed >>> 0;
+
+    var figures = [];
+    for (i = 0; i < map.f.length; i++) {
+      var fig = CODE_FIG[map.f.charAt(i)];
+      if (!fig) return null;
+      if (figures.indexOf(fig) === -1) figures.push(fig);
+    }
+    if (!figures.length) return null;
+
+    var level = parseInt(map.l, 10);
+    if (level !== 1 && level !== 2 && level !== 3) return null;
+
+    if (!/^[2-4][2-4]$/.test(map.m)) return null;
+    var meter = map.m.charAt(0) + "/" + map.m.charAt(1);
+    if (METERS.indexOf(meter) === -1) return null;
+
+    if (!/^[A-G]$/.test(map.n)) return null;
+
+    var measures = map.x === "i" ? "inf" : map.x;
+    if (MEASURE_CHOICES.indexOf(measures) === -1) return null;
+
+    return {
+      seed: seed,
+      figures: figures,
+      level: level,
+      meter: meter,
+      note: map.n,
+      measures: measures
+    };
+  }
+
   /* ---------- point d'entrée ---------- */
 
   function generateExercise(config) {
@@ -433,6 +525,9 @@
     generateExercise: generateExercise,
     joinBars: joinBars,
     availableCells: availableCells,
+    makeRng: makeRng,
+    encodeShare: encodeShare,
+    decodeShare: decodeShare,
     FIGURE_64: FIGURE_64,
     METERS: METERS
   };

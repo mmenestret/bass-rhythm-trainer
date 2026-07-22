@@ -5,6 +5,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rhythm Trainer</title>
+<link rel="icon" href="assets/favicon/favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/croche-16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/croche-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon/croche-light-16.png" media="(prefers-color-scheme: dark)">
+<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon/croche-light-32.png" media="(prefers-color-scheme: dark)">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon/croche-180.png">
 <link rel="stylesheet" href="assets/fonts/fonts.css">
 <style>
   :root{
@@ -267,18 +273,35 @@
     70%{ transform:scale(1.34); opacity:0; }
   }
 
-  /* retour au début + repeat : cercles hairline discrets, petits frères du play */
-  #rewindBtn, #repeatBtn{
+  /* retour au début + repeat + copier le lien : cercles hairline discrets, petits frères du play */
+  #rewindBtn, #repeatBtn, #copyLinkBtn{
     width:46px; height:46px; border-radius:50%;
     border:1px solid var(--hairline);
     display:flex; align-items:center; justify-content:center;
     color:var(--ink-soft);
     transition:transform .4s var(--ease-drift),border-color .4s,color .4s,background .4s;
   }
-  #rewindBtn svg, #repeatBtn svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
-  #rewindBtn:hover, #repeatBtn:hover{ border-color:var(--hairline-strong); color:var(--ink); background:var(--glass); }
-  #rewindBtn:active, #repeatBtn:active{ transform:scale(.94); }
+  #rewindBtn svg, #repeatBtn svg, #copyLinkBtn svg{ width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+  #rewindBtn:hover, #repeatBtn:hover, #copyLinkBtn:hover{ border-color:var(--hairline-strong); color:var(--ink); background:var(--glass); }
+  #rewindBtn:active, #repeatBtn:active, #copyLinkBtn:active{ transform:scale(.94); }
   #repeatBtn.active{ border-color:var(--accent); color:var(--ink); background:var(--accent-soft); }
+  /* flash bref à la copie du lien : la coche accentuée remplace l'icône copier */
+  #copyLinkBtn .ico-done{ display:none; }
+  #copyLinkBtn.copied{ border-color:var(--accent); color:var(--ink); background:var(--accent-soft); }
+  #copyLinkBtn.copied .ico-copy{ display:none; }
+  #copyLinkBtn.copied .ico-done{ display:block; }
+  /* toast « lien copié » : brume de verre discrète, disparaît seule */
+  #toast{
+    position:fixed; left:50%; bottom:calc(env(safe-area-inset-bottom, 0px) + 26px);
+    transform:translate(-50%, 12px);
+    padding:9px 16px; border-radius:999px;
+    border:1px solid var(--hairline-strong); background:var(--glass);
+    -webkit-backdrop-filter:blur(9px); backdrop-filter:blur(9px);
+    color:var(--ink); font-family:'Karla',sans-serif; font-size:13px; letter-spacing:.02em;
+    opacity:0; pointer-events:none; z-index:60;
+    transition:opacity .5s var(--ease-drift),transform .5s var(--ease-drift);
+  }
+  #toast.show{ opacity:1; transform:translate(-50%, 0); }
   /* mesures ∞ : le même emplacement devient témoin du mode (non cliquable) */
   #repeatBtn .ico-inf{ display:none; }
   #repeatBtn.inf .ico-repeat{ display:none; }
@@ -461,11 +484,11 @@
     .score-stage{ width:94vw; }
     #beats{ gap:12px; }
     .beat{ width:32px; height:32px; }
-    /* 4 éléments (aides, retour, play, repeat) sur une seule ligne */
+    /* 5 éléments (aides, retour, play, repeat, copier) : repli sur plusieurs lignes si besoin */
     .transport{ gap:11px; flex-wrap:wrap; justify-content:center; }
     .seg button{ width:50px; height:46px; }
     #playBtn{ width:68px; height:68px; }
-    #rewindBtn, #repeatBtn{ width:44px; height:44px; }
+    #rewindBtn, #repeatBtn, #copyLinkBtn{ width:44px; height:44px; }
     .hint{ display:none; }
     /* tiroir : mêmes hairlines, gabarits tactiles */
     #drawer{ padding:24px 22px 40px; }
@@ -511,7 +534,7 @@
     .transport{ grid-area:foot; justify-self:center; gap:22px; }
     #playBtn{ width:64px; height:64px; }
     #playBtn svg{ width:20px; height:20px; }
-    #rewindBtn, #repeatBtn{ width:44px; height:44px; }
+    #rewindBtn, #repeatBtn, #copyLinkBtn{ width:44px; height:44px; }
     #countNum{ font-size:clamp(56px,18vh,110px); }
   }
 
@@ -608,10 +631,16 @@
       <svg class="ico-repeat" viewBox="0 0 24 24"><path d="M16.6 3.6l3.3 3.2-3.3 3.2"/><path d="M4.1 12.5v-2.2a3.5 3.5 0 0 1 3.5-3.5h12"/><path d="M7.4 20.4l-3.3-3.2 3.3-3.2"/><path d="M19.9 11.5v2.2a3.5 3.5 0 0 1-3.5 3.5h-12"/></svg>
       <svg class="ico-inf" viewBox="0 0 24 24"><path d="M18.1 8.4c2 0 3.6 1.6 3.6 3.6s-1.6 3.6-3.6 3.6c-3.7 0-8.5-7.2-12.2-7.2-2 0-3.6 1.6-3.6 3.6s1.6 3.6 3.6 3.6c3.7 0 8.5-7.2 12.2-7.2z"/></svg>
     </button>
+
+    <button id="copyLinkBtn" aria-label="Copier le lien de la grille" title="Copier le lien de la grille">
+      <svg class="ico-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></svg>
+      <svg class="ico-done" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></svg>
+    </button>
   </div>
 </main>
 
 <div class="hint">Espace — lancer ou suspendre la lecture</div>
+<div id="toast" role="status" aria-live="polite"></div>
 
 <!-- tiroir de configuration -->
 <div id="veil"></div>
@@ -713,6 +742,7 @@
   var currentBars = null;        // mesures ABC de la grille courante — re-découpage responsive sans regénérer
   var currentHeader = "";        // en-tête ABC (X/M/L/K) de la grille courante
   var TOTAL_BEATS = 32;          // recalculé à chaque génération (mesures × temps par mesure)
+  var currentSeed = 0;           // graine mulberry32 de la grille courante — reproductibilité + lien partageable
 
   var exTitle = document.getElementById("exTitle");
   var stage = document.getElementById("stage");
@@ -734,6 +764,8 @@
   var drawer = document.getElementById("drawer");
   var veil = document.getElementById("veil");
   var settingsBtn = document.getElementById("settingsBtn");
+  var copyLinkBtn = document.getElementById("copyLinkBtn");
+  var toastEl = document.getElementById("toast");
 
   var bpm = 60;
   var playing = false;
@@ -1630,13 +1662,99 @@
     }
   }
 
-  function generateGrid(animate){
+  /* ---------- graine, URL partageable, copie ---------- */
+  function randomSeed(){
+    // Math.random ne sert qu'à TIRER la graine, jamais à fabriquer la grille
+    // (celle-ci dérive de la graine via makeRng) : la grille reste reproductible.
+    return Math.floor(Math.random() * 4294967296) >>> 0;
+  }
+
+  function shareState(){
+    var cfg = readConfig();
+    return {
+      seed: currentSeed,
+      figures: cfg.figures,
+      level: cfg.level,
+      meter: cfg.meter,
+      note: noteChoice,       // lettre A–G ; la note ne change que la hauteur affichée, pas le rythme
+      measures: measuresChoice // "4" | "8" | "16" | "inf"
+    };
+  }
+
+  function shareHash(){
+    return "#" + window.BassRhythmGenerator.encodeShare(shareState());
+  }
+
+  function updateShareUrl(){
+    if (!window.BassRhythmGenerator) return;
+    var hash = shareHash();
+    try {
+      history.replaceState(null, "", hash); // même document : pas d'entrée d'historique, pas de saut de défilement
+    } catch (e) {
+      try { location.hash = hash.slice(1); } catch (e2) {} // repli si file:// refuse replaceState
+    }
+  }
+
+  function showToast(msg){
+    if (!toastEl) return;
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(function(){ toastEl.classList.remove("show"); }, 1700);
+  }
+
+  function flashCopied(){
+    if (!copyLinkBtn) return;
+    copyLinkBtn.classList.add("copied");
+    clearTimeout(flashCopied._t);
+    flashCopied._t = setTimeout(function(){ copyLinkBtn.classList.remove("copied"); }, 1200);
+  }
+
+  /* Copie robuste : l'API Clipboard exige un contexte sécurisé (https/localhost),
+     indisponible sur le http de GitHub Pages -> repli execCommand sur textarea.
+     Retourne une promesse résolue en cas de succès, rejetée sinon. */
+  function copyText(text){
+    if (navigator.clipboard && navigator.clipboard.writeText){
+      return navigator.clipboard.writeText(text).catch(function(){
+        if (legacyCopy(text)) return;
+        throw new Error("copie refusée");
+      });
+    }
+    return legacyCopy(text) ? Promise.resolve() : Promise.reject(new Error("copie refusée"));
+  }
+  function legacyCopy(text){
+    try {
+      var ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.top = "-1000px";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+      var ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e){
+      return false;
+    }
+  }
+
+  function generateGrid(animate, seed){
     if (!window.BassRhythmGenerator) return false;
     var cfg = readConfig();
+    // Graine imposée (restauration depuis l'URL) : reproduction exacte, sans
+    // anti-doublon. Sinon graine tirée au sort à chaque génération.
+    var fixed = (typeof seed === "number");
     try {
       clearShift();
       infiniteOn = !!cfg.infinite;
       if (infiniteOn){
+        // Flux ∞ : UNE seule instance de rng, réutilisée à chaque tranche via
+        // streamCfg (l'état avance) — flux déterministe ET varié depuis la graine.
+        currentSeed = (fixed ? seed : randomSeed()) >>> 0;
+        cfg.rng = window.BassRhythmGenerator.makeRng(currentSeed);
         streamCfg = cfg;
         streamBars = [];
         streamNotes = [];
@@ -1649,11 +1767,23 @@
         TOTAL_BEATS = Infinity;
       } else {
         streamCfg = null;
-        var res = window.BassRhythmGenerator.generateExercise(cfg);
-        for (var i = 0; i < 7 && res.abc === currentAbc; i++){
-          // deux clics successifs doivent donner deux grilles différentes
+        var res, s;
+        if (fixed){
+          s = seed >>> 0;
+          cfg.rng = window.BassRhythmGenerator.makeRng(s);
           res = window.BassRhythmGenerator.generateExercise(cfg);
+        } else {
+          // Nouvelle graine à chaque essai : deux clics successifs donnent deux
+          // grilles différentes, et la graine retenue rejoue exactement la
+          // grille via un unique appel (clé de la reproductibilité).
+          for (var i = 0; i < 8; i++){
+            s = randomSeed();
+            cfg.rng = window.BassRhythmGenerator.makeRng(s);
+            res = window.BassRhythmGenerator.generateExercise(cfg);
+            if (res.abc !== currentAbc) break;
+          }
         }
+        currentSeed = s >>> 0;
         currentAbc = res.abc;
         currentNotes = res.notes; // alimente l'allumage des notes (mode 2)
         currentBars = res.bars || null;     // re-découpage responsive (2 ou 4 mesures/système)
@@ -1676,6 +1806,7 @@
         repeatBtn.title = "Boucler l'exercice";
       }
       updateExerciseTitle(cfg, animate); // l'en-tête suit chaque grille réellement affichée
+      updateShareUrl(); // le hash de l'URL reflète la grille affichée (bookmarkable, prêt à copier)
       return true;
     } catch (err) {
       return false;
@@ -1732,6 +1863,19 @@
     repeatBtn.classList.toggle("active", repeatOn);
     repeatBtn.setAttribute("aria-pressed", String(repeatOn));
     if (playing && transport) transport.setLoop(repeatOn && !infiniteOn);
+  });
+
+  /* ---------- copier le lien de la grille ----------
+     Le hash encode graine + réglages : le lien rejoue la grille exacte chez qui
+     l'ouvre (l'appli hébergée le restaure au chargement). */
+  copyLinkBtn.addEventListener("click", function(){
+    updateShareUrl(); // garantit que location.href reflète la grille affichée
+    copyText(location.href).then(function(){
+      flashCopied();
+      showToast("lien copié");
+    }, function(){
+      showToast("copie impossible");
+    });
   });
 
   /* ---------- tempo : saisie directe, ±5, molette, glisser vertical ---------- */
@@ -1811,8 +1955,47 @@
     }, 200);
   });
 
+  /* ---------- restauration d'une grille depuis l'URL ---------- */
+  function setPill(containerId, value){
+    var box = document.getElementById(containerId);
+    box.querySelectorAll("input").forEach(function(inp){ inp.checked = (inp.value === value); });
+    box.querySelectorAll(".pill").forEach(function(p){
+      p.classList.toggle("checked", p.querySelector("input").checked);
+    });
+  }
+
+  /* Applique aux réglages l'état décodé du hash (les mêmes variables et classes
+     visuelles que les gestionnaires manuels), sans regénérer : la génération
+     suit avec la graine imposée. */
+  function applyState(st){
+    // figures : cases à cocher (état visuel géré en CSS via :checked)
+    document.querySelectorAll('input[name="fig"]').forEach(function(inp){
+      inp.checked = st.figures.indexOf(inp.value) !== -1;
+    });
+    // niveau : radio + classe .checked du libellé
+    var lvl = document.querySelector('input[name="niveau"][value="' + st.level + '"]');
+    if (lvl) lvl.checked = true;
+    document.querySelectorAll('.levels .level').forEach(function(l){
+      l.classList.toggle("checked", l.querySelector("input").checked);
+    });
+    // signature / note / mesures : pastilles + variables d'état
+    setPill("sigPills", st.meter);    signature = st.meter;
+    setPill("notePills", st.note);    noteChoice = st.note;
+    setPill("mesPills", st.measures); measuresChoice = st.measures;
+  }
+
+  function readShareFromHash(){
+    if (!window.BassRhythmGenerator) return null;
+    var raw = (location.hash || "").replace(/^#/, "");
+    if (!raw) return null;
+    var st = window.BassRhythmGenerator.decodeShare(raw);
+    if (st) applyState(st); // hash invalide -> ignoré, démarrage normal
+    return st;
+  }
+
   /* ---------- init ---------- */
-  generateGrid(false); // la partition affichée au chargement est déjà une grille générée
+  var restored = readShareFromHash(); // grille partagée dans l'URL -> réglages + graine restaurés
+  generateGrid(false, restored ? restored.seed : undefined); // la partition affichée au chargement est déjà une grille générée
   renderScore(false);
   computeLines();      // fenêtre téléprompteur dimensionnée dès le chargement
   buildBeats();
