@@ -2765,6 +2765,14 @@
     var banner = document.getElementById("composed-banner");
     if (banner) banner.hidden = !composedGrid;
   }
+  /* Rend le focus au déclencheur avant de masquer un tiroir : aria-hidden ne
+     doit jamais recouvrir l'élément focalisé (le focus serait « caché » aux
+     lecteurs d'écran — avertissement navigateur et piège au clavier). No-op si
+     le focus n'est pas dans le panneau (fermeture à la souris). preventScroll
+     évite un saut de page quand le focus revient sur le bouton d'en-tête. */
+  function returnFocus(panel, trigger){
+    if (panel.contains(document.activeElement)) trigger.focus({ preventScroll: true });
+  }
   function openDrawer(){
     closeComposer(); // Jouer et Composer ne s'ouvrent jamais ensemble
     updateComposedBanner();
@@ -2774,6 +2782,7 @@
     veil.classList.add("show");
   }
   function closeDrawer(){
+    returnFocus(drawer, settingsBtn); // avant aria-hidden
     drawer.classList.remove("open");
     drawer.setAttribute("aria-hidden", "true");
     settingsBtn.setAttribute("aria-expanded", "false");
@@ -3740,6 +3749,7 @@
       composerDrawer.classList.remove("open");
       return;
     }
+    returnFocus(composerDrawer, composerBtn); // avant aria-hidden
     composer.active = false;
     document.body.classList.remove("composing");
     composerDrawer.classList.remove("open");
