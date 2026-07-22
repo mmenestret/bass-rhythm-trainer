@@ -948,12 +948,17 @@
   /* ---------- banque de sons ----------
      4 sons pour la rythmique jouée et la préécoute. Un son échantillonné
      liste ses samples { url, midi, loopStart?, loopEnd? } (provenance et
-     licences CC0 : docs/audio-sample-source.md) ; la voix prend le sample le
-     plus proche de la note d'entraînement et le transpose (playbackRate =
-     2^(Δ demi-tons/12)). loopStart/loopEnd (secondes de buffer, mesurés hors
-     ligne) font TENIR la note indéfiniment (archet) ; growl (6 s) et Ergo
-     (3,5–6 s, décroissance naturelle) couvrent les valeurs courantes, la
-     ronde aux tempos lents s'éteint en fondu assumé.
+     licences CC0 : docs/audio-sample-source.md) ; midi = hauteur SONNANTE
+     mesurée du fichier (autocorrélation + spectre — fractionnaire si la
+     prise n'est pas juste, ex. arco-Eb1 à −23 cents) : c'est elle qui
+     garantit que le E de chaque son tombe sur le E1 d'une basse (41,2 Hz).
+     La voix prend le sample le plus proche de la note d'entraînement et le
+     transpose (playbackRate = 2^(Δ demi-tons/12)). loopStart/loopEnd
+     (secondes de buffer, mesurés hors ligne) font TENIR la note indéfiniment
+     (archet) ; growl (6 s source, C#1 : transposé vers l'aigu, ~5 s en E1
+     jusqu'à ~2,8 s en D2) et Ergo (3,5–6 s, décroissance naturelle)
+     couvrent les valeurs courantes, la ronde aux tempos lents s'éteint en
+     fondu assumé.
      « Synthé » est l'oscillateur du moteur : aucune ressource.
      La note d'entraînement (NOTES) porte la hauteur sonnante (midi, une
      octave sous l'écrit, convention basse) et le jeton ABC écrit.
@@ -975,7 +980,7 @@
   ];
   var SOUNDS = [
     { id: "growl", samples: [
-      { url: "assets/audio/growl-Db2.m4a", midi: 37 }
+      { url: "assets/audio/growl-Db1.m4a", midi: 25 }
     ] },
     { id: "ergo", samples: [
       { url: "assets/audio/ergo-C1.wav",  midi: 24 },
@@ -985,7 +990,7 @@
       { url: "assets/audio/ergo-C2.wav",  midi: 36 }
     ] },
     { id: "arco", samples: [
-      { url: "assets/audio/arco-Eb1.wav", midi: 27, loopStart: 1.393991, loopEnd: 6.561859 },
+      { url: "assets/audio/arco-Eb1.wav", midi: 26.77, loopStart: 1.393991, loopEnd: 6.561859 },
       { url: "assets/audio/arco-Gb1.wav", midi: 30, loopStart: 0.974195, loopEnd: 4.651610 },
       { url: "assets/audio/arco-A1.wav",  midi: 33, loopStart: 0.833696, loopEnd: 3.633152 },
       { url: "assets/audio/arco-C2.wav",  midi: 36, loopStart: 1.087166, loopEnd: 4.071746 },

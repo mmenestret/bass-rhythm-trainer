@@ -8,14 +8,18 @@ mentions de courtoisie possibles ci-dessous.
 Contrainte de sélection : chaque son doit pouvoir **tenir une ronde**
 (4 s à 60 BPM, 6 s à 40 BPM), naturellement ou par boucle de sustain.
 
-## Basse growl — `growl-Db2.m4a`
+## Basse growl — `growl-Db1.m4a`
 
 - **Jeu** : « Growlybass » de Karoryfer Samples — Squier Jazz Bass attaquée
   fort, cordes qui claquent contre les frettes, DI brut.
 - **Dépôt** : <https://github.com/sfzinstruments/karoryfer.growlybass>
   (licence CC0 dans `LICENSE`), fichier `sustain/db2_f_rr1.wav`.
-- **Hauteur** : nommage scientifique — `db2` = MIDI 37 (C#2, ~69,3 Hz),
-  vérifié dans `growlybass_clean.sfz` (`pitch_keycenter=37`).
+- **Hauteur** : le nommage source (`db2`, `pitch_keycenter=37` dans le sfz)
+  est décalé d'une octave vs la hauteur sonnante — même décalage que
+  constaté sur l'Ergo. Hauteur réelle **vérifiée par autocorrélation et
+  spectre** (série harmonique espacée de ~34,6 Hz) : **C#1, MIDI 25**
+  (juste à ±10 cents). Fichier renommé `growl-Db1.m4a` en conséquence ;
+  avec l'ancien MIDI 37, tout sonnait une octave sous les autres sons.
 - **Sustain** : 6,0 s sans boucle — la ronde passe sur toute la plage de
   tempo (à 40 BPM, dernier souffle en fondu naturel).
 - **Conversion** : normalisation du pic à −1 dBFS, fade-out anti-clic 80 ms,
@@ -47,6 +51,10 @@ Contrainte de sélection : chaque son doit pouvoir **tenir une ronde**
 - **Hauteurs** : nommage scientifique vérifié dans
   `Programs/arco_looped_basic_map.sfz` — `eb1`=27, `gb1`=30, `a1`=33,
   `c2`=36, `eb2`=39 (5 fichiers livrés : `arco-Eb1/Gb1/A1/C2/Eb2.wav`).
+  Hauteur sonnante mesurée par autocorrélation : `gb1/a1/c2/eb2` justes
+  (±3 cents), mais la prise `eb1` est **23 cents basse** (MIDI mesuré
+  26,77, stable sur toute la durée) — registre `SOUNDS` à 26,77 pour que
+  le E (transposé depuis ce sample) tombe juste sur 41,2 Hz.
 - **Sustain** : **tenue infinie** — points de boucle lus dans le chunk `smpl`
   de chaque WAV source et recopiés dans le registre `SOUNDS` d'index.html
   (`loopStart`/`loopEnd` en secondes ; la lecture boucle sur cette fenêtre).
@@ -59,9 +67,13 @@ Contrainte de sélection : chaque son doit pouvoir **tenir une ronde**
 L'app propose 7 notes (E1 à D2 sonnant, écrit une octave au-dessus en clé de
 fa). La voix prend le sample du son le plus proche de la cible et le
 transpose par `playbackRate = 2^(Δ demi-tons/12)` — au plus ±1 demi-ton pour
-l'archet, ±2 pour l'Ergo. Le growl n'a qu'un sample (C#2) : jusqu'à
-−9 demi-tons vers E1, timbre plus sombre et attaque plus molle assumés.
-Sample indisponible → repli synthé à la hauteur choisie.
+l'archet, ±2 pour l'Ergo. Le `midi` du registre est la hauteur sonnante
+MESURÉE de chaque fichier (pas le nommage source) : le E de chaque son tombe
+ainsi sur le E1 d'une basse (41,2 Hz), vérifié à ±7 cents près pour les
+4 sons. Le growl n'a qu'un sample (C#1) : de +3 demi-tons (E1) à +13 (D2)
+vers l'aigu — timbre plus brillant et tenue raccourcie en montant (6 s
+source → ~5 s en E1, ~2,8 s en D2), assumés. Sample indisponible → repli
+synthé à la hauteur choisie.
 
 ## Mentions de courtoisie
 
