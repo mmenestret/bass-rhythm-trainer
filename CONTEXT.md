@@ -37,6 +37,20 @@ est réglée globalement ; seul le rythme varie d'une note à l'autre.
 Un segment de la grille dont la durée vaut exactement la signature. Toute mesure
 d'une grille valide est pleine.
 
+### Aides de lecture
+
+**Clic** :
+La voix par défaut de l'aide de pulsation : un son court par temps, accent sur le
+temps 1.
+_Avoid_: bip
+
+**Groove** :
+La voix « accompagnement » de l'aide de pulsation, choisie *à la place* du clic :
+un motif de batterie de synthèse sobre (grosse caisse sur le 1, caisse claire sur
+2 & 4, charley sur les temps), binaire, mixé sous le rythme lu. Une seule pulsation
+à la fois — le groove remplace le clic, il ne s'y ajoute pas.
+_Avoid_: accompagnement, backing track, rythmique
+
 ### Le mode Composer
 
 **Composer** :
