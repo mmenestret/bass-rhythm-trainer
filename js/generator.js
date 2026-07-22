@@ -1,7 +1,7 @@
 /*
  * Bass Rhythm Trainer — générateur de grilles rythmiques (calibrage Agostini vol. 1).
  *
- * Fonction pure, sans DOM : generateExercise(config) -> { abc, notes }
+ * Fonction pure, sans DOM : generateExercise(config) -> { abc, notes, bars, header }
  *   config = {
  *     figures:  ["ronde"|"blanche"|"noire"|"croche"|"double"|"triple"|"quadruple", ...],
  *     level:    1 | 2 | 3,
@@ -11,9 +11,13 @@
  *               lettre naturelle A–G suivie d'éventuelles virgules d'octave,
  *     rng:      fonction aléatoire optionnelle (défaut Math.random)
  *   }
- *   abc   = partition ABC complète (clé de Fa, note fixe — config.note).
- *   notes = timeline [{ startBeats, durationBeats, isRest, tiedToNext }] pour le
- *           moteur de lecture (ticket 03). startBeats/durationBeats en temps.
+ *   abc    = partition ABC complète (clé de Fa, note fixe — config.note),
+ *            découpée à 4 mesures par système.
+ *   notes  = timeline [{ startBeats, durationBeats, isRest, tiedToNext }] pour le
+ *            moteur de lecture (ticket 03). startBeats/durationBeats en temps.
+ *   bars   = texte ABC de chaque mesure ; header = en-tête X/M/L/K. Avec
+ *            joinBars(bars, perLine), le client re-découpe la même grille en
+ *            2 ou 4 mesures par système (responsive) sans regénérer.
  *
  * Principe : chaque mesure est assemblée à partir de cellules rythmiques
  * idiomatiques d'une durée entière de temps (1, 2, 3 ou 4 temps), tirées du
@@ -353,21 +357,32 @@
       barTexts.push(parts.join(" "));
     }
 
-    /* 4 mesures par ligne, barre de fin « |] ». */
-    var lines = [];
-    for (i = 0; i < barTexts.length; i += 4) {
-      var chunk = barTexts.slice(i, i + 4);
-      var isLast = i + 4 >= barTexts.length;
-      lines.push(chunk.join(" | ") + (isLast ? " |]" : " |"));
-    }
-
-    var abc = "X:1\n" +
+    var header = "X:1\n" +
       "M:" + config.meter + "\n" +
       "L:1/" + lden + "\n" +
-      "K:C clef=bass\n" +
-      lines.join("\n");
+      "K:C clef=bass\n";
 
-    return { abc: abc, notes: notes };
+    /* abc : découpage par défaut (4 mesures par système) ; bars + header
+       permettent au client de re-découper via joinBars sans regénérer. */
+    return {
+      abc: header + joinBars(barTexts, 4),
+      notes: notes,
+      bars: barTexts,
+      header: header
+    };
+  }
+
+  /* Assemble les mesures en lignes ABC — perLine mesures par système (les
+     retours à la ligne du texte ABC pilotent les systèmes gravés), barre de
+     fin « |] ». */
+  function joinBars(bars, perLine) {
+    var lines = [];
+    for (var i = 0; i < bars.length; i += perLine) {
+      var chunk = bars.slice(i, i + perLine);
+      var isLast = i + perLine >= bars.length;
+      lines.push(chunk.join(" | ") + (isLast ? " |]" : " |"));
+    }
+    return lines.join("\n");
   }
 
   /* ---------- point d'entrée ---------- */
@@ -416,6 +431,7 @@
 
   return {
     generateExercise: generateExercise,
+    joinBars: joinBars,
     availableCells: availableCells,
     FIGURE_64: FIGURE_64,
     METERS: METERS

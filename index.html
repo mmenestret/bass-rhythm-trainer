@@ -103,12 +103,13 @@
   @keyframes rise{ to{ opacity:1; transform:none; } }
   .d1{ animation-delay:.05s } .d2{ animation-delay:.22s } .d3{ animation-delay:.4s } .d4{ animation-delay:.58s }
 
-  /* tempo immense — champ saisissable au clavier, même typo, sans bordure */
-  /* label BPM centré verticalement sur les chiffres */
-  .tempo{ display:flex; align-items:center; gap:18px; user-select:none; }
+  /* tempo — une seule ligne : −5 · chiffre BPM · +5. Le champ reste
+     saisissable au clavier, à la molette et au glisser vertical. */
+  .tempo{ display:flex; align-items:center; gap:clamp(20px,3.5vw,36px); user-select:none; }
+  .tempo-core{ display:flex; align-items:baseline; gap:12px; }
   #tempoNum{
     font-family:"Cormorant Garamond",serif; font-weight:300;
-    font-size:clamp(88px,min(15vw,20vh),168px); line-height:.9;
+    font-size:clamp(76px,min(12vw,18vh),140px); line-height:.9;
     letter-spacing:-.015em; color:var(--ink);
     cursor:ns-resize;
     background:none; border:none; padding:0;
@@ -120,42 +121,18 @@
   #tempoNum::selection{ background:var(--accent-soft); }
   #tempoNum.blip{ animation:blip .45s var(--ease-drift); }
   @keyframes blip{ 30%{ opacity:.45; letter-spacing:.01em; } }
-  .tempo-side{ display:flex; flex-direction:column; align-items:flex-start; gap:12px; }
-  .tempo-side .bpm{
+  .tempo-core .bpm{
     font-size:11px; letter-spacing:.4em; text-transform:uppercase; color:var(--ink-faint); font-weight:500;
   }
-  .step-btns{ display:flex; gap:7px; flex:none; }
-  .step-btns button{
+  .step-btn{
     font-size:12px; letter-spacing:.14em; font-weight:500;
     padding:7px 15px; border-radius:999px;
     border:1px solid var(--hairline);
-    color:var(--ink-soft);
+    color:var(--ink-soft); flex:none;
     transition:border-color .4s,color .4s,background .4s,transform .25s var(--ease-drift);
   }
-  .step-btns button:hover{ border-color:var(--hairline-strong); color:var(--ink); background:var(--glass); }
-  .step-btns button:active{ transform:scale(.94); }
-
-  .tempo-slider{
-    width:min(430px,88vw); margin-top:-4px; opacity:.55; transition:opacity .5s;
-    display:flex; align-items:center; gap:14px;
-  }
-  .tempo-slider:hover, .tempo-slider:focus-within{ opacity:1; }
-  .tempo-slider input[type=range]{ flex:1; min-width:0; }
-  input[type=range]{
-    -webkit-appearance:none; appearance:none; width:100%; height:22px; background:transparent; cursor:pointer;
-  }
-  input[type=range]::-webkit-slider-runnable-track{ height:1px; background:var(--hairline-strong); }
-  input[type=range]::-webkit-slider-thumb{
-    -webkit-appearance:none; width:13px; height:13px; border-radius:50%;
-    background:var(--mist-2); border:1.5px solid var(--ink);
-    margin-top:-6px; transition:transform .3s var(--ease-drift);
-  }
-  input[type=range]:hover::-webkit-slider-thumb{ transform:scale(1.25); }
-  input[type=range]::-moz-range-track{ height:1px; background:var(--hairline-strong); }
-  input[type=range]::-moz-range-thumb{
-    width:11px; height:11px; border-radius:50%;
-    background:var(--mist-2); border:1.5px solid var(--ink);
-  }
+  .step-btn:hover{ border-color:var(--hairline-strong); color:var(--ink); background:var(--glass); }
+  .step-btn:active{ transform:scale(.94); }
 
   /* ---------- en-tête d'exercice ---------- */
   #exTitle{
@@ -179,7 +156,12 @@
     background:radial-gradient(ellipse at center,rgba(255,255,255,.5),rgba(255,255,255,0) 72%);
     z-index:0; pointer-events:none;
   }
-  #score{ position:relative; z-index:1; transition:opacity .9s var(--ease-drift),filter .9s var(--ease-drift); }
+  /* fenêtre téléprompteur : sur écran étroit, hauteur clampée à 2 systèmes
+     par le JS (layoutScoreWindow) et glissière qui suit la lecture */
+  #scoreWin{ position:relative; z-index:1; overflow:hidden; }
+  #scoreSlide{ position:relative; transition:transform .45s var(--ease-drift); will-change:transform; }
+  #scoreSlide.snap{ transition:none; }
+  #score{ transition:opacity .9s var(--ease-drift),filter .9s var(--ease-drift); }
   #score svg{ display:block; }
   #score path, #score text{ fill:#39424f; }
   #score text{ font-size:13px; }
@@ -431,6 +413,7 @@
   @media (prefers-reduced-motion:reduce){
     .breath, #playBtn.idle::after{ animation:none !important; }
     .rise{ animation-duration:.01s; }
+    #scoreSlide{ transition:none; }
   }
   /* ---------- responsive ----------
      Ordre volontaire : hauteur compacte, puis mobile étroit, puis paysage
@@ -443,20 +426,16 @@
       gap:clamp(10px,2.2vh,24px);
       padding:clamp(56px,9vh,80px) 4vw clamp(44px,7vh,60px);
     }
-    #tempoNum{ font-size:clamp(88px,min(15vw,16vh),150px); }
-    .tempo-slider{ margin-top:-2px; }
+    #tempoNum{ font-size:clamp(72px,min(12vw,15vh),124px); }
   }
 
   /* mobile étroit : cibles tactiles ≥ 44 px, chrome resserré */
   @media (max-width:640px){
     header{ padding:14px 16px; }
     #settingsBtn{ padding:13px 14px; }
-    .tempo{ gap:14px; }
-    .step-btns button{ min-height:44px; padding:12px 17px; }
-    .tempo-slider{ gap:10px; }
-    input[type=range]{ height:36px; }
-    input[type=range]::-webkit-slider-thumb{ width:17px; height:17px; margin-top:-8px; }
-    input[type=range]::-moz-range-thumb{ width:15px; height:15px; }
+    .tempo{ gap:18px; }
+    #tempoNum{ font-size:clamp(56px,17vw,72px); }
+    .step-btn{ min-height:44px; padding:12px 17px; }
     .score-stage{ width:94vw; }
     #beats{ gap:12px; }
     .beat{ width:32px; height:32px; }
@@ -491,7 +470,6 @@
       grid-template-areas:
         "tempo  title"
         "tempo  score"
-        "slider score"
         "beats  score"
         "foot   foot";
       align-content:center; justify-content:center; align-items:center;
@@ -500,9 +478,8 @@
       padding:48px 5vw 16px;
       max-width:1060px; margin:0 auto;
     }
-    .tempo{ grid-area:tempo; justify-self:center; align-self:end; gap:12px; }
+    .tempo{ grid-area:tempo; justify-self:center; align-self:center; gap:12px; }
     #tempoNum{ font-size:clamp(56px,22vh,100px); }
-    .tempo-slider{ grid-area:slider; justify-self:center; width:min(240px,100%); margin-top:0; }
     #exTitle{ grid-area:title; margin-bottom:0; font-size:15.5px; }
     .score-stage{ grid-area:score; width:100%; }
     #beats{ grid-area:beats; justify-self:center; gap:10px; }
@@ -516,10 +493,7 @@
 
   /* pointeur tactile, quelle que soit la largeur : gabarits de saisie */
   @media (pointer:coarse){
-    .step-btns button{ min-height:44px; padding:12px 17px; }
-    input[type=range]{ height:32px; }
-    input[type=range]::-webkit-slider-thumb{ width:17px; height:17px; margin-top:-8px; }
-    input[type=range]::-moz-range-thumb{ width:15px; height:15px; }
+    .step-btn{ min-height:44px; padding:12px 17px; }
     .seg button{ min-width:50px; min-height:46px; }
     .sound .preview{ width:42px; height:42px; }
     .pill{ padding:13px 15px; }
@@ -549,29 +523,28 @@
 </header>
 
 <main>
-  <!-- tempo -->
+  <!-- tempo : une seule ligne, −5 à gauche, +5 à droite -->
   <div class="tempo rise d1">
-    <input id="tempoNum" type="text" inputmode="numeric" maxlength="3" value="60" autocomplete="off"
-           aria-label="Tempo en BPM" title="Cliquer pour saisir · glisser verticalement ou molette pour ajuster">
-    <div class="tempo-side">
+    <button id="minus5" class="step-btn" aria-label="Diminuer le tempo de 5 BPM">−5</button>
+    <div class="tempo-core">
+      <input id="tempoNum" type="text" inputmode="numeric" maxlength="3" value="60" autocomplete="off"
+             aria-label="Tempo en BPM" title="Cliquer pour saisir · glisser verticalement ou molette pour ajuster">
       <span class="bpm">BPM</span>
     </div>
-  </div>
-  <div class="tempo-slider rise d1">
-    <input type="range" id="tempoSlider" min="40" max="200" step="1" value="60" aria-label="Tempo en BPM">
-    <div class="step-btns">
-      <button id="minus5" aria-label="Diminuer le tempo de 5 BPM">−5</button>
-      <button id="plus5" aria-label="Augmenter le tempo de 5 BPM">+5</button>
-    </div>
+    <button id="plus5" class="step-btn" aria-label="Augmenter le tempo de 5 BPM">+5</button>
   </div>
 
   <!-- en-tête d'exercice (nᵒ de session + leçon Agostini, mis à jour à chaque génération) -->
   <div id="exTitle" class="rise d2" aria-live="polite"></div>
 
-  <!-- portée -->
+  <!-- portée : fenêtre (overflow caché sur mobile) + glissière téléprompteur -->
   <div class="score-stage rise d2" id="stage">
-    <div id="score"></div>
-    <div id="cursor"></div>
+    <div id="scoreWin">
+      <div id="scoreSlide">
+        <div id="score"></div>
+        <div id="cursor"></div>
+      </div>
+    </div>
     <div id="countVeil" aria-hidden="true"><span id="countNum"></span></div>
   </div>
 
@@ -701,10 +674,14 @@
 
   var currentAbc = FALLBACK_ABC; // remplacée par une grille générée au chargement
   var currentNotes = [];         // timeline { startBeats, durationBeats, isRest, tiedToNext } — pilote l'allumage des notes (mode 2)
+  var currentBars = null;        // mesures ABC de la grille courante — re-découpage responsive sans regénérer
+  var currentHeader = "";        // en-tête ABC (X/M/L/K) de la grille courante
   var TOTAL_BEATS = 32;          // recalculé à chaque génération (mesures × temps par mesure)
 
   var exTitle = document.getElementById("exTitle");
   var stage = document.getElementById("stage");
+  var scoreWin = document.getElementById("scoreWin");
+  var scoreSlide = document.getElementById("scoreSlide");
   var scoreEl = document.getElementById("score");
   var cursor = document.getElementById("cursor");
   var countVeil = document.getElementById("countVeil");
@@ -715,7 +692,6 @@
   var iconPlay = document.getElementById("iconPlay");
   var iconPause = document.getElementById("iconPause");
   var tempoNum = document.getElementById("tempoNum");
-  var tempoSlider = document.getElementById("tempoSlider");
   var plus5 = document.getElementById("plus5");
   var minus5 = document.getElementById("minus5");
   var drawer = document.getElementById("drawer");
@@ -731,7 +707,9 @@
   var rafId = null;
   var lines = [];
   var cursorAnchors = null; // [{ beat, x, line }] — une ancre par événement de currentNotes (curseur asservi aux notes)
-  var lineEndXs = [];       // abscisse de fin de chaque ligne (repère stage)
+  var lineEndXs = [];       // abscisse de fin de chaque ligne (repère glissière)
+  var perLine = 4;          // mesures par système au dernier rendu (2 sur écran étroit)
+  var followedLine = -1;    // système calé en haut de la fenêtre téléprompteur (-1 : fenêtre inactive)
   var signature = "4/4";
   var measuresChoice = "8";
   var beatEls = [];
@@ -781,7 +759,20 @@
     }
   }
 
-  /* ---------- rendu de la partition ---------- */
+  /* ---------- rendu de la partition ----------
+     Écran étroit (scène < 620 px) : 2 mesures par système, gravées à la
+     largeur réelle de la scène (staffwidth natif) au lieu du SVG large
+     réduit de moitié par responsive — les notes doublent de taille.
+     Sinon : 4 mesures par système, rendu inchangé. Le re-découpage passe
+     par les mesures de la grille courante, sans regénérer l'exercice. */
+  function measuresPerLine(){
+    return stage.clientWidth < 620 ? 2 : 4;
+  }
+  function currentAbcFor(pl){
+    if (currentBars && window.BassRhythmGenerator)
+      return currentHeader + window.BassRhythmGenerator.joinBars(currentBars, pl);
+    return currentAbc; // grille de secours : découpage figé à 4
+  }
   function renderScore(animate){
     if (!window.ABCJS){
       scoreEl.innerHTML = '<div class="score-fallback">La partition n’a pas pu se charger (abcjs indisponible hors ligne).</div>';
@@ -789,7 +780,14 @@
       litState = [];
       return;
     }
-    ABCJS.renderAbc(scoreEl, currentAbc, { add_classes: true, responsive: "resize" });
+    perLine = measuresPerLine();
+    var opts = { add_classes: true, responsive: "resize" };
+    if (perLine === 2){
+      opts.staffwidth = stage.clientWidth;
+      opts.paddingleft = 0;
+      opts.paddingright = 0;
+    }
+    ABCJS.renderAbc(scoreEl, currentAbcFor(perLine), opts);
     mapScoreNotes();
     if (animate){
       scoreEl.classList.remove("regen");
@@ -851,7 +849,10 @@
     lines = [];
     var svg = scoreEl.querySelector("svg");
     if (!svg) return;
-    var stageRect = stage.getBoundingClientRect();
+    /* Repère = glissière : le curseur y vit, et les rectangles de ses
+       enfants se translatent avec elle — la géométrie est invariante quelle
+       que soit la position courante du téléprompteur. */
+    var baseRect = scoreSlide.getBoundingClientRect();
     for (var i = 0; i < 12; i++){
       var sel = ".abcjs-l" + i + ".abcjs-note, .abcjs-l" + i + ".abcjs-rest, .abcjs-l" + i + ".abcjs-bar";
       var els = svg.querySelectorAll(sel);
@@ -870,13 +871,56 @@
       });
       if (minX === Infinity) break;
       lines.push({
-        x0: minX - stageRect.left,
-        x1: maxX - stageRect.left,
-        y0: minY - stageRect.top - 16,
-        y1: maxY - stageRect.top + 16
+        x0: minX - baseRect.left,
+        x1: maxX - baseRect.left,
+        y0: minY - baseRect.top - 16,
+        y1: maxY - baseRect.top + 16
       });
     }
     computeCursorAnchors();
+    layoutScoreWindow();
+  }
+
+  /* ---------- fenêtre téléprompteur ----------
+     Sur écran étroit (2 mesures/système) et plus de 2 systèmes, la fenêtre
+     clampe la scène à 2 systèmes et la glissière suit la lecture : système
+     joué en haut, le suivant visible dessous — jamais découvert au dernier
+     moment. Sur la dernière paire, la fenêtre s'arrête. Partition entière
+     visible dans tous les autres cas. */
+  function scoreWindowActive(){
+    return perLine === 2 && lines.length > 2;
+  }
+  function lineOfGridBeat(g, bpb){
+    var bar = Math.floor(g / bpb);
+    return Math.floor(bar / perLine);
+  }
+  function followScoreLine(l, instant){
+    if (!scoreWindowActive()) return;
+    var target = Math.max(0, Math.min(l, lines.length - 2));
+    if (target === followedLine) return;
+    followedLine = target;
+    setSlideY(-lines[target].y0, instant);
+  }
+  function setSlideY(y, instant){
+    if (instant){
+      scoreSlide.classList.add("snap");
+      scoreSlide.style.transform = "translateY(" + y + "px)";
+      void scoreSlide.offsetWidth;
+      scoreSlide.classList.remove("snap");
+    } else {
+      scoreSlide.style.transform = "translateY(" + y + "px)";
+    }
+  }
+  function layoutScoreWindow(){
+    if (scoreWindowActive()){
+      scoreWin.style.height = Math.round(lines[1].y1 - lines[0].y0) + "px";
+      followedLine = -1;
+      followScoreLine(lineOfGridBeat(pausedGridBeat, beatsPerBar()), true);
+    } else {
+      scoreWin.style.height = "";
+      followedLine = -1;
+      setSlideY(0, true);
+    }
   }
 
   /* ---------- géométrie du curseur asservi aux notes ----------
@@ -890,7 +934,7 @@
     cursorAnchors = null;
     lineEndXs = [];
     if (!lines.length || !noteEls.length || noteEls.length !== currentNotes.length) return;
-    var stageRect = stage.getBoundingClientRect();
+    var baseRect = scoreSlide.getBoundingClientRect();
     var anchors = [];
     for (var i = 0; i < noteEls.length; i++){
       var m = /(?:^|\s)abcjs-l(\d+)(?:\s|$)/.exec(noteEls[i].getAttribute("class") || "");
@@ -900,7 +944,7 @@
       var r = noteEls[i].getBoundingClientRect();
       anchors.push({
         beat: currentNotes[i].startBeats,
-        x: (r.left + r.right) / 2 - stageRect.left,
+        x: (r.left + r.right) / 2 - baseRect.left,
         line: line
       });
     }
@@ -939,7 +983,6 @@
     // En vol : le moteur se ré-ancre au prochain battement, sans saut ni dérive.
     if (playing && transport) transport.setBpm(bpm);
     tempoNum.value = bpm;
-    tempoSlider.value = bpm;
     tempoNum.classList.remove("blip");
     void tempoNum.offsetWidth;
     tempoNum.classList.add("blip");
@@ -1133,6 +1176,9 @@
     if (!ctx) return;
     computeLines();
     activeBpb = beatsPerBar();
+    // La fenêtre se cale sur le point de départ pendant le décompte : la
+    // première mesure jouée est déjà sous les yeux, pas découverte à l'attaque.
+    followScoreLine(lineOfGridBeat(fromGridBeat || 0, activeBpb), false);
     transport = window.BassRhythmEngine.createTransport({
       ctx: ctx,
       bpm: bpm,
@@ -1173,6 +1219,7 @@
     haltTransport();
     pausedGridBeat = 0;
     settleTransportUi();
+    followScoreLine(0, false); // la fenêtre revient doucement au début
   }
 
   function tick(){
@@ -1206,6 +1253,10 @@
       cursor.classList.remove("live");
     } else {
       countVeil.classList.remove("show");
+
+      // Fenêtre téléprompteur : suit la mesure ENTENDUE, même guide visuel
+      // coupé — c'est le cadrage de la partition, pas une aide de lecture.
+      followScoreLine(lineOfGridBeat(Math.max(0, pos.gridBeat), activeBpb), false);
 
       if (visualOn){
         // Guide visuel : allumage des notes et curseur, tous deux à la position
@@ -1405,6 +1456,8 @@
       }
       currentAbc = res.abc;
       currentNotes = res.notes; // alimente l'allumage des notes (mode 2)
+      currentBars = res.bars || null;     // re-découpage responsive (2 ou 4 mesures/système)
+      currentHeader = res.header || "";
       TOTAL_BEATS = cfg.measures * beatsPerBar();
       updateExerciseTitle(cfg, animate); // l'en-tête suit chaque grille réellement affichée
       return true;
@@ -1439,17 +1492,17 @@
       startPlayback(0);
     } else if (pausedGridBeat > 0){
       pausedGridBeat = 0;
+      followScoreLine(0, false);
     } else {
       stopAndReset();
     }
   }
   rewindBtn.addEventListener("click", rewindToStart);
 
-  /* ---------- tempo : saisie directe, slider, ±5, molette, glisser ---------- */
+  /* ---------- tempo : saisie directe, ±5, molette, glisser vertical ---------- */
   playBtn.addEventListener("click", togglePlay);
   plus5.addEventListener("click", function(){ setBpm(bpm + 5); });
   minus5.addEventListener("click", function(){ setBpm(bpm - 5); });
-  tempoSlider.addEventListener("input", function(){ setBpm(parseInt(tempoSlider.value, 10)); });
   tempoNum.addEventListener("wheel", function(e){
     e.preventDefault();
     setBpm(bpm + (e.deltaY < 0 ? 1 : -1));
@@ -1510,15 +1563,23 @@
     togglePlay();
   });
 
+  /* Resize / rotation : re-render si le découpage doit changer, ou si la
+     gravure est à largeur native (staffwidth figé au rendu) ; la grille
+     elle-même n'est jamais regénérée. Sinon, simple recalcul de géométrie
+     (responsive:"resize" absorbe seul les variations de largeur en 4/ligne). */
   var resizeT = null;
   window.addEventListener("resize", function(){
     clearTimeout(resizeT);
-    resizeT = setTimeout(computeLines, 200);
+    resizeT = setTimeout(function(){
+      if (measuresPerLine() !== perLine || perLine === 2) renderScore(false);
+      computeLines();
+    }, 200);
   });
 
   /* ---------- init ---------- */
   generateGrid(false); // la partition affichée au chargement est déjà une grille générée
   renderScore(false);
+  computeLines();      // fenêtre téléprompteur dimensionnée dès le chargement
   buildBeats();
 })();
 </script>
