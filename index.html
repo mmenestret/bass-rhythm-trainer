@@ -1811,6 +1811,15 @@
   </div>
 
   <div class="field">
+    <h3>Pulsation</h3>
+    <div class="sounds" id="pulsation-list">
+      <label class="sound"><input type="radio" name="pulsation" value="clic" checked><span class="dot"></span><span class="name">Clic</span></label>
+      <label class="sound"><input type="radio" name="pulsation" value="groove"><span class="dot"></span><span class="name">Groove</span>
+        <button type="button" class="preview" data-pulsation="groove" aria-label="Écouter le groove" title="Écouter"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
+    </div>
+  </div>
+
+  <div class="field">
     <h3>Niveau</h3>
     <div class="levels">
       <label class="level checked"><input type="radio" name="niveau" value="1" checked><span class="n">1</span><span class="txt"><b>Notes seules</b><span>Uniquement des figures jouées</span></span></label>
@@ -2375,6 +2384,7 @@
   ];
   var noteChoice = "D";
   var soundChoice = "growl";
+  var pulsationVoice = "clic"; // voix de l'aide de pulsation (clic|groove) — préférence locale, hors lien de partage
 
   var sampleStore = {}; // url -> { data: Promise<ArrayBuffer>, buffer, decoding, failed }
 
@@ -2526,6 +2536,7 @@
       noteEvents: liveNoteEvents,
       notesEnabled: soundOn,
       clicksEnabled: clickOn,
+      pulsationVoice: pulsationVoice,
       getNoteVoice: currentVoice,
       loop: repeatOn && !infiniteOn
     });
@@ -2840,6 +2851,12 @@
       soundChoice = inp.value;
     });
   });
+  document.querySelectorAll('#pulsation-list input[name="pulsation"]').forEach(function(inp){
+    inp.addEventListener("change", function(){
+      if (!inp.checked) return;
+      pulsationVoice = inp.value;
+    });
+  });
   bindPills("note-pills", function(v){
     noteChoice = v;
     currentAbc = rePitchAbc(currentAbc, noteByLetter(v).abc);
@@ -2871,6 +2888,19 @@
       } else {
         play();
       }
+    });
+  });
+
+  /* Préécoute du groove : une mesure de 4/4 (~1,6 s), sans lancer l'exercice.
+     Partage previewHandle avec la préécoute du son : l'une coupe l'autre. */
+  document.querySelectorAll("#pulsation-list .preview").forEach(function(btn){
+    btn.addEventListener("click", function(e){
+      e.preventDefault();
+      e.stopPropagation();
+      var ctx = ensureAudioContext();
+      if (!ctx) return;
+      if (previewHandle) previewHandle.stop();
+      previewHandle = window.BassRhythmEngine.playGroovePreview(ctx, 1.6);
     });
   });
 

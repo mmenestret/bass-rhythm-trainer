@@ -546,6 +546,51 @@
     return buildNoiseHit(ctx, dest, time, noise, 7000, GROOVE_HAT_LEVEL, 0.03);
   }
 
+  /*
+   * Préécoute du groove hors transport : joue une mesure de 4/4 du groove sobre
+   * (grosse caisse / caisse claire / charley selon grooveVoicesAt) sur
+   * ctx.destination, étalée sur `seconds` (défaut 1,6 s). Rend { stop() } pour
+   * couper court quand une autre préécoute démarre par-dessus.
+   */
+  function playGroovePreview(ctx, seconds) {
+    var total = seconds > 0 ? seconds : 1.6;
+    var beatS = total / 4;
+    var master = ctx.createGain();
+    master.gain.value = MASTER_LEVEL;
+    master.connect(ctx.destination);
+    var noise = buildNoiseBuffer(ctx);
+    var start = ctx.currentTime + 0.05;
+    var voices = [];
+    for (var b = 1; b <= 4; b++) {
+      var t = start + (b - 1) * beatS;
+      var v = grooveVoicesAt(b);
+      if (v.kick) voices.push(buildKick(ctx, master, t));
+      if (v.snare) voices.push(buildSnare(ctx, master, t, noise));
+      if (v.hat) voices.push(buildHat(ctx, master, t, noise));
+    }
+    var done = false;
+    function cleanup() {
+      if (done) return;
+      done = true;
+      try { master.disconnect(); } catch (e) { /* déjà déconnecté */ }
+    }
+    // Déconnexion du master à la fin de la dernière voix (charley du temps 4).
+    if (voices.length) voices[voices.length - 1].srcs[0].onended = cleanup;
+    return {
+      stop: function () {
+        if (done) return;
+        var now = ctx.currentTime;
+        for (var i = 0; i < voices.length; i++) {
+          var srcs = voices[i].srcs;
+          for (var s = 0; s < srcs.length; s++) {
+            try { srcs[s].onended = null; srcs[s].stop(now); } catch (e) { /* déjà arrêté */ }
+          }
+        }
+        cleanup();
+      }
+    };
+  }
+
   function createTransport(opts) {
     var ctx = opts.ctx;
     var bpb = opts.beatsPerBar;
@@ -872,6 +917,7 @@
     cursorXAt: cursorXAt,
     buildNoteVoice: buildNoteVoice,
     playNotePreview: playNotePreview,
+    playGroovePreview: playGroovePreview,
     createTransport: createTransport
   };
 }));

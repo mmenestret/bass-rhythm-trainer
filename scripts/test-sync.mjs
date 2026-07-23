@@ -49,6 +49,7 @@ const {
   outputLatencySeconds,
   cursorXAt,
   createTransport,
+  playGroovePreview,
 } = require(path.join(ROOT, "js", "engine.js"));
 const { generateExercise } = require(path.join(ROOT, "js", "generator.js"));
 
@@ -591,6 +592,15 @@ try {
       `groove — mode clic : ${ctx2.clickStarts.length} clic(s), attendu ${countIn + total} (inchangé)`);
     expect(ctx2.synthStarts.length === 0 && ctx2.noteStarts.length === 0,
       "groove — mode clic : aucune voix de batterie");
+
+    // Préécoute du groove hors transport : des voix de batterie, aucun clic sinus.
+    const ctxP = createMockCtx();
+    const handle = playGroovePreview(ctxP, 1.6);
+    expect(ctxP.synthStarts.length + ctxP.noteStarts.length > 0,
+      `préécoute groove — ${ctxP.synthStarts.length + ctxP.noteStarts.length} voix de batterie, attendu > 0`);
+    expect(ctxP.clickStarts.length === 0, "préécoute groove — aucun clic sinus");
+    expect(handle && typeof handle.stop === "function", "préécoute groove — rend { stop() }");
+    handle.stop();
   }
 
 } finally {
