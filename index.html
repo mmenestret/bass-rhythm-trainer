@@ -24,6 +24,10 @@
     --hairline-strong: rgba(61,70,85,0.30);
     --accent: #7e93a8;
     --accent-soft: rgba(126,147,168,0.22);
+    --halo-rail: rgba(126,147,168,0.7);
+    --halo-edge: rgba(126,147,168,0.14);
+    --halo-step: rgba(126,147,168,0.05);
+    --halo-fade: rgba(126,147,168,0);
     --blush: rgba(183,163,166,0.35);
     --glass: rgba(255,255,255,0.34);
     --ease-drift: cubic-bezier(0.22,0.9,0.24,1);
@@ -355,8 +359,28 @@
     transition: transform 0.45s var(--ease-drift);
     will-change: transform;
   }
-  .score-slide.snap {
+  .score-slide.snap,
+  .score-halo.snap {
     transition: none;
+  }
+  /* halo de la ligne jouée : bande posée en coordonnées fenêtre, sous la
+     glissière — la ligne jouée vit à hauteur d'œil constante (cran virtuel -1
+     compris), le halo ne se rattrape que de quelques pixels quand les hauteurs
+     de systèmes diffèrent. Rail d'accent à gauche, dégradé en miroir estompé
+     vers le centre, bleu adouci pour rester dans la brume Apnée. */
+  .score-halo {
+    position: absolute;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+    border-left: 3px solid var(--halo-rail);
+    background: linear-gradient(90deg,var(--halo-edge) 0%,var(--halo-step) 28%,var(--halo-fade) 50%,var(--halo-step) 72%,var(--halo-edge) 100%);
+    box-shadow: inset 0 1px 0 var(--hairline),inset 0 -1px 0 var(--hairline);
+    transition: top 0.45s var(--ease-drift),height 0.45s var(--ease-drift);
+  }
+  /* le mode Composer grave hors de la fenêtre téléprompteur : pas de halo */
+  body.composing .score-halo {
+    display: none;
   }
   .score {
     transition: opacity 0.9s var(--ease-drift),filter 0.9s var(--ease-drift);
@@ -1409,7 +1433,8 @@
     .rise {
       animation-duration: 0.01s;
     }
-    .score-slide {
+    .score-slide,
+    .score-halo {
       transition: none;
     }
   }
@@ -1699,6 +1724,7 @@
   <!-- portée : fenêtre (overflow caché sur mobile) + glissière téléprompteur -->
   <div class="score-stage rise d2 player-only" id="stage">
     <div id="score-win" class="score-win">
+      <div id="score-halo" class="score-halo" aria-hidden="true"></div>
       <div id="score-slide" class="score-slide">
         <div id="score" class="score"></div>
         <div id="cursor" class="cursor"></div>
@@ -1925,6 +1951,7 @@
   var exTitle = document.getElementById("ex-title");
   var stage = document.getElementById("stage");
   var scoreWin = document.getElementById("score-win");
+  var scoreHalo = document.getElementById("score-halo");
   var scoreSlide = document.getElementById("score-slide");
   var scoreEl = document.getElementById("score");
   var cursor = document.getElementById("cursor");
@@ -2232,16 +2259,43 @@
     if (top === followedLine) return;
     followedLine = top;
     setSlideY(-slideTopY(top), instant);
+    // le halo suit la ligne jouée (top + 1 : index déjà valide par le clamp)
+    updateScoreHalo(top + 1, instant);
+  }
+  /* Halo de la ligne jouée : la bande se cale sur la géométrie réelle de la
+     ligne (lines[line] + translation CIBLE de la glissière, dérivée du cran
+     suivi) — en coordonnées fenêtre, elle ne bouge que de quelques pixels
+     d'une ligne à l'autre, avec le même timing que la glissière. Les deux
+     appelants garantissent un index valide : followScoreLine (top + 1, après
+     avoir posé followedLine) et layoutScoreWindow (0, fenêtre inactive). */
+  function updateScoreHalo(line, instant){
+    if (!lines.length){
+      scoreHalo.style.height = "0px";
+      return;
+    }
+    const slideY = scoreWindowActive() ? -slideTopY(followedLine) : 0;
+    writeInstant(scoreHalo, instant, function(){
+      scoreHalo.style.top = Math.round(lines[line].y0 + slideY) + "px";
+      scoreHalo.style.height = Math.round(lines[line].y1 - lines[line].y0) + "px";
+    });
+  }
+  /* Écriture de styles avec ou sans transition : en mode instantané, la classe
+     .snap coupe la transition le temps de l'écriture (reflow forcé entre les
+     deux pour que le navigateur ne fusionne pas les états). */
+  function writeInstant(el, instant, write){
+    if (!instant){
+      write();
+      return;
+    }
+    el.classList.add("snap");
+    write();
+    void el.offsetWidth;
+    el.classList.remove("snap");
   }
   function setSlideY(y, instant){
-    if (instant){
-      scoreSlide.classList.add("snap");
+    writeInstant(scoreSlide, instant, function(){
       scoreSlide.style.transform = "translateY(" + y + "px)";
-      void scoreSlide.offsetWidth;
-      scoreSlide.classList.remove("snap");
-    } else {
-      scoreSlide.style.transform = "translateY(" + y + "px)";
-    }
+    });
   }
   function layoutScoreWindow(){
     if (scoreWindowActive()){
@@ -2260,6 +2314,8 @@
       scoreWin.style.height = "";
       followedLine = -99;
       setSlideY(0, true);
+      // grille d'une seule ligne (ou partition vide) : halo sur l'unique ligne
+      updateScoreHalo(0, true);
     }
   }
 
