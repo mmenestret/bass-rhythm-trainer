@@ -55,11 +55,14 @@
  *    - playNotePreview(ctx, v, seconds) : préécoute hors transport (~1,5 s),
  *      rend { stop() }.
  *    - createTransport({ ctx, bpm, beatsPerBar, totalBeats, startGridBeat,
- *      noteEvents, notesEnabled, clicksEnabled, getNoteVoice, loop }) :
+ *      noteEvents, notesEnabled, clicksEnabled, pulsationVoice, getNoteVoice,
+ *      loop }) :
  *      horloge à lookahead (setInterval ~25 ms, horizon ~120 ms), chaque clic
  *      programmé sur ctx.currentTime — jamais de setTimeout cumulatif.
  *      Clic = oscillateur sinus court avec enveloppe douce (esthétique Apnée) ;
- *      accent du temps 1 plus aigu et plus fort. L'AudioContext est créé et
+ *      accent du temps 1 plus aigu et plus fort. pulsationVoice "groove" joue,
+ *      aux battements de grille, une batterie de synthèse sobre mixée bas à la
+ *      place du clic (le décompte reste au clic). L'AudioContext est créé et
  *      repris par la page au geste utilisateur (bouton play), puis fourni ici.
  *      Notes : la même pompe programme chaque attaque à son instant exact,
  *      via buildNoteVoice sur la voix rendue par getNoteVoice() — lu à CHAQUE
@@ -103,6 +106,14 @@
   var MASTER_LEVEL = 0.8;        // marge anti-saturation : (0,8 + clic 0,4) × 0,8 < 1
   var SYNTH_FREQ_HZ = 73.42;     // D2 — hauteur par défaut du synthé
   var SYNTH_LEVEL = 0.5;         // le pluck synthé est plus dense que le sample
+
+  /* Groove d'accompagnement (voix de pulsation alternative au clic). Mixé bas :
+     lit sonore sous la voix du rythme lu. Pic par temps <= 0,4 (grosse caisse +
+     charley), comme le clic accentué — même marge anti-saturation. */
+  var GROOVE_KICK_LEVEL = 0.32;
+  var GROOVE_SNARE_LEVEL = 0.16;
+  var GROOVE_HAT_LEVEL = 0.08;
+  var GROOVE_NOISE_S = 0.3;      // durée du buffer de bruit (caisse claire, charley)
 
   /* ============================ partie pure ============================ */
 
@@ -180,6 +191,19 @@
       measure: Math.floor(gridBeat / beatsPerBar) + 1,
       beat: (gridBeat % beatsPerBar) + 1
     };
+  }
+
+  /*
+   * Voix du groove d'accompagnement sobre à un temps donné (1-based). Motif
+   * fixe, binaire, indépendant de la signature : charley sur CHAQUE temps,
+   * grosse caisse sur les temps impairs (le 1 porte le downbeat, comme l'accent
+   * aigu du clic), caisse claire sur les temps pairs (backbeat). En 4/4 : kick
+   * 1 & 3, caisse claire 2 & 4 ; en 3/4 : kick 1 & 3, caisse claire 2 ; en 2/4 :
+   * kick 1, caisse claire 2. Rend { kick, snare, hat } (booléens).
+   */
+  function grooveVoicesAt(beatInBar) {
+    var even = beatInBar % 2 === 0;
+    return { kick: !even, snare: even, hat: true };
   }
 
   /*
@@ -462,6 +486,66 @@
     };
   }
 
+  /*
+   * Voix de batterie de synthèse du groove (mixées bas, esthétique « Apnée »).
+   * Chaque voix rend { srcs, gain } — sources démarrées, gain final connecté à
+   * dest — pour un suivi/arrêt uniforme (cf. `live` du transport). Aucun sample :
+   * grosse caisse = triangle à chute de hauteur ; caisse claire & charley =
+   * bruit filtré passe-haut, court. Le sinus reste réservé au clic.
+   */
+  function buildNoiseBuffer(ctx) {
+    var sr = ctx.sampleRate || 44100;
+    var buf = ctx.createBuffer(1, Math.max(1, Math.floor(sr * GROOVE_NOISE_S)), sr);
+    var data = buf.getChannelData(0);
+    for (var i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    return buf;
+  }
+
+  function buildKick(ctx, dest, time) {
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(110, time);
+    osc.frequency.exponentialRampToValueAtTime(48, time + 0.11);
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.linearRampToValueAtTime(GROOVE_KICK_LEVEL, time + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.18);
+    gain.gain.linearRampToValueAtTime(0, time + 0.19);
+    osc.connect(gain);
+    gain.connect(dest);
+    osc.start(time);
+    osc.stop(time + 0.22);
+    return { srcs: [osc], gain: gain };
+  }
+
+  /* Coup de bruit filtré passe-haut, court : sert la caisse claire (grave, hzCut
+     bas, décroissance moyenne) et le charley (aigu, hzCut haut, très court). */
+  function buildNoiseHit(ctx, dest, time, noise, hzCut, level, decayS) {
+    var src = ctx.createBufferSource();
+    src.buffer = noise;
+    var hp = ctx.createBiquadFilter();
+    hp.type = "highpass";
+    hp.frequency.value = hzCut;
+    var gain = ctx.createGain();
+    gain.gain.setValueAtTime(level, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + decayS);
+    gain.gain.linearRampToValueAtTime(0, time + decayS + 0.01);
+    src.connect(hp);
+    hp.connect(gain);
+    gain.connect(dest);
+    src.start(time);
+    src.stop(time + decayS + 0.02);
+    return { srcs: [src], gain: gain };
+  }
+
+  function buildSnare(ctx, dest, time, noise) {
+    return buildNoiseHit(ctx, dest, time, noise, 1500, GROOVE_SNARE_LEVEL, 0.14);
+  }
+
+  function buildHat(ctx, dest, time, noise) {
+    return buildNoiseHit(ctx, dest, time, noise, 7000, GROOVE_HAT_LEVEL, 0.03);
+  }
+
   function createTransport(opts) {
     var ctx = opts.ctx;
     var bpb = opts.beatsPerBar;
@@ -486,6 +570,8 @@
     var noteEvents = opts.noteEvents || [];
     var notesOn = !!opts.notesEnabled;
     var clicksOn = opts.clicksEnabled !== false;
+    var pulsationVoice = opts.pulsationVoice === "groove" ? "groove" : "clic";
+    var noise = pulsationVoice === "groove" ? buildNoiseBuffer(ctx) : null;
     var getNoteVoice = opts.getNoteVoice || function () { return null; };
     var noteIdx = 0;
     var cycleBase = 0;       // décalage en temps des cycles de boucle déjà recyclés
@@ -495,6 +581,18 @@
     var master = ctx.createGain();
     master.gain.value = MASTER_LEVEL;
     master.connect(ctx.destination);
+
+    /* Suivi uniforme des voix de pulsation (clic ET groove) dans `live` :
+       chaque entrée { srcs, gain } peut être coupée net (setClicksEnabled off,
+       stop). onended sur la source primaire retire l'entrée et déconnecte. */
+    function trackPulsation(entry) {
+      live.push(entry);
+      entry.srcs[0].onended = function () {
+        var i = live.indexOf(entry);
+        if (i !== -1) live.splice(i, 1);
+        try { entry.gain.disconnect(); } catch (e) { /* déjà déconnecté */ }
+      };
+    }
 
     /* Clic doux : sinus court, attaque 2,5 ms, décroissance exponentielle.
        Accent du temps 1 : quinte + octave au-dessus, plus fort, un peu plus long. */
@@ -513,13 +611,22 @@
       gain.connect(master);
       osc.start(time);
       osc.stop(time + decay + 0.03);
-      var node = { osc: osc, gain: gain };
-      live.push(node);
-      osc.onended = function () {
-        var i = live.indexOf(node);
-        if (i !== -1) live.splice(i, 1);
-        gain.disconnect();
-      };
+      trackPulsation({ srcs: [osc], gain: gain });
+    }
+
+    /* Voix de pulsation à un battement : le décompte reste TOUJOURS au clic
+       (repère de départ limpide) ; en mode groove, les battements de la grille
+       jouent la batterie de synthèse (grosse caisse / caisse claire / charley
+       selon le temps), le groove n'entrant donc qu'à la barre 1. */
+    function schedulePulsation(time, d) {
+      if (pulsationVoice === "clic" || d.type === "countin") {
+        scheduleClick(time, d.accent);
+        return;
+      }
+      var v = grooveVoicesAt(d.beatInBar);
+      if (v.kick) trackPulsation(buildKick(ctx, master, time));
+      if (v.snare) trackPulsation(buildSnare(ctx, master, time, noise));
+      if (v.hat) trackPulsation(buildHat(ctx, master, time, noise));
     }
 
     /* Voix d'une note : construction partagée avec la préécoute
@@ -612,7 +719,7 @@
           // Métronome coupé : les battements avancent et les visuels restent
           // (pastilles), seuls les clics de grille se taisent. Le décompte
           // reste toujours audible : c'est le repère de départ.
-          if (clicksOn || d.type === "countin") scheduleClick(ev.time, d.accent);
+          if (clicksOn || d.type === "countin") schedulePulsation(ev.time, d);
           d.time = ev.time;
           visuals.push(d);
         }
@@ -686,11 +793,14 @@
         if (!on) {
           var now = ctx.currentTime;
           for (var i = 0; i < live.length; i++) {
-            try {
-              live[i].osc.onended = null;
-              live[i].osc.stop(now);
-              live[i].gain.disconnect();
-            } catch (e) { /* nœud déjà arrêté */ }
+            var ent = live[i];
+            for (var s = 0; s < ent.srcs.length; s++) {
+              try {
+                ent.srcs[s].onended = null;
+                ent.srcs[s].stop(now);
+              } catch (err) { /* nœud déjà arrêté */ }
+            }
+            try { ent.gain.disconnect(); } catch (err) { /* déjà déconnecté */ }
           }
           live.length = 0;
         }
@@ -708,10 +818,13 @@
         master.gain.setValueAtTime(master.gain.value, now);
         master.gain.linearRampToValueAtTime(0, now + 0.02);
         for (var i = 0; i < live.length; i++) {
-          try {
-            live[i].osc.onended = null;
-            live[i].osc.stop(now + 0.03);
-          } catch (e) { /* nœud déjà arrêté */ }
+          var ent = live[i];
+          for (var s = 0; s < ent.srcs.length; s++) {
+            try {
+              ent.srcs[s].onended = null;
+              ent.srcs[s].stop(now + 0.03);
+            } catch (err) { /* nœud déjà arrêté */ }
+          }
         }
         live.length = 0;
         // Unique setTimeout de nettoyage (pas de programmation cumulative).
@@ -749,6 +862,7 @@
     meterBeats: meterBeats,
     countInBeats: countInBeats,
     barBeat: barBeat,
+    grooveVoicesAt: grooveVoicesAt,
     describeBeat: describeBeat,
     describeLoopedBeat: describeLoopedBeat,
     litIndicesAt: litIndicesAt,

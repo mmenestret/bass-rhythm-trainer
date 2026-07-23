@@ -26,6 +26,10 @@
  *      l'instant où un clic S'ENTEND est exactement le battement de ce clic
  *      (transport.visualNow), pastilles jamais déclenchées sur les instants
  *      programmés en avance, position de pause calculée sur l'entendu.
+ *  (9) groove d'accompagnement (pulsationVoice "groove") : le décompte reste au
+ *      clic, les battements de grille jouent la batterie de synthèse (grosse
+ *      caisse / caisse claire / charley) au lieu du clic, comptes conformes à
+ *      grooveVoicesAt, premier hit à la barre 1 ; mode clic (défaut) inchangé.
  * Code de sortie non nul si échec.
  */
 import { createRequire } from "node:module";
@@ -39,6 +43,7 @@ const {
   createBeatClock,
   meterBeats,
   countInBeats,
+  grooveVoicesAt,
   litIndicesAt,
   noteSoundEvents,
   outputLatencySeconds,
@@ -117,6 +122,10 @@ function createMockCtx(opts = {}) {
     },
     createBiquadFilter() {
       return { type: "", Q: mockParam(), frequency: mockParam(), connect() {} };
+    },
+    sampleRate: 44100,
+    createBuffer(channels, length) {
+      return { length, getChannelData: () => new Float32Array(length) };
     },
   };
   if ("outputLatency" in opts) ctx.outputLatency = opts.outputLatency;
@@ -530,6 +539,58 @@ try {
     const info = tr2.stop();
     expect(info !== null && close(info.position, 5.5) && info.resumeBeat === 4,
       `latence — pause : position ${info && info.position} / reprise ${info && info.resumeBeat}, attendu 5,5 / 4`);
+  }
+
+  /* ================ (9) groove d'accompagnement : remplace le clic aux battements ================ */
+  {
+    const BPM = 60, bpb = 4, total = 8;
+    const countIn = countInBeats(bpb);
+    // Comptes attendus des voix sur la grille, dérivés de grooveVoicesAt.
+    let expKick = 0, expSnare = 0, expHat = 0;
+    for (let g = 0; g < total; g++) {
+      const v = grooveVoicesAt((g % bpb) + 1);
+      if (v.kick) expKick++;
+      if (v.snare) expSnare++;
+      if (v.hat) expHat++;
+    }
+
+    // Mode groove : le décompte reste au clic, les battements de grille jouent la batterie.
+    const ctx = createMockCtx();
+    const t0 = ctx.currentTime + START_DELAY_S;
+    createTransport({
+      ctx, bpm: BPM, beatsPerBar: bpb, totalBeats: total, pulsationVoice: "groove",
+      noteEvents: [], notesEnabled: false, getNoteVoice: () => null,
+    });
+    stepPump(ctx, t0 + (countIn + total + 2) * (60 / BPM));
+
+    // Clics sinus = UNIQUEMENT le décompte (les battements de grille ne cliquent plus).
+    expect(ctx.clickStarts.length === countIn,
+      `groove — ${ctx.clickStarts.length} clic(s) sinus, attendu ${countIn} (décompte seul)`);
+    expect(ctx.clickStarts[0] && ctx.clickStarts[0].freq === ACCENT_FREQ,
+      "groove — le temps 1 du décompte reste un clic accentué");
+    // Grosse caisse = oscillateurs triangle (synthStarts) ; caisse claire + charley = bruit (noteStarts).
+    expect(ctx.synthStarts.length === expKick,
+      `groove — ${ctx.synthStarts.length} grosse(s) caisse(s), attendu ${expKick}`);
+    expect(ctx.noteStarts.length === expSnare + expHat,
+      `groove — ${ctx.noteStarts.length} coup(s) caisse claire + charley, attendu ${expSnare + expHat}`);
+    // La première grosse caisse tombe pile au temps 1 de la grille (barre 1), après le décompte.
+    const firstGrid = t0 + countIn * (60 / BPM);
+    const kickTimes = ctx.synthStarts.map((s) => s.time).sort((a, b) => a - b);
+    expect(kickTimes[0] !== undefined && close(kickTimes[0], firstGrid),
+      `groove — première grosse caisse à ${kickTimes[0]}, attendu la barre 1 (${firstGrid})`);
+
+    // Mode clic (défaut) : comportement inchangé — clics sur décompte + grille, aucune batterie.
+    const ctx2 = createMockCtx();
+    const t0b = ctx2.currentTime + START_DELAY_S;
+    createTransport({
+      ctx: ctx2, bpm: BPM, beatsPerBar: bpb, totalBeats: total,
+      noteEvents: [], notesEnabled: false, getNoteVoice: () => null,
+    });
+    stepPump(ctx2, t0b + (countIn + total + 2) * (60 / BPM));
+    expect(ctx2.clickStarts.length === countIn + total,
+      `groove — mode clic : ${ctx2.clickStarts.length} clic(s), attendu ${countIn + total} (inchangé)`);
+    expect(ctx2.synthStarts.length === 0 && ctx2.noteStarts.length === 0,
+      "groove — mode clic : aucune voix de batterie");
   }
 
 } finally {

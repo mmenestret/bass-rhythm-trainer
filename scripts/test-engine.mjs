@@ -29,6 +29,7 @@ const {
   meterBeats,
   countInBeats,
   barBeat,
+  grooveVoicesAt,
   describeBeat,
   describeLoopedBeat,
 } = require(enginePath);
@@ -259,6 +260,38 @@ for (const [meter] of SIGNATURES) {
   // Décompte : intact dans tous les modes.
   const ci = describeLoopedBeat(2, 0, 4, 32, true);
   expect(ci.type === "countin" && ci.countNumber === 3, "boucle — décompte altéré");
+}
+
+/* ---------- (g) grooveVoicesAt : motif de groove sobre par temps ---------- */
+{
+  // Charley sur chaque temps ; grosse caisse sur les temps impairs (downbeat sur
+  // le 1) ; caisse claire sur les temps pairs (backbeat).
+  const v1 = grooveVoicesAt(1);
+  expect(v1.kick && !v1.snare && v1.hat, "groove — temps 1 : grosse caisse + charley (downbeat)");
+  const v2 = grooveVoicesAt(2);
+  expect(!v2.kick && v2.snare && v2.hat, "groove — temps 2 : caisse claire + charley (backbeat)");
+  const v3 = grooveVoicesAt(3);
+  expect(v3.kick && !v3.snare && v3.hat, "groove — temps 3 : grosse caisse + charley");
+  const v4 = grooveVoicesAt(4);
+  expect(!v4.kick && v4.snare && v4.hat, "groove — temps 4 : caisse claire + charley");
+
+  // Charley sur TOUS les temps, exactement une percussion grosse caisse/caisse
+  // claire par temps.
+  for (let b = 1; b <= 4; b++) {
+    const v = grooveVoicesAt(b);
+    expect(v.hat === true, `groove — charley attendu sur le temps ${b}`);
+    expect(v.kick !== v.snare, `groove — temps ${b} : exactement une de grosse caisse / caisse claire`);
+  }
+
+  // 4/4 : grosse caisse sur 1 & 3, caisse claire sur 2 & 4.
+  const kicks = [1, 2, 3, 4].filter((b) => grooveVoicesAt(b).kick);
+  const snares = [1, 2, 3, 4].filter((b) => grooveVoicesAt(b).snare);
+  expect(kicks.join(",") === "1,3", `groove 4/4 — grosse caisse attendue sur 1 & 3, reçue ${kicks}`);
+  expect(snares.join(",") === "2,4", `groove 4/4 — caisse claire attendue sur 2 & 4, reçue ${snares}`);
+
+  // 3/4 : grosse caisse 1 & 3, caisse claire 2. 2/4 : grosse caisse 1, caisse claire 2.
+  expect(grooveVoicesAt(1).kick && grooveVoicesAt(2).snare && grooveVoicesAt(3).kick,
+    "groove 3/4 — grosse caisse 1 & 3, caisse claire 2");
 }
 
 /* ---------- bilan ---------- */
