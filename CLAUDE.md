@@ -24,3 +24,17 @@ Elles complètent les règles user-level et **priment** en cas de conflit local.
 
 - Documentation et commentaires **en français** ; identifiants en anglais.
 - Ne pas mentionner d'agent IA dans le code, les commentaires ou les commits.
+
+## Agent skills
+
+### Issue tracker
+
+Les issues vivent dans les GitHub Issues de ce repo (`mmenestret/bass-rhythm-trainer`), via la CLI `gh`. Voir `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Vocabulaire par défaut : `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. Voir `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Layout single-context : `CONTEXT.md` + `docs/adr/` à la racine. Voir `docs/agents/domain.md`.
