@@ -52,6 +52,26 @@ alors un retour explicite vers une grille générée. Une grille composée se
 partage aussi par lien (second format d'URL, contenu complet — cf.
 `docs/adr/0001-*`).
 
+## Hébergement
+
+L'application publique vit sur <https://rythme.lambdalogic.fr>, servie par
+Cloudflare Pages depuis la branche `main` : chaque push redéploie le site.
+
+Le dépôt est un site statique sans build — les réglages du projet Pages sont
+donc vides ou par défaut :
+
+- *Framework preset* : **None**
+- *Build command* : **vide**
+- *Build output directory* : **`/`**
+- *Root directory* : **`/`**
+
+Tous les chemins de ressources d'`index.html` sont relatifs : le site tourne
+à la racine d'un domaine comme dans un sous-dossier. Le fichier unique reste
+téléchargeable à `/dist/bass-rhythm-trainer.html`.
+
+Le HTTPS change un détail de comportement : le bouton **copier le lien** passe
+par l'API Clipboard native au lieu du repli `execCommand`.
+
 ## Build du fichier unique
 
 ```sh
