@@ -55,24 +55,30 @@ partage aussi par lien (second format d'URL, contenu complet — cf.
 ## Hébergement
 
 L'application publique vit sur <https://rythme.lambdalogic.fr>, servie par
-Cloudflare Pages (projet `bass-rhythm-trainer`, compte lambdalogic).
+Cloudflare Pages (projet `bass-rhythm-trainer`).
 
-Le déploiement se fait en *Direct Upload* depuis un poste disposant d'un token
-d'API Cloudflare, et non par une intégration git : le dépôt n'est pas connecté
-à Cloudflare, un push ne redéploie donc rien tout seul.
+Chaque push sur `main` redéploie le site via `.github/workflows/deploy.yml`.
+Le dépôt n'est pas connecté à Cloudflare par l'intégration git : le workflow
+publie en *Direct Upload* avec `wrangler`, à partir de deux secrets de dépôt,
+`CLOUDFLARE_API_TOKEN` (permission `Account · Cloudflare Pages · Edit`) et
+`CLOUDFLARE_ACCOUNT_ID`.
+
+Le même déploiement se lance à la main depuis n'importe quel poste disposant
+d'un token :
 
 ```sh
-export CLOUDFLARE_ACCOUNT_ID=85e16f453b5f1ae290494f08a8e0eb4d
+export CLOUDFLARE_API_TOKEN=...
+export CLOUDFLARE_ACCOUNT_ID=...
 npx wrangler pages deploy . --project-name bass-rhythm-trainer --branch main
 ```
 
 Le dépôt est un site statique sans build : c'est la racine qui est publiée
-telle quelle, 63 fichiers. Tous les chemins de ressources d'`index.html` sont
-relatifs, le site tourne donc à la racine d'un domaine comme dans un
-sous-dossier — l'URL de préproduction `bass-rhythm-trainer.pages.dev` et chaque
-URL de déploiement fonctionnent à l'identique. Le fichier unique reste
-accessible à `/dist/bass-rhythm-trainer` — Pages sert les pages sans leur
-extension et redirige `.html` en 308, la forme longue marche donc aussi.
+telle quelle. Tous les chemins de ressources d'`index.html` sont relatifs, le
+site tourne donc à la racine d'un domaine comme dans un sous-dossier — l'URL
+`bass-rhythm-trainer.pages.dev` et chaque URL de déploiement fonctionnent à
+l'identique. Le fichier unique reste accessible à `/dist/bass-rhythm-trainer`
+— Pages sert les pages sans leur extension et redirige `.html` en 308, la
+forme longue marche donc aussi.
 
 Côté DNS, `rythme` est un CNAME proxifié vers `bass-rhythm-trainer.pages.dev`
 dans la zone `lambdalogic.fr` ; le certificat est émis par Cloudflare.

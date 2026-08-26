@@ -1,0 +1,29 @@
+# Publie le site sur Cloudflare Pages à chaque push sur main.
+# Secrets attendus dans le dépôt : CLOUDFLARE_API_TOKEN (permission
+# Account · Cloudflare Pages · Edit, sans filtrage IP) et CLOUDFLARE_ACCOUNT_ID.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Publier sur Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: "4"
+          command: pages deploy . --project-name=bass-rhythm-trainer --branch=main
