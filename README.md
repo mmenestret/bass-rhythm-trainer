@@ -55,19 +55,27 @@ partage aussi par lien (second format d'URL, contenu complet — cf.
 ## Hébergement
 
 L'application publique vit sur <https://rythme.lambdalogic.fr>, servie par
-Cloudflare Pages depuis la branche `main` : chaque push redéploie le site.
+Cloudflare Pages (projet `bass-rhythm-trainer`, compte lambdalogic).
 
-Le dépôt est un site statique sans build — les réglages du projet Pages sont
-donc vides ou par défaut :
+Le déploiement se fait en *Direct Upload* depuis un poste disposant d'un token
+d'API Cloudflare, et non par une intégration git : le dépôt n'est pas connecté
+à Cloudflare, un push ne redéploie donc rien tout seul.
 
-- *Framework preset* : **None**
-- *Build command* : **vide**
-- *Build output directory* : **`/`**
-- *Root directory* : **`/`**
+```sh
+export CLOUDFLARE_ACCOUNT_ID=85e16f453b5f1ae290494f08a8e0eb4d
+npx wrangler pages deploy . --project-name bass-rhythm-trainer --branch main
+```
 
-Tous les chemins de ressources d'`index.html` sont relatifs : le site tourne
-à la racine d'un domaine comme dans un sous-dossier. Le fichier unique reste
-téléchargeable à `/dist/bass-rhythm-trainer.html`.
+Le dépôt est un site statique sans build : c'est la racine qui est publiée
+telle quelle, 63 fichiers. Tous les chemins de ressources d'`index.html` sont
+relatifs, le site tourne donc à la racine d'un domaine comme dans un
+sous-dossier — l'URL de préproduction `bass-rhythm-trainer.pages.dev` et chaque
+URL de déploiement fonctionnent à l'identique. Le fichier unique reste
+accessible à `/dist/bass-rhythm-trainer` — Pages sert les pages sans leur
+extension et redirige `.html` en 308, la forme longue marche donc aussi.
+
+Côté DNS, `rythme` est un CNAME proxifié vers `bass-rhythm-trainer.pages.dev`
+dans la zone `lambdalogic.fr` ; le certificat est émis par Cloudflare.
 
 Le HTTPS change un détail de comportement : le bouton **copier le lien** passe
 par l'API Clipboard native au lieu du repli `execCommand`.
