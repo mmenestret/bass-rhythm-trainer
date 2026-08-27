@@ -12,9 +12,10 @@ Garamond + Karla.
 
 Deux façons de lancer l'application, strictement équivalentes :
 
-- **Fichier unique** : double-cliquer `dist/bass-rhythm-trainer.html`.
-  Tout est embarqué (partition, fontes, figures, samples) — aucune connexion
-  réseau, fonctionne en `file://` depuis n'importe quel dossier.
+- **Fichier unique** : double-cliquer `dist/bass-rhythm-trainer.html` pour le
+  français ou `dist/bass-rhythm-trainer-en.html` pour l'anglais. Tout est
+  embarqué (partition, fontes, figures, samples) — aucune connexion réseau,
+  fonctionne en `file://` depuis n'importe quel dossier.
 - **Version dossier** (développement) : servir la racine du projet en HTTP
   local puis ouvrir `index.html` :
 
@@ -25,6 +26,8 @@ Deux façons de lancer l'application, strictement équivalentes :
 
   Le HTTP local est nécessaire : les samples audio sont chargés par `fetch`,
   bloqué en `file://` (symptôme : tous les sons retombent sur le même synthé).
+  Ajouter `?lang=en` à l'URL affiche l'interface anglaise. Le paramètre de
+  langue cohabite avec le fragment qui encode l'exercice partagé.
 
 Dans l'application : tempo 40–200 BPM saisissable au clavier, aux boutons ±5,
 à la molette ou au glisser vertical ; décompte d'une mesure ; trois aides
@@ -86,17 +89,17 @@ dans la zone `lambdalogic.fr` ; le certificat est émis par Cloudflare.
 Le HTTPS change un détail de comportement : le bouton **copier le lien** passe
 par l'API Clipboard native au lieu du repli `execCommand`.
 
-## Build du fichier unique
+## Build des fichiers uniques
 
 ```sh
 node scripts/build-single-file.mjs
 ```
 
-Le script lit `index.html` (source unique, aucune logique dupliquée) et
-produit `dist/bass-rhythm-trainer.html` en inlinant fontes (data URI),
-figures (data URI), scripts (abcjs, générateur, moteur) et tous les samples
-audio (table base64 `window.BRT_EMBEDDED_SAMPLES`, consommée avant tout
-`fetch`). Il vérifie lui-même son résultat — aucune référence externe
+Le script lit `index.html` (source unique, aucune logique dupliquée) et produit
+les fichiers autonomes français et anglais. Il inline les fontes (data URI),
+les figures (data URI), les scripts (abcjs, générateur, moteur, i18n) et tous
+les samples audio (table base64 `window.BRT_EMBEDDED_SAMPLES`, consommée avant
+tout `fetch`). Il vérifie lui-même son résultat — aucune référence externe
 restante, syntaxe de chaque bloc de script (`node --check`), unique `fetch`
 résiduel bien court-circuité au chargement — et sort en erreur sinon.
 
@@ -106,18 +109,19 @@ résiduel bien court-circuité au chargement — et sort en erreur sinon.
 index.html                 # l'application complète : HTML, CSS Apnée, script applicatif
 js/generator.js            # générateur de grilles (calibrage Agostini vol. 1), pur, testable sous Node
 js/engine.js               # moteur de lecture Web Audio : métronome, transport, voix des notes, préécoute
+js/i18n.js                 # dictionnaires FR/EN, détection de langue et traduction de l'interface
 vendor/abcjs-basic-min.js  # gravure de la partition (abcjs 6.6.4)
 assets/fonts/              # Cormorant Garamond & Karla (woff2 + fonts.css)
 assets/figures/            # glyphes des figures rythmiques (PNG)
 assets/audio/              # samples de basse (growl, Ergo, arco bouclé) — cf. docs/audio-sample-source.md
 docs/                      # progression Agostini reconstituée, provenance des samples
 scripts/                   # build du fichier unique + harnais de test
-dist/                      # fichier unique généré par le build
+dist/                      # fichiers uniques FR et EN générés par le build
 ```
 
 ## Tests
 
-Six harnais Node, sans dépendance ni navigateur (code de sortie non nul
+Huit harnais Node, sans dépendance de test ni navigateur (code de sortie non nul
 en cas d'échec) :
 
 ```sh
@@ -128,6 +132,7 @@ node scripts/test-son.mjs         # son des notes : une attaque par note, liaiso
 node scripts/test-sync.mjs        # synchronisation de bout en bout (mock AudioContext, latence)
 node scripts/test-share.mjs       # graine + lien partageable : reproductibilité, flux ∞, aller-retour du codec d'URL
 node scripts/test-composer.mjs    # grille composée : assemblage, point/liaison, codec de contenu, invariants
+node scripts/test-i18n.mjs        # dictionnaires, marqueurs, ?lang=en et builds autonomes FR/EN
 ```
 
 ## Décisions validées
@@ -140,8 +145,8 @@ node scripts/test-composer.mjs    # grille composée : assemblage, point/liaison
 - Sons : uniquement des sons capables de tenir une ronde (sustain long ou
   boucle) ; préécoute ~1,5 s dans les réglages ; la note choisie transpose
   le sample le plus proche et re-hausse la portée sans changer le rythme.
-- Ludique sans scoring ; un seul fichier HTML autonome généré depuis la même
-  source que la version dossier.
+- Ludique sans scoring ; deux fichiers HTML autonomes, français et anglais,
+  générés depuis la même source que la version dossier.
 - Partage d'une grille par lien : la génération est seedée (`makeRng`,
   mulberry32 déterministe injectée dans le générateur) ; le hash de l'URL
   encode graine + réglages, mis à jour en continu et restauré au chargement.
@@ -154,9 +159,9 @@ node scripts/test-composer.mjs    # grille composée : assemblage, point/liaison
 - **abcjs** v6.6.4, Paul Rosen et Gregory Dyke — licence **MIT**
   (<https://abcjs.net>). Le commentaire de licence est conservé dans le
   fichier unique.
-- **Samples** : « Growlybass » et « Meatbass » par **Karoryfer Samples**,
-  « Lately Bass » par le projet **FreePats** — tous **CC0 1.0** (dédicace au
-  domaine public, aucune attribution requise ; mentionnée par courtoisie).
+- **Samples** : « Growlybass », « Meatbass » et « Ergo » par **Karoryfer
+  Samples** — tous **CC0 1.0** (dédicace au domaine public, aucune attribution
+  requise ; mentionnée par courtoisie).
   Détails et traitement : `docs/audio-sample-source.md`.
 - **Figures rythmiques** (PNG du tiroir de réglages) : images issues de
   **Wikimedia Commons**, domaine public.

@@ -1,5 +1,7 @@
 /*
- * Build du fichier unique — dist/bass-rhythm-trainer.html.
+ * Build des fichiers uniques français et anglais :
+ *   - dist/bass-rhythm-trainer.html ;
+ *   - dist/bass-rhythm-trainer-en.html.
  * Usage : node scripts/build-single-file.mjs
  *
  * Lit index.html (source unique de vérité, aucune logique dupliquée ici) et
@@ -11,6 +13,8 @@
  *  (4) tous les samples audio (assets/audio/*.wav|m4a) en base64 dans
  *      window.BRT_EMBEDDED_SAMPLES (clé = nom de fichier), consommé par
  *      index.html AVANT tout fetch.
+ *  (5) THIRD-PARTY-NOTICES.txt dans un bloc texte masqué qui accompagne toute
+ *      copie autonome.
  *
  * Le build vérifie lui-même son résultat :
  *  - aucun src=/href= vers un fichier local ou une URL http(s) dans le
@@ -25,24 +29,81 @@
  */
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, readdirSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT_DIR = path.join(ROOT, "dist");
-const OUT_FILE = path.join(OUT_DIR, "bass-rhythm-trainer.html");
+const OUT_FILES = {
+  fr: path.join(OUT_DIR, "bass-rhythm-trainer.html"),
+  en: path.join(OUT_DIR, "bass-rhythm-trainer-en.html"),
+};
 
 const problems = [];
 const fail = (msg) => problems.push(msg);
 const read = (rel) => readFileSync(path.join(ROOT, rel));
 const dataUri = (rel, mime) => `data:${mime};base64,${read(rel).toString("base64")}`;
+const require = createRequire(import.meta.url);
+const I18n = require(path.join(ROOT, "js/i18n.js"));
 // Un `</script>` littéral dans un source inline terminerait le bloc HTML ;
 // `<\/script` est strictement équivalent dans une chaîne ou une regex JS.
 const escapeInlineScript = (js) => js.replace(/<\/script/gi, "<\\/script");
 // String.replace interprète $&, $', $` dans une chaîne de remplacement — or on
 // injecte du JS arbitraire (abcjs minifié en contient). Insertion littérale.
 const replaceOnce = (haystack, needle, replacement) => haystack.replace(needle, () => replacement);
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/* Traduit le balisage statique sans parser ni toucher aux scripts/styles.
+   Les textes dynamiques restent gérés dans le navigateur par js/i18n.js. */
+function localizeStaticMarkup(input, language) {
+  const protectedBlocks = [];
+  let localized = input.replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, (block) => {
+    const placeholder = `BRTLOCALIZEDBLOCK${protectedBlocks.length}END`;
+    protectedBlocks.push(block);
+    return placeholder;
+  });
+
+  localized = localized.replace(/<html lang="[^"]*">/, `<html lang="${language}">`);
+
+  localized = localized.replace(/<[^>]+>/g, (tag) => {
+    for (const attribute of I18n.translatableAttributes) {
+      const marker = new RegExp(`data-i18n-${attribute}="([^"]+)"`);
+      const match = marker.exec(tag);
+      if (!match) continue;
+      const attributePattern = new RegExp(`${attribute}="[^"]*"`);
+      if (!attributePattern.test(tag)) {
+        fail(`${language} : attribut ${attribute} absent pour la clé ${match[1]}`);
+        continue;
+      }
+      tag = tag.replace(attributePattern, `${attribute}="${escapeHtml(I18n.translate(language, match[1]))}"`);
+    }
+    return tag;
+  });
+
+  const textMarkerCount = (localized.match(/\bdata-i18n="/g) || []).length;
+  let translatedTextCount = 0;
+  localized = localized.replace(
+    /(<([a-z][a-z0-9-]*)\b[^>]*\bdata-i18n="([^"]+)"[^>]*>)([^<]*)(<\/\2>)/gi,
+    (_, open, tagName, key, text, close) => {
+      translatedTextCount++;
+      return open + escapeHtml(I18n.translate(language, key)) + close;
+    }
+  );
+  if (translatedTextCount !== textMarkerCount) {
+    fail(`${language} : ${translatedTextCount} texte(s) statique(s) traduit(s) pour ${textMarkerCount} marqueur(s)`);
+  }
+
+  return localized.replace(/BRTLOCALIZEDBLOCK(\d+)END/g, (_, index) => protectedBlocks[Number(index)]);
+}
 
 /* ------------------------------------------------------------------ */
 /* Assemblage                                                          */
@@ -55,6 +116,12 @@ html = html.replace(
   /^(<!--[^\n]*-->\n)/,
   `$1<!-- Fichier unique généré par scripts/build-single-file.mjs — éditer index.html puis relancer le build. -->\n`
 );
+
+// Les licences doivent rester attachées au lecteur lorsqu'il est transmis
+// seul à un élève. Le bloc est masqué dans l'interface mais lisible dans la
+// source HTML, sans dépendre d'un fichier voisin.
+const notices = escapeHtml(read("THIRD-PARTY-NOTICES.txt").toString("utf8"));
+html = replaceOnce(html, "<body>", `<body>\n<pre hidden id="third-party-notices">${notices}</pre>`);
 
 // (1) Fontes : fonts.css inline, chaque woff2 en data URI.
 const FONTS_LINK = `<link rel="stylesheet" href="assets/fonts/fonts.css">`;
@@ -84,7 +151,7 @@ html = html.replace(
 );
 
 // (3) Scripts inline (licence abcjs conservée : elle vit en tête du fichier).
-for (const rel of ["vendor/abcjs-basic-min.js", "js/generator.js", "js/engine.js"]) {
+for (const rel of ["vendor/abcjs-basic-min.js", "js/generator.js", "js/engine.js", "js/i18n.js"]) {
   const tag = `<script src="${rel}"></script>`;
   if (!html.includes(tag)) { fail(`balise introuvable dans index.html : ${tag}`); continue; }
   const js = escapeInlineScript(read(rel).toString("utf8"));
@@ -106,17 +173,34 @@ if (!html.includes(ABCJS_MARK)) fail("point d'insertion des samples introuvable 
 html = replaceOnce(
   html,
   ABCJS_MARK,
-  `<script>\n/* Samples audio embarqués pour l'ouverture en file:// — Karoryfer (Growlybass, Meatbass) & FreePats (Lately Bass), CC0 */\nwindow.BRT_EMBEDDED_SAMPLES = {\n${samplesJs}\n};\n</script>\n${ABCJS_MARK}`
+  `<script>\n/* Samples audio embarqués pour l'ouverture en file:// — Karoryfer (Growlybass, Meatbass, Ergo), CC0 */\nwindow.BRT_EMBEDDED_SAMPLES = {\n${samplesJs}\n};\n</script>\n${ABCJS_MARK}`
 );
 
+const localizedHtml = {
+  fr: localizeStaticMarkup(html, "fr"),
+  en: localizeStaticMarkup(html, "en"),
+};
+
 mkdirSync(OUT_DIR, { recursive: true });
-writeFileSync(OUT_FILE, html);
+for (const language of Object.keys(OUT_FILES)) {
+  writeFileSync(OUT_FILES[language], localizedHtml[language]);
+}
 
 /* ------------------------------------------------------------------ */
 /* Vérifications                                                       */
 /* ------------------------------------------------------------------ */
 
 const noComments = html.replace(/<!--[\s\S]*?-->/g, "");
+
+for (const notice of [
+  'id="third-party-notices"',
+  "Permission is hereby granted, free of charge",
+  "SIL OPEN FONT LICENSE Version 1.1",
+  "Copyright 2015 the Cormorant Project Authors",
+  "Copyright 2019 The Karla Project Authors",
+]) {
+  if (!html.includes(notice)) fail(`notice tierce absente du fichier produit : ${notice}`);
+}
 
 // A. Balisage (contenu des <script> exclu — le JS peut fabriquer des chaînes
 // `href=` sans que ce soit une référence chargée) : tout src=/href= doit être
@@ -145,7 +229,7 @@ for (const [pat, label] of [
 
 // C. node --check sur chaque bloc <script> inline extrait.
 const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
-const EXPECTED_BLOCKS = 5; // sample embarqué, abcjs, generator, engine, script applicatif
+const EXPECTED_BLOCKS = 6; // samples, abcjs, generator, engine, i18n, script applicatif
 if (blocks.length !== EXPECTED_BLOCKS)
   fail(`${blocks.length} bloc(s) <script> inline au lieu de ${EXPECTED_BLOCKS}`);
 const tmp = mkdtempSync(path.join(os.tmpdir(), "brt-build-"));
@@ -187,9 +271,11 @@ if (fetchOccurrences.length === 1 && appScriptIdx !== -1 && fetchOccurrences[0].
 /* Rapport                                                             */
 /* ------------------------------------------------------------------ */
 
-const bytes = Buffer.byteLength(html);
-console.log(`\nFichier produit : ${path.relative(ROOT, OUT_FILE)}`);
-console.log(`Taille totale   : ${bytes} octets (${(bytes / 1024 / 1024).toFixed(2)} Mo)`);
+console.log("\nFichiers produits :");
+for (const language of Object.keys(OUT_FILES)) {
+  const bytes = Buffer.byteLength(localizedHtml[language]);
+  console.log(`  ${path.relative(ROOT, OUT_FILES[language])} : ${bytes} octets (${(bytes / 1024 / 1024).toFixed(2)} Mo)`);
+}
 console.log(`Blocs <script>  : ${blocks.length} — node --check OK sur chacun`);
 
 if (problems.length) {

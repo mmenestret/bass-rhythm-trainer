@@ -1690,18 +1690,18 @@
 <header>
   <div class="wordmark">Rhythm Trainer</div>
   <div class="header-actions">
-    <button id="composer-btn" class="settings-btn" aria-label="Composer une grille" aria-controls="composer-drawer" aria-expanded="false">
+    <button id="composer-btn" class="settings-btn" aria-label="Composer une grille" aria-controls="composer-drawer" aria-expanded="false" data-i18n-aria-label="header.composeAria">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M4 20h6"/><path d="M14.5 5.6l3.9 3.9L9 18.9l-4.4 1.1 1.1-4.4z"/>
       </svg>
-      <span class="btn-label">Composer</span>
+      <span class="btn-label" data-i18n="header.compose">Composer</span>
     </button>
-    <button id="settings-btn" class="settings-btn" aria-label="Jouer — réglages et génération de l'exercice" aria-controls="drawer" aria-expanded="false">
+    <button id="settings-btn" class="settings-btn" aria-label="Jouer — réglages et génération de l'exercice" aria-controls="drawer" aria-expanded="false" data-i18n-aria-label="header.playAria">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <ellipse class="note-head" cx="8" cy="17.5" rx="3" ry="2.2" transform="rotate(-20 8 17.5)"/>
         <path d="M10.7 16.4V5.5"/><path d="M10.7 5.5c3.4 1 5 2.7 4.7 6.2"/>
       </svg>
-      <span class="btn-label">Jouer</span>
+      <span class="btn-label" data-i18n="header.play">Jouer</span>
     </button>
   </div>
 </header>
@@ -1709,13 +1709,14 @@
 <main>
   <!-- tempo : une seule ligne, −5 à gauche, +5 à droite -->
   <div class="tempo rise d1 player-only">
-    <button id="minus5" class="step-btn" aria-label="Diminuer le tempo de 5 BPM">−5</button>
+    <button id="minus5" class="step-btn" aria-label="Diminuer le tempo de 5 BPM" data-i18n-aria-label="tempo.decrease">−5</button>
     <div class="tempo-core">
       <input id="tempo-num" class="tempo-num" type="text" inputmode="numeric" maxlength="3" value="60" autocomplete="off"
-             aria-label="Tempo en BPM" title="Cliquer pour saisir · glisser verticalement ou molette pour ajuster">
+             aria-label="Tempo en BPM" title="Cliquer pour saisir · glisser verticalement ou utiliser la molette pour ajuster"
+             data-i18n-aria-label="tempo.input" data-i18n-title="tempo.help">
       <span class="bpm">BPM</span>
     </div>
-    <button id="plus5" class="step-btn" aria-label="Augmenter le tempo de 5 BPM">+5</button>
+    <button id="plus5" class="step-btn" aria-label="Augmenter le tempo de 5 BPM" data-i18n-aria-label="tempo.increase">+5</button>
   </div>
 
   <!-- en-tête d'exercice (nᵒ de session + leçon Agostini, mis à jour à chaque génération) -->
@@ -1739,38 +1740,38 @@
   <!-- transport -->
   <div class="transport rise d4 player-only">
     <div class="aids" id="aids">
-      <button id="aids-toggle" class="aids-toggle" aria-expanded="false" aria-controls="aids-panel" aria-haspopup="true" title="Aides de lecture" aria-label="Aides de lecture — métronome, guide visuel, son">
+      <button id="aids-toggle" class="aids-toggle" aria-expanded="false" aria-controls="aids-panel" aria-haspopup="true" title="Aides de lecture" aria-label="Aides de lecture — métronome, guide visuel, son" data-i18n-title="aids.title" data-i18n-aria-label="aids.description">
         <svg viewBox="0 0 24 24"><line x1="4" y1="8.5" x2="20" y2="8.5"/><circle cx="9.5" cy="8.5" r="2.4"/><line x1="4" y1="15.5" x2="20" y2="15.5"/><circle cx="14.5" cy="15.5" r="2.4"/></svg>
         <span class="aids-badge" aria-hidden="true"></span>
       </button>
-      <div class="seg" id="aids-panel" role="group" aria-label="Aides de lecture">
-        <button id="tgl-click" class="active" title="Métronome — clics des temps" aria-pressed="true" aria-label="Métronome">
+      <div class="seg" id="aids-panel" role="group" aria-label="Aides de lecture" data-i18n-aria-label="aids.title">
+        <button id="tgl-click" class="active" title="Métronome — clics des temps" aria-pressed="true" aria-label="Métronome" data-i18n-title="metronome.title" data-i18n-aria-label="metronome.label">
           <svg viewBox="0 0 24 24"><path d="M9.3 4.5h5.4l2.8 15H6.5z"/><line x1="12" y1="15.5" x2="16" y2="6.8"/><line x1="8.4" y1="15.5" x2="15.6" y2="15.5"/></svg>
         </button>
-        <button id="tgl-visual" class="active" title="Guide visuel — durée des notes et curseur" aria-pressed="true" aria-label="Guide visuel">
+        <button id="tgl-visual" class="active" title="Guide visuel — durée des notes et curseur" aria-pressed="true" aria-label="Guide visuel" data-i18n-title="visual.title" data-i18n-aria-label="visual.label">
           <svg viewBox="0 0 24 24"><path d="M2.8 12s3.4-6 9.2-6 9.2 6 9.2 6-3.4 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.5"/></svg>
         </button>
-        <button id="tgl-sound" title="Son — rythmique jouée" aria-pressed="false" aria-label="Son">
+        <button id="tgl-sound" title="Son — rythmique jouée" aria-pressed="false" aria-label="Son" data-i18n-title="noteSound.title" data-i18n-aria-label="noteSound.label">
           <svg viewBox="0 0 24 24"><path d="M4.5 9.6v4.8h3.2l4.5 3.7V5.9L7.7 9.6z"/><path d="M15.6 9.4a3.7 3.7 0 0 1 0 5.2M18.2 7.1a7 7 0 0 1 0 9.8"/></svg>
         </button>
       </div>
     </div>
 
-    <button id="rewind-btn" class="rewind-btn" aria-label="Retour au début" title="Retour au début">
+    <button id="rewind-btn" class="rewind-btn" aria-label="Retour au début" title="Retour au début" data-i18n-aria-label="transport.rewind" data-i18n-title="transport.rewind">
       <svg viewBox="0 0 24 24"><line x1="7.4" y1="6.8" x2="7.4" y2="17.2"/><path d="M17.2 7.2v9.6L9.8 12z"/></svg>
     </button>
 
-    <button id="play-btn" class="play-btn idle" aria-label="Lancer la lecture">
+    <button id="play-btn" class="play-btn idle" aria-label="Lancer la lecture" data-i18n-aria-label="transport.play">
       <svg id="icon-play" viewBox="0 0 24 24"><path d="M8.2 5.2v13.6L19.4 12z"/></svg>
       <svg id="icon-pause" viewBox="0 0 24 24" style="display:none"><rect x="7.2" y="5.5" width="2.6" height="13" rx="1.1"/><rect x="14.2" y="5.5" width="2.6" height="13" rx="1.1"/></svg>
     </button>
 
-    <button id="repeat-btn" class="repeat-btn" aria-label="Boucler l'exercice" aria-pressed="false" title="Boucler l'exercice">
+    <button id="repeat-btn" class="repeat-btn" aria-label="Boucler l'exercice" aria-pressed="false" title="Boucler l'exercice" data-i18n-aria-label="transport.loop" data-i18n-title="transport.loop">
       <svg class="ico-repeat" viewBox="0 0 24 24"><path d="M16.6 3.6l3.3 3.2-3.3 3.2"/><path d="M4.1 12.5v-2.2a3.5 3.5 0 0 1 3.5-3.5h12"/><path d="M7.4 20.4l-3.3-3.2 3.3-3.2"/><path d="M19.9 11.5v2.2a3.5 3.5 0 0 1-3.5 3.5h-12"/></svg>
       <svg class="ico-inf" viewBox="0 0 24 24"><path d="M18.1 8.4c2 0 3.6 1.6 3.6 3.6s-1.6 3.6-3.6 3.6c-3.7 0-8.5-7.2-12.2-7.2-2 0-3.6 1.6-3.6 3.6s1.6 3.6 3.6 3.6c3.7 0 8.5-7.2 12.2-7.2z"/></svg>
     </button>
 
-    <button id="copy-link-btn" class="copy-link-btn" aria-label="Copier le lien de la grille" title="Copier le lien de la grille">
+    <button id="copy-link-btn" class="copy-link-btn" aria-label="Copier le lien de la grille" title="Copier le lien de la grille" data-i18n-aria-label="share.copy" data-i18n-title="share.copy">
       <svg class="ico-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7.5a2 2 0 0 0 2 2h2.5"/></svg>
       <svg class="ico-done" viewBox="0 0 24 24"><path d="M5 12.5l4.2 4.2L19 7"/></svg>
     </button>
@@ -1778,7 +1779,7 @@
 
   <!-- vue Composer : portée composée gravée en direct + sélection de plage -->
   <div class="composer-view" id="composer-view">
-    <div class="ex-title composer-label">grille composée · <span id="composer-meta"></span></div>
+    <div class="ex-title composer-label"><span data-i18n="composer.viewTitle">grille composée</span> · <span id="composer-meta"></span></div>
     <div class="score-stage composer-stage" id="composer-stage">
       <div class="composer-staff-wrap" id="composer-staff-wrap">
         <div class="score" id="composer-staff"></div>
@@ -1789,7 +1790,7 @@
   </div>
 </main>
 
-<div class="hint">Espace — lancer ou suspendre la lecture</div>
+<div class="hint" data-i18n="keyboard.hint">Espace — lancer ou suspendre la lecture</div>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
 <!-- tiroir de configuration -->
@@ -1798,10 +1799,10 @@
      écran quand fermés). Enfermés ici (fixe, clippé, sans capture de clic), ils
      ne peuvent pas élargir la page, même sous un ancêtre transformé. -->
 <div class="offcanvas">
-<aside id="drawer" class="drawer" aria-hidden="true" aria-label="Jouer — réglages de l'exercice">
+<aside id="drawer" class="drawer" aria-hidden="true" aria-label="Jouer — réglages de l'exercice" data-i18n-aria-label="drawer.playAria">
   <div class="drawer-head">
-    <h2>Jouer</h2>
-    <button id="close-btn" class="close-btn" aria-label="Fermer le panneau Jouer">
+    <h2 data-i18n="drawer.play">Jouer</h2>
+    <button id="close-btn" class="close-btn" aria-label="Fermer le panneau Jouer" data-i18n-aria-label="drawer.closePlay">
       <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
   </div>
@@ -1809,23 +1810,23 @@
   <!-- affiché seulement quand une grille composée est chargée dans le lecteur :
        raccourci pour l'abandonner et revenir à une grille générée classique -->
   <div id="composed-banner" class="composed-banner" hidden>
-    <span class="composed-banner-text">Grille composée chargée.</span>
-    <button type="button" id="back-to-generated" class="ghost-btn">Revenir à une grille générée</button>
+    <span class="composed-banner-text" data-i18n="composer.loaded">Grille composée chargée.</span>
+    <button type="button" id="back-to-generated" class="ghost-btn" data-i18n="composer.backGenerated">Revenir à une grille générée</button>
   </div>
 
   <div class="field">
-    <h3>Son</h3>
+    <h3 data-i18n="field.sound">Son</h3>
     <div class="sounds" id="sound-list">
-      <label class="sound"><input type="radio" name="sound" value="growl" checked><span class="dot"></span><span class="name">Basse growl</span>
-        <button type="button" class="preview" data-sound="growl" aria-label="Écouter la basse growl" title="Écouter"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
-      <label class="sound"><input type="radio" name="sound" value="synth"><span class="dot"></span><span class="name">Synthé</span>
-        <button type="button" class="preview" data-sound="synth" aria-label="Écouter le synthé" title="Écouter"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
-      <label class="sound"><input type="radio" name="sound" value="ergo"><span class="dot"></span><span class="name">Basse Ergo</span>
-        <button type="button" class="preview" data-sound="ergo" aria-label="Écouter la basse Ergo" title="Écouter"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
-      <label class="sound"><input type="radio" name="sound" value="arco"><span class="dot"></span><span class="name">Contrebasse à l'archet</span>
-        <button type="button" class="preview" data-sound="arco" aria-label="Écouter la contrebasse à l'archet" title="Écouter"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
+      <label class="sound"><input type="radio" name="sound" value="growl" checked><span class="dot"></span><span class="name" data-i18n="sound.growl">Basse growl</span>
+        <button type="button" class="preview" data-sound="growl" aria-label="Écouter la basse growl" title="Écouter" data-i18n-aria-label="sound.previewGrowl" data-i18n-title="sound.preview"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
+      <label class="sound"><input type="radio" name="sound" value="synth"><span class="dot"></span><span class="name" data-i18n="sound.synth">Synthé</span>
+        <button type="button" class="preview" data-sound="synth" aria-label="Écouter le synthé" title="Écouter" data-i18n-aria-label="sound.previewSynth" data-i18n-title="sound.preview"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
+      <label class="sound"><input type="radio" name="sound" value="ergo"><span class="dot"></span><span class="name" data-i18n="sound.ergo">Basse Ergo</span>
+        <button type="button" class="preview" data-sound="ergo" aria-label="Écouter la basse Ergo" title="Écouter" data-i18n-aria-label="sound.previewErgo" data-i18n-title="sound.preview"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
+      <label class="sound"><input type="radio" name="sound" value="arco"><span class="dot"></span><span class="name" data-i18n="sound.arco">Contrebasse à l'archet</span>
+        <button type="button" class="preview" data-sound="arco" aria-label="Écouter la contrebasse à l'archet" title="Écouter" data-i18n-aria-label="sound.previewArco" data-i18n-title="sound.preview"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
     </div>
-    <div class="pills note-pills" id="note-pills" role="group" aria-label="Note d'entraînement">
+    <div class="pills note-pills" id="note-pills" role="group" aria-label="Note d'entraînement" data-i18n-aria-label="field.practiceNote">
       <label class="pill"><input type="radio" name="note" value="E">E</label>
       <label class="pill"><input type="radio" name="note" value="F">F</label>
       <label class="pill"><input type="radio" name="note" value="G">G</label>
@@ -1837,38 +1838,38 @@
   </div>
 
   <div class="field">
-    <h3>Pulsation</h3>
+    <h3 data-i18n="field.beat">Pulsation</h3>
     <div class="sounds" id="pulsation-list">
-      <label class="sound"><input type="radio" name="pulsation" value="clic" checked><span class="dot"></span><span class="name">Clic</span></label>
-      <label class="sound"><input type="radio" name="pulsation" value="groove"><span class="dot"></span><span class="name">Groove</span>
-        <button type="button" class="preview" data-pulsation="groove" aria-label="Écouter le groove" title="Écouter"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
+      <label class="sound"><input type="radio" name="pulsation" value="clic" checked><span class="dot"></span><span class="name" data-i18n="beat.click">Clic</span></label>
+      <label class="sound"><input type="radio" name="pulsation" value="groove"><span class="dot"></span><span class="name" data-i18n="beat.groove">Groove</span>
+        <button type="button" class="preview" data-pulsation="groove" aria-label="Écouter le groove" title="Écouter" data-i18n-aria-label="beat.previewGroove" data-i18n-title="sound.preview"><svg viewBox="0 0 24 24"><path d="M9 5.5v13L20 12z"/></svg></button></label>
     </div>
   </div>
 
   <div class="field">
-    <h3>Niveau</h3>
+    <h3 data-i18n="field.level">Niveau</h3>
     <div class="levels">
-      <label class="level checked"><input type="radio" name="niveau" value="1" checked><span class="n">1</span><span class="txt"><b>Notes seules</b><span>Uniquement des figures jouées</span></span></label>
-      <label class="level"><input type="radio" name="niveau" value="2"><span class="n">2</span><span class="txt"><b>Avec silences</b><span>Ajoute soupirs et pauses</span></span></label>
-      <label class="level"><input type="radio" name="niveau" value="3"><span class="n">3</span><span class="txt"><b>Complet</b><span>Pointées, liaisons, syncopes</span></span></label>
+      <label class="level checked"><input type="radio" name="niveau" value="1" checked><span class="n">1</span><span class="txt"><b data-i18n="level.notesOnly">Notes seules</b><span data-i18n="level.notesOnlyDescription">Uniquement des figures jouées</span></span></label>
+      <label class="level"><input type="radio" name="niveau" value="2"><span class="n">2</span><span class="txt"><b data-i18n="level.withRests">Avec silences</b><span data-i18n="level.withRestsDescription">Ajoute soupirs et pauses</span></span></label>
+      <label class="level"><input type="radio" name="niveau" value="3"><span class="n">3</span><span class="txt"><b data-i18n="level.complete">Complet</b><span data-i18n="level.completeDescription">Pointées, liaisons, syncopes</span></span></label>
     </div>
   </div>
 
   <div class="field">
-    <h3>Figures de notes</h3>
+    <h3 data-i18n="field.noteValues">Figures de notes</h3>
     <div class="figs">
-      <label class="fig"><input type="checkbox" name="fig" value="ronde"><span class="dot"></span><img class="glyph" src="assets/figures/ronde.png" alt=""><span class="name">Ronde</span></label>
-      <label class="fig"><input type="checkbox" name="fig" value="blanche" checked><span class="dot"></span><img class="glyph" src="assets/figures/blanche.png" alt=""><span class="name">Blanche</span></label>
-      <label class="fig"><input type="checkbox" name="fig" value="noire" checked><span class="dot"></span><img class="glyph" src="assets/figures/noire.png" alt=""><span class="name">Noire</span></label>
-      <label class="fig"><input type="checkbox" name="fig" value="croche" checked><span class="dot"></span><img class="glyph" src="assets/figures/croche.png" alt=""><span class="name">Croche</span></label>
-      <label class="fig"><input type="checkbox" name="fig" value="double"><span class="dot"></span><img class="glyph" src="assets/figures/double.png" alt=""><span class="name">Double croche</span></label>
-      <label class="fig"><input type="checkbox" name="fig" value="triple"><span class="dot"></span><img class="glyph" src="assets/figures/triple.png" alt=""><span class="name">Triple croche</span></label>
-      <label class="fig"><input type="checkbox" name="fig" value="quadruple"><span class="dot"></span><img class="glyph" src="assets/figures/quadruple.png" alt=""><span class="name">Quadruple croche</span></label>
+      <label class="fig"><input type="checkbox" name="fig" value="ronde"><span class="dot"></span><img class="glyph" src="assets/figures/ronde.png" alt=""><span class="name" data-i18n="figure.whole">Ronde</span></label>
+      <label class="fig"><input type="checkbox" name="fig" value="blanche" checked><span class="dot"></span><img class="glyph" src="assets/figures/blanche.png" alt=""><span class="name" data-i18n="figure.half">Blanche</span></label>
+      <label class="fig"><input type="checkbox" name="fig" value="noire" checked><span class="dot"></span><img class="glyph" src="assets/figures/noire.png" alt=""><span class="name" data-i18n="figure.quarter">Noire</span></label>
+      <label class="fig"><input type="checkbox" name="fig" value="croche" checked><span class="dot"></span><img class="glyph" src="assets/figures/croche.png" alt=""><span class="name" data-i18n="figure.eighth">Croche</span></label>
+      <label class="fig"><input type="checkbox" name="fig" value="double"><span class="dot"></span><img class="glyph" src="assets/figures/double.png" alt=""><span class="name" data-i18n="figure.sixteenth">Double croche</span></label>
+      <label class="fig"><input type="checkbox" name="fig" value="triple"><span class="dot"></span><img class="glyph" src="assets/figures/triple.png" alt=""><span class="name" data-i18n="figure.thirtySecond">Triple croche</span></label>
+      <label class="fig"><input type="checkbox" name="fig" value="quadruple"><span class="dot"></span><img class="glyph" src="assets/figures/quadruple.png" alt=""><span class="name" data-i18n="figure.sixtyFourth">Quadruple croche</span></label>
     </div>
   </div>
 
   <div class="field">
-    <h3>Signature</h3>
+    <h3 data-i18n="field.timeSignature">Signature</h3>
     <div class="pills" id="sig-pills">
       <label class="pill"><input type="radio" name="sig" value="2/4"><span class="frac">2/4</span></label>
       <label class="pill"><input type="radio" name="sig" value="3/4"><span class="frac">3/4</span></label>
@@ -1880,36 +1881,36 @@
   </div>
 
   <div class="field">
-    <h3>Mesures</h3>
+    <h3 data-i18n="field.measures">Mesures</h3>
     <div class="pills" id="mes-pills">
       <label class="pill"><input type="radio" name="mes" value="4">4</label>
       <label class="pill checked"><input type="radio" name="mes" value="8" checked>8</label>
       <label class="pill"><input type="radio" name="mes" value="16">16</label>
-      <label class="pill"><input type="radio" name="mes" value="inf" aria-label="Mesures illimitées, générées en continu">∞</label>
+      <label class="pill"><input type="radio" name="mes" value="inf" aria-label="Mesures illimitées, générées en continu" data-i18n-aria-label="measures.unlimited">∞</label>
     </div>
   </div>
 
-  <button class="btn btn-primary" id="generate-btn">Générer</button>
+  <button class="btn btn-primary" id="generate-btn" data-i18n="action.generate">Générer</button>
 </aside>
 
 <!-- tiroir Composer : mêmes gabarits que les réglages, mais sans voile
      (la scène reste vivante et interactive derrière) -->
-<aside id="composer-drawer" class="drawer composer-drawer" aria-hidden="true" aria-label="Composer une grille">
+<aside id="composer-drawer" class="drawer composer-drawer" aria-hidden="true" aria-label="Composer une grille" data-i18n-aria-label="composer.aria">
   <div class="drawer-head">
-    <h2>Composer</h2>
-    <button id="composer-close-btn" class="close-btn" aria-label="Fermer Composer">
+    <h2 data-i18n="composer.title">Composer</h2>
+    <button id="composer-close-btn" class="close-btn" aria-label="Fermer Composer" data-i18n-aria-label="composer.close">
       <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>
   </div>
 
   <div class="field">
-    <h3>Signature</h3>
+    <h3 data-i18n="field.timeSignature">Signature</h3>
     <div class="pills" id="composer-sig-pills"></div>
   </div>
 
   <div class="field">
-    <h3>Familles</h3>
-    <div class="families" id="composer-families" role="group" aria-label="Familles de la palette"></div>
+    <h3 data-i18n="field.families">Familles</h3>
+    <div class="families" id="composer-families" role="group" aria-label="Familles de la palette" data-i18n-aria-label="composer.familiesAria"></div>
   </div>
 
   <div class="field composer-palette-field">
@@ -1917,20 +1918,24 @@
   </div>
 
   <div class="composer-actions">
-    <button id="composer-backspace" class="ghost-btn" aria-label="Effacer le dernier élément">⌫ Effacer</button>
-    <button id="composer-clear" class="ghost-btn">Tout effacer</button>
+    <button id="composer-backspace" class="ghost-btn" aria-label="Effacer le dernier élément" data-i18n="composer.backspace" data-i18n-aria-label="composer.backspaceAria">⌫ Effacer</button>
+    <button id="composer-clear" class="ghost-btn" data-i18n="composer.clear">Tout effacer</button>
   </div>
 
-  <button class="btn btn-primary composer-play" id="composer-play">Jouer</button>
+  <button class="btn btn-primary composer-play" id="composer-play" data-i18n="action.play">Jouer</button>
 </aside>
 </div><!-- .offcanvas -->
 
 <script src="vendor/abcjs-basic-min.js"></script>
 <script src="js/generator.js"></script>
 <script src="js/engine.js"></script>
+<script src="js/i18n.js"></script>
 <script>
 (function(){
   "use strict";
+
+  var i18n = window.BassRhythmI18n.init(document, window.location);
+  var t = i18n.t;
 
   // Grille de secours si le générateur est indisponible.
   var FALLBACK_ABC = "X:1\n" +
@@ -2020,13 +2025,13 @@
      figure la plus fine cochée croisé avec le niveau
      (cf. docs/agostini-progression.md). */
   var FINEST_ORDER = ["quadruple", "triple", "double", "croche", "noire", "blanche", "ronde"];
-  var LESSON_KEY = { ronde: "longues", blanche: "longues", noire: "longues" };
+  var LESSON_KEY = { ronde: "long", blanche: "long", noire: "long" };
   var LESSONS = {
-    longues:   ["les valeurs longues", "les valeurs longues et leurs silences", "les valeurs longues liées et pointées"],
-    croche:    ["la croche", "la croche et son demi-soupir", "syncopes et liaisons"],
-    double:    ["la double croche", "la double croche et son quart de soupir", "la croche pointée–double et les syncopes"],
-    triple:    ["la triple croche", "la triple croche et son huitième de soupir", "les triples croches syncopées et liées"],
-    quadruple: ["la quadruple croche", "la quadruple croche et son seizième de soupir", "les quadruples croches syncopées et liées"]
+    long:       ["lesson.long.1", "lesson.long.2", "lesson.long.3"],
+    croche:     ["lesson.eighth.1", "lesson.eighth.2", "lesson.eighth.3"],
+    double:     ["lesson.sixteenth.1", "lesson.sixteenth.2", "lesson.sixteenth.3"],
+    triple:     ["lesson.thirtySecond.1", "lesson.thirtySecond.2", "lesson.thirtySecond.3"],
+    quadruple:  ["lesson.sixtyFourth.1", "lesson.sixtyFourth.2", "lesson.sixtyFourth.3"]
   };
 
   function lessonName(figures, level){
@@ -2036,7 +2041,7 @@
     }
     if (!finest) return "";
     var names = LESSONS[LESSON_KEY[finest] || finest];
-    return names[Math.min(Math.max(level, 1), 3) - 1];
+    return t(names[Math.min(Math.max(level, 1), 3) - 1]);
   }
 
   function updateExerciseTitle(cfg, animate){
@@ -2103,7 +2108,7 @@
 
   function renderScore(animate){
     if (!window.ABCJS){
-      scoreEl.innerHTML = '<div class="score-fallback">La partition n’a pas pu se charger (abcjs indisponible hors ligne).</div>';
+      scoreEl.innerHTML = '<div class="score-fallback">' + t("score.unavailableOffline") + '</div>';
       noteEls = [];
       litState = [];
       return;
@@ -2159,8 +2164,10 @@
     if (!svg) return;
     var els = svg.querySelectorAll(".abcjs-note, .abcjs-rest");
     if (els.length !== currentNotes.length){
-      console.warn("Guidage visuel désactivé : " + els.length + " élément(s) SVG (notes/silences) pour " +
-        currentNotes.length + " événement(s) de timeline — mapping impossible.");
+      console.warn(t("warning.guidance", {
+        svgCount: els.length,
+        eventCount: currentNotes.length
+      }));
       return;
     }
     for (var i = 0; i < els.length; i++){
@@ -2474,7 +2481,7 @@
 
   function decodeSample(url){
     var st = sampleStore[url];
-    if (!st || !audioCtx) return Promise.reject(new Error("sample indisponible"));
+    if (!st || !audioCtx) return Promise.reject(new Error(t("error.sampleUnavailable")));
     if (st.buffer) return Promise.resolve(st.buffer);
     if (!st.decoding){
       st.decoding = st.data.then(function(data){
@@ -2555,7 +2562,7 @@
     cursor.classList.remove("live");
     countVeil.classList.remove("show");
     playBtn.classList.add("idle");
-    playBtn.setAttribute("aria-label", "Lancer la lecture");
+    playBtn.setAttribute("aria-label", t("transport.play"));
     iconPlay.style.display = "";
     iconPause.style.display = "none";
   }
@@ -2598,7 +2605,7 @@
     });
     playing = true;
     playBtn.classList.remove("idle");
-    playBtn.setAttribute("aria-label", "Suspendre la lecture");
+    playBtn.setAttribute("aria-label", t("transport.pause"));
     iconPlay.style.display = "none";
     iconPause.style.display = "";
     rafId = requestAnimationFrame(tick);
@@ -3083,10 +3090,10 @@
     if (navigator.clipboard && navigator.clipboard.writeText){
       return navigator.clipboard.writeText(text).catch(function(){
         if (legacyCopy(text)) return;
-        throw new Error("copie refusée");
+        throw new Error(t("error.copyDenied"));
       });
     }
-    return legacyCopy(text) ? Promise.resolve() : Promise.reject(new Error("copie refusée"));
+    return legacyCopy(text) ? Promise.resolve() : Promise.reject(new Error(t("error.copyDenied")));
   }
   function legacyCopy(text){
     try {
@@ -3164,13 +3171,13 @@
       if (infiniteOn){
         repeatBtn.classList.remove("active");
         repeatBtn.removeAttribute("aria-pressed");
-        repeatBtn.setAttribute("aria-label", "Exercice illimité — mesures générées en continu");
-        repeatBtn.title = "Exercice illimité — mesures générées en continu";
+        repeatBtn.setAttribute("aria-label", t("transport.unlimited"));
+        repeatBtn.title = t("transport.unlimited");
       } else {
         repeatBtn.classList.toggle("active", repeatOn);
         repeatBtn.setAttribute("aria-pressed", String(repeatOn));
-        repeatBtn.setAttribute("aria-label", "Boucler l'exercice");
-        repeatBtn.title = "Boucler l'exercice";
+        repeatBtn.setAttribute("aria-label", t("transport.loop"));
+        repeatBtn.title = t("transport.loop");
       }
       updateExerciseTitle(cfg, animate); // l'en-tête suit chaque grille réellement affichée
       updateShareUrl(); // le hash de l'URL reflète la grille affichée (bookmarkable, prêt à copier)
@@ -3242,9 +3249,9 @@
     updateShareUrl(); // garantit que location.href reflète la grille affichée
     copyText(location.href).then(function(){
       flashCopied();
-      showToast("Lien copié");
+      showToast(t("toast.linkCopied"));
     }, function(){
-      showToast("copie impossible");
+      showToast(t("toast.copyFailed"));
     });
   });
 
@@ -3378,14 +3385,14 @@
   var COMPOSER_METERS = ["2/4", "3/4", "4/4", "2/2", "3/2", "4/2"];
   var COMPOSER_FIGS = ["ronde", "blanche", "noire", "croche", "double", "triple", "quadruple"];
   var FIG_NAMES = {
-    ronde: "Ronde", blanche: "Blanche", noire: "Noire", croche: "Croche",
-    double: "Double", triple: "Triple", quadruple: "Quadruple"
+    ronde: "figure.whole", blanche: "figure.half", noire: "figure.quarter", croche: "figure.eighth",
+    double: "figure.sixteenth", triple: "figure.thirtySecond", quadruple: "figure.sixtyFourth"
   };
   /* Noms propres des silences (solfège) : chaque silence a son nom, distinct de
      la figure de note de même durée. */
   var REST_NAMES = {
-    ronde: "Pause", blanche: "Demi-pause", noire: "Soupir", croche: "Demi-soupir",
-    double: "Quart de soupir", triple: "Huitième de soupir", quadruple: "Seizième de soupir"
+    ronde: "rest.whole", blanche: "rest.half", noire: "rest.quarter", croche: "rest.eighth",
+    double: "rest.sixteenth", triple: "rest.thirtySecond", quadruple: "rest.sixtyFourth"
   };
   var COMPOSER_EPSILON = 1e-6;
 
@@ -3508,7 +3515,7 @@
   function setComposerMeter(v){
     if (v === composer.meter) return;
     if (fullMeasureCount() > 0 || openMeasure().length){
-      if (!window.confirm("Changer la signature réinitialise la grille composée. Continuer ?")) return;
+      if (!window.confirm(t("composer.confirmMeter"))) return;
     }
     composer.meter = v;
     composer.measures = [[]];
@@ -3626,7 +3633,7 @@
     var el = document.getElementById("composer-staff");
     if (!el) return;
     if (!window.ABCJS){
-      el.innerHTML = '<div class="score-fallback">La partition n’a pas pu se charger.</div>';
+      el.innerHTML = '<div class="score-fallback">' + t("score.unavailable") + '</div>';
       return;
     }
     ABCJS.renderAbc(el, composerAbc(), { add_classes: true, responsive: "resize" });
@@ -3689,11 +3696,11 @@
     var bar = document.createElement("div");
     bar.className = "float-bar";
     bar.innerHTML =
-      '<span class="float-bar-label">' + (n > 1 ? n + " mesures" : "1 mesure") + '</span>' +
-      '<button type="button" data-cact="dup-here">Dupliquer à droite</button>' +
-      (atEnd ? "" : '<button type="button" data-cact="dup-end">Dupliquer à la fin</button>') +
+      '<span class="float-bar-label">' + t(n > 1 ? "composer.measureMany" : "composer.measureOne", { count: n }) + '</span>' +
+      '<button type="button" data-cact="dup-here">' + t("composer.duplicateRight") + '</button>' +
+      (atEnd ? "" : '<button type="button" data-cact="dup-end">' + t("composer.duplicateEnd") + '</button>') +
       '<span class="sep"></span>' +
-      '<button type="button" data-cact="del">Supprimer</button>';
+      '<button type="button" data-cact="del">' + t("action.delete") + '</button>';
     bar.style.left = Math.max(120, (l + r) / 2 - hb.left) + "px";
     bar.style.top = (t - hb.top) + "px";
     host.appendChild(bar);
@@ -3718,9 +3725,9 @@
   }
   function composerFamiliesHTML(){
     var f = composer.families;
-    return '<button type="button" class="fam on" data-cfam="notes" aria-pressed="true" disabled>Notes</button>' +
-      '<button type="button" class="fam' + (f.silences ? " on" : "") + '" data-cfam="silences" aria-pressed="' + f.silences + '">Silences</button>' +
-      '<button type="button" class="fam' + (f.modif ? " on" : "") + '" data-cfam="modif" aria-pressed="' + f.modif + '">Modificateurs</button>';
+    return '<button type="button" class="fam on" data-cfam="notes" aria-pressed="true" disabled>' + t("family.notes") + '</button>' +
+      '<button type="button" class="fam' + (f.silences ? " on" : "") + '" data-cfam="silences" aria-pressed="' + f.silences + '">' + t("family.rests") + '</button>' +
+      '<button type="button" class="fam' + (f.modif ? " on" : "") + '" data-cfam="modif" aria-pressed="' + f.modif + '">' + t("family.modifiers") + '</button>';
   }
   /* Glyphe de silence : la palette n'a pas d'images de silence (seulement des
      notes) ; on grave le vrai symbole de repos avec abcjs — le même moteur que
@@ -3763,31 +3770,31 @@
     var glyph = isRest
       ? '<span class="palette-glyph palette-rest">' + restGlyphSvg(fig) + '</span>'
       : '<img class="palette-glyph" src="' + (FIG_SRC[fig] || "") + '" alt="">';
-    var label = isRest ? REST_NAMES[fig] : FIG_NAMES[fig];
+    var label = t(isRest ? REST_NAMES[fig] : FIG_NAMES[fig]);
     return '<button type="button" class="palette-item" data-cfig="' + fig + '" data-crest="' + isRest + '"' +
       (ok ? "" : " disabled") + '>' +
       glyph +
       '<span class="palette-label">' + label + '</span></button>';
   }
   function composerPaletteHTML(){
-    var html = '<div class="palette-group"><div class="palette-family">Notes</div><div class="palette-items">';
+    var html = '<div class="palette-group"><div class="palette-family">' + t("family.notes") + '</div><div class="palette-items">';
     var i;
     for (i = 0; i < COMPOSER_FIGS.length; i++) html += composerItemHTML(COMPOSER_FIGS[i], false);
     html += '</div></div>';
     if (composer.families.silences){
-      html += '<div class="palette-group"><div class="palette-family">Silences</div><div class="palette-items">';
+      html += '<div class="palette-group"><div class="palette-family">' + t("family.rests") + '</div><div class="palette-items">';
       for (i = 0; i < COMPOSER_FIGS.length; i++) html += composerItemHTML(COMPOSER_FIGS[i], true);
       html += '</div></div>';
     }
     if (composer.families.modif){
       var pt = pointState(), ti = tieState();
-      html += '<div class="palette-group"><div class="palette-family">Modificateurs</div><div class="palette-items">' +
+      html += '<div class="palette-group"><div class="palette-family">' + t("family.modifiers") + '</div><div class="palette-items">' +
         '<button type="button" class="palette-item mod' + (pt.on ? " on" : "") + '" data-cmod="dot"' +
           (pt.disabled ? " disabled" : "") + ' aria-pressed="' + pt.on + '">' +
-          '<span class="mod-glyph">•</span><span class="palette-label">Note<br>pointée</span></button>' +
+          '<span class="mod-glyph">•</span><span class="palette-label">' + t("modifier.dotted") + '</span></button>' +
         '<button type="button" class="palette-item mod' + (ti.on ? " on" : "") + '" data-cmod="tie"' +
           (ti.disabled ? " disabled" : "") + ' aria-pressed="' + ti.on + '">' +
-          '<span class="mod-glyph">⌢</span><span class="palette-label">Lier à<br>la suivante</span></button>' +
+          '<span class="mod-glyph">⌢</span><span class="palette-label">' + t("modifier.tieNext") + '</span></button>' +
         '</div></div>';
     }
     return html;
@@ -3797,12 +3804,20 @@
     var placed = round2(measSum(openMeasure()));
     var total = composerBeats();
     var rem = round2(composerRemaining());
-    var extra = pendingTie() ? ' · <b>liaison en attente</b>' : "";
-    return "Mesure en cours : <b>" + placed + " / " + total + "</b> temps · reste <b>" + rem + "</b>" + extra;
+    var extra = pendingTie() ? t("composer.tiePending") : "";
+    return t("composer.readout", {
+      placed: placed,
+      total: total,
+      remaining: rem,
+      extra: extra
+    });
   }
   function updateComposerMeta(){
     var el = document.getElementById("composer-meta");
-    if (el) el.textContent = composer.meter + " · " + fullMeasureCount() + " mesure(s)";
+    if (el){
+      var count = fullMeasureCount();
+      el.textContent = composer.meter + " · " + t(count === 1 ? "composer.measureOne" : "composer.measureMany", { count: count });
+    }
   }
   function updateComposerPlayEnabled(){
     var btn = document.getElementById("composer-play");
@@ -3872,9 +3887,9 @@
     repeatBtn.disabled = false;
     repeatBtn.classList.toggle("active", repeatOn);
     repeatBtn.setAttribute("aria-pressed", String(repeatOn));
-    repeatBtn.setAttribute("aria-label", "Boucler l'exercice");
-    repeatBtn.title = "Boucler l'exercice";
-    exTitle.textContent = "grille composée";
+    repeatBtn.setAttribute("aria-label", t("transport.loop"));
+    repeatBtn.title = t("transport.loop");
+    exTitle.textContent = t("composer.viewTitle");
     buildBeats();
     renderScore(true);
     computeLines();
