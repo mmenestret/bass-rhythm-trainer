@@ -37,4 +37,4 @@ Vocabulaire par défaut : `needs-triage`, `needs-info`, `ready-for-agent`, `read
 
 ### Domain docs
 
-Layout single-context : `CONTEXT.md` + `docs/adr/` à la racine. Voir `docs/agents/domain.md`.
+Layout single-context : `GLOSSARY.md` + `docs/adr/` à la racine. Voir `docs/agents/domain.md`.
