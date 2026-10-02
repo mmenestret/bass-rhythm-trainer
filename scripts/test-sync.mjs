@@ -220,7 +220,7 @@ try {
     for (let seed = 1; seed <= 50 && !notes; seed++) {
       const ex = generateExercise({
         figures: ["blanche", "noire", "croche", "double"],
-        level: 3, meter: "4/4", measures: 4, rng: mulberry32(seed),
+        procedes: ["rests", "dots", "ties", "syncopes"], meter: "4/4", measures: 4, rng: mulberry32(seed),
       });
       const evs = noteSoundEvents(ex.notes);
       if (evs.some((e) => Number.isInteger(e.startBeats)) &&

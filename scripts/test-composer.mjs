@@ -194,7 +194,7 @@ function measuresFromEvents(events, meter) {
   expect(decodeComposed(good) !== null, ctx, "témoin composé valide accepté");
 
   // Distinction stricte des deux formats.
-  const seed = encodeShare({ seed: 42, figures: ["noire", "croche"], level: 2, meter: "4/4", note: "D", measures: "8" });
+  const seed = encodeShare({ seed: 42, figures: ["noire", "croche"], procedes: ["rests"], meter: "4/4", note: "D", measures: "8" });
   expect(decodeComposed(seed) === null, ctx, "format graine rejeté par decodeComposed");
   expect(decodeShare(good) === null, ctx, "format contenu rejeté par decodeShare");
 

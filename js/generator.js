@@ -4,7 +4,9 @@
  * Fonction pure, sans DOM : generateExercise(config) -> { abc, notes, bars, header }
  *   config = {
  *     figures:  ["ronde"|"blanche"|"noire"|"croche"|"double"|"triple"|"quadruple", ...],
- *     level:    1 | 2 | 3,
+ *     procedes: ["rests"|"dots"|"ties"|"syncopes"|"triplets", ...] — procédés
+ *               cochés, indépendants (défaut [] : notes seules). « triplets »
+ *               est accepté mais pas encore tiré,
  *     meter:    "2/4" | "3/4" | "4/4" | "2/2" | "3/2" | "4/2",
  *     measures: 4 | 8 | 16,
  *     note:     jeton ABC optionnel de la note d'entraînement (défaut "D,") —
@@ -20,8 +22,15 @@
  *            2 ou 4 mesures par système (responsive) sans regénérer.
  *
  * Principe : chaque mesure est assemblée à partir de cellules rythmiques
- * idiomatiques d'une durée entière de temps (1, 2, 3 ou 4 temps), tirées du
- * mapping niveaux × paliers de docs/agostini-progression.md. En x/2, le temps
+ * idiomatiques d'une durée entière de temps (1, 2, 3 ou 4 temps), tirées des
+ * paliers de docs/agostini-progression.md. Les cellules de base (notes seules)
+ * sont toujours disponibles ; chaque autre cellule relève d'un procédé
+ * (Silences, Points, Liaisons, Syncopes) et n'est tirée que s'il est coché.
+ * Liaisons couvre aussi les liaisons par-dessus la barre ; Syncopes, les
+ * syncopes écrites sans liaison. La densité découle des procédés cochés :
+ * silences dosés à part, procédés spéciaux sous un budget commun par mesure.
+ * procedeNeeds(config, procede) dit ce qui manque pour qu'un procédé soit
+ * applicable avec les figures cochées (null s'il l'est). En x/2, le temps
  * vaut une blanche : les mêmes cellules se transposent automatiquement
  * (la noire y joue le rôle de la croche, etc.).
  *
@@ -32,11 +41,13 @@
  * (second format, coexistant avec la graine) : cf. docs/adr/0001-partage-grille-composee.md.
  *
  * Règle de liaison : endsOnBeat(start, duration) dit si la fin d'un événement
- * tombe sur un début de temps — seul cas où une liaison est permise. Les règles
- * de pose de Composer en découlent, en fonctions pures qui lisent l'état de
- * composition { meter, measures } (mesures d'événements { fig, rest, dot, tie })
- * sans le muter : canTie (peut-on lier la dernière note ?) et canDot (le point
- * peut-il être posé ou retiré sur la dernière note ?).
+ * tombe sur un début de temps — seul cas où une liaison est permise. Le tirage
+ * la respecte (catalogue vérifié au chargement, liaisons par-dessus la barre)
+ * et les règles de pose de Composer en découlent, en fonctions pures qui
+ * lisent l'état de composition { meter, measures } (mesures d'événements
+ * { fig, rest, dot, tie }) sans le muter : canTie (peut-on lier la dernière
+ * note ?) et canDot (le point peut-il être posé ou retiré sur la dernière
+ * note ?).
  *
  * UMD minimal : window.BassRhythmGenerator dans la page, module.exports sous Node.
  */
@@ -61,7 +72,26 @@
     quadruple: 1
   };
 
+  /* Figures de la plus longue à la plus courte. */
+  const FIGURE_ORDER = Object.keys(FIGURE_64);
+
   var METERS = ["2/4", "3/4", "4/4", "2/2", "3/2", "4/2"];
+
+  /* ---------- règle de liaison ----------
+   *
+   * Une liaison se fait toujours sur un début de temps : dans un même temps, on
+   * écrit directement la valeur cumulée. endsOnBeat(start, duration) répond à
+   * « la fin de cet événement tombe-t-elle sur un début de temps ? » — positions
+   * et durées en temps (la blanche en x/2). Seul endroit où la règle est écrite :
+   * le catalogue du tirage, les liaisons par-dessus la barre, les règles de
+   * Composer et le décodage d'une grille composée s'y réfèrent.
+   */
+  const BEAT_EPSILON = 1e-6;
+
+  function endsOnBeat(start, duration) {
+    const end = start + duration;
+    return Math.abs(end - Math.round(end)) < BEAT_EPSILON;
+  }
 
   /* ---------- catalogue de cellules rythmiques (durées en temps) ---------- */
 
@@ -81,7 +111,13 @@
 
   function cell(id, kind, weight, elems) {
     var len = 0;
-    for (var i = 0; i < elems.length; i++) len += elems[i].d;
+    for (var i = 0; i < elems.length; i++) {
+      /* Règle de liaison : le catalogue ne lie jamais au milieu d'un temps. */
+      if (elems[i].tie && !endsOnBeat(len, elems[i].d)) {
+        throw new Error("Liaison au milieu d'un temps : " + id);
+      }
+      len += elems[i].d;
+    }
     var lenInt = Math.round(len);
     if (Math.abs(len - lenInt) > 1e-9) {
       throw new Error("Cellule non alignée sur le temps : " + id);
@@ -90,9 +126,13 @@
   }
 
   /*
-   * kind = "base"    : niveau 1+ — notes seules (paliers A, B, C, E binaire) ;
-   *        "rest"    : niveau 2+ — silences équivalents aux figures cochées ;
-   *        "special" : niveau 3  — pointées, liaisons, syncopes, contretemps.
+   * kind = "base"     : toujours disponible — notes seules (paliers A, B, C, E binaire) ;
+   *        sinon le procédé qui la gouverne :
+   *        "rests"    : silences équivalents aux figures cochées ;
+   *        "dots"     : cellules pointées ;
+   *        "ties"     : cellules liées (toujours sur un début de temps) ;
+   *        "syncopes" : syncopes écrites sans liaison.
+   * Les liaisons par-dessus la barre relèvent aussi de "ties" (addCrossBarTies).
    */
   var CELLS = [
     /* --- base : valeurs longues (palier A) --- */
@@ -118,30 +158,51 @@
     cell("quarter-four-sixteenths-x2", "base", 2,
       repeatElems([note(0.25), note(0.0625), note(0.0625), note(0.0625), note(0.0625)], 2)),
 
-    /* --- silences : équivalents des figures (paliers A, B, C niveau 2) --- */
-    cell("beat-rest", "rest", 6, [silence(1)]),
-    cell("two-beat-rest", "rest", 2, [silence(2)]),
-    cell("four-beat-rest", "rest", 1, [silence(4)]),
-    cell("half-halfrest", "rest", 4, [note(0.5), silence(0.5)]),
-    cell("offbeat-half", "rest", 4, [silence(0.5), note(0.5)]),
-    cell("quarterrest-three-quarters", "rest", 3, [silence(0.25), note(0.25), note(0.25), note(0.25)]),
-    cell("quarter-rest-two-quarters", "rest", 2, [note(0.25), silence(0.25), note(0.25), note(0.25)]),
-    cell("three-quarters-quarterrest", "rest", 3, [note(0.25), note(0.25), note(0.25), silence(0.25)]),
-    cell("quarterrest-half-quarter", "rest", 2, [silence(0.25), note(0.5), note(0.25)]),
-    cell("half-quarterrest-quarter", "rest", 2, [note(0.5), silence(0.25), note(0.25)]),
-    cell("eighthrest-seven-eighths", "rest", 1, [silence(0.125)].concat(repeatElems([note(0.125)], 7))),
+    /* --- Silences : équivalents des figures (paliers A, B, C) --- */
+    cell("beat-rest", "rests", 6, [silence(1)]),
+    cell("two-beat-rest", "rests", 2, [silence(2)]),
+    cell("four-beat-rest", "rests", 1, [silence(4)]),
+    cell("half-halfrest", "rests", 4, [note(0.5), silence(0.5)]),
+    cell("offbeat-half", "rests", 4, [silence(0.5), note(0.5)]),
+    cell("quarterrest-three-quarters", "rests", 3, [silence(0.25), note(0.25), note(0.25), note(0.25)]),
+    cell("quarter-rest-two-quarters", "rests", 2, [note(0.25), silence(0.25), note(0.25), note(0.25)]),
+    cell("three-quarters-quarterrest", "rests", 3, [note(0.25), note(0.25), note(0.25), silence(0.25)]),
+    cell("quarterrest-half-quarter", "rests", 2, [silence(0.25), note(0.5), note(0.25)]),
+    cell("half-quarterrest-quarter", "rests", 2, [note(0.5), silence(0.25), note(0.25)]),
+    cell("eighthrest-seven-eighths", "rests", 1, [silence(0.125)].concat(repeatElems([note(0.125)], 7))),
 
-    /* --- niveau 3 : pointées, liaisons, syncopes (paliers A, B, C, D niveau 3) --- */
-    cell("dotted-beat-half", "special", 5, [note(1.5), note(0.5)]),          /* noire pointée – croche */
-    cell("syncope-half-beat-half", "special", 5, [note(0.5), note(1), note(0.5)]), /* croche – noire – croche */
-    cell("dotted-two-beats", "special", 2, [note(3)]),                       /* blanche pointée */
-    cell("beat-tied-two-beats", "special", 1, [tiedNote(1), note(2)]),       /* noire liée à blanche */
-    cell("tied-halves", "special", 3, [note(0.5), tiedNote(0.5), note(0.5), note(0.5)]), /* croches liées entre temps */
-    cell("dotted-half-quarter", "special", 4, [note(0.75), note(0.25)]),     /* croche pointée – double */
-    cell("quarter-dotted-half", "special", 3, [note(0.25), note(0.75)]),     /* double – croche pointée */
-    cell("tied-quarters", "special", 1, [note(0.25), tiedNote(0.25), note(0.25), note(0.25)]), /* double liée */
-    cell("syncope-long", "special", 2, [note(0.5), note(1), note(1), note(0.5)]) /* croche – noire – noire – croche */
+    /* --- Points : cellules pointées (paliers A, B, C) --- */
+    /* noire pointée – croche */
+    cell("dotted-beat-half", "dots", 5, [note(1.5), note(0.5)]),
+    /* blanche pointée */
+    cell("dotted-two-beats", "dots", 2, [note(3)]),
+    /* croche pointée – double */
+    cell("dotted-half-quarter", "dots", 4, [note(0.75), note(0.25)]),
+    /* double – croche pointée */
+    cell("quarter-dotted-half", "dots", 3, [note(0.25), note(0.75)]),
+
+    /* --- Liaisons : toujours sur un début de temps (paliers A, B, C) --- */
+    /* noire liée à blanche */
+    cell("beat-tied-two-beats", "ties", 1, [tiedNote(1), note(2)]),
+    /* croches liées d'un temps à l'autre */
+    cell("tied-halves", "ties", 3, [note(0.5), tiedNote(0.5), note(0.5), note(0.5)]),
+    /* doubles liées d'un temps à l'autre : croche – double – double ⌢ double – double – croche */
+    cell("tied-quarters", "ties", 1,
+      [note(0.5), note(0.25), tiedNote(0.25), note(0.25), note(0.25), note(0.5)]),
+
+    /* --- Syncopes écrites sans liaison (palier D) --- */
+    /* croche – noire – croche */
+    cell("syncope-half-beat-half", "syncopes", 5, [note(0.5), note(1), note(0.5)]),
+    /* croche – noire – noire – croche */
+    cell("syncope-long", "syncopes", 2, [note(0.5), note(1), note(1), note(0.5)])
   ];
+
+  /* Procédés reconnus, dans l'ordre d'affichage. « triplets » est réservé :
+     aucune cellule ne le porte encore (triolets à venir). */
+  var PROCEDES = ["rests", "dots", "ties", "syncopes", "triplets"];
+  /* Procédés tirés comme cellules « spéciales » : ils se partagent un même
+     budget par mesure, pour qu'une mesure reste lisible quand on les cumule. */
+  var SPECIAL_PROCEDES = ["dots", "ties", "syncopes"];
 
   /* ---------- utilitaires ---------- */
 
@@ -164,22 +225,6 @@
      composition manuelle (pose, invariant, codec) et ses tests. */
   function figureBeats(fig, den, dot) {
     return FIGURE_64[fig] * den / 64 * (dot ? 1.5 : 1);
-  }
-
-  /* ---------- règle de liaison ----------
-   *
-   * Une liaison se fait toujours sur un début de temps : dans un même temps, on
-   * écrit directement la valeur cumulée. endsOnBeat(start, duration) répond à
-   * « la fin de cet événement tombe-t-elle sur un début de temps ? » — positions
-   * et durées en temps (la blanche en x/2). Seul endroit où la règle est écrite :
-   * le catalogue du tirage, les liaisons par-dessus la barre, les règles de
-   * Composer et le décodage d'une grille composée s'y réfèrent.
-   */
-  const BEAT_EPSILON = 1e-6;
-
-  function endsOnBeat(start, duration) {
-    const end = start + duration;
-    return Math.abs(end - Math.round(end)) < BEAT_EPSILON;
   }
 
   /* ---------- règles de pose de Composer (fonctions pures) ----------
@@ -253,10 +298,22 @@
 
   /* ---------- disponibilité des cellules ---------- */
 
+  function hasProcede(config, procede) {
+    return (config.procedes || []).indexOf(procede) !== -1;
+  }
+
+  function hasSpecialProcede(config) {
+    for (let i = 0; i < SPECIAL_PROCEDES.length; i++) {
+      if (hasProcede(config, SPECIAL_PROCEDES[i])) return true;
+    }
+    return false;
+  }
+
   /*
-   * Une cellule est disponible si toutes ses durées correspondent à une figure
+   * Une cellule est disponible si son procédé est coché (les cellules de base
+   * le sont toujours) et si toutes ses durées correspondent à une figure
    * cochée (les silences exigent la figure de durée équivalente ; les valeurs
-   * pointées du niveau 3 exigent leur figure de base).
+   * pointées exigent leur figure de base).
    */
   function availableCells(config) {
     var m = parseMeter(config.meter);
@@ -267,15 +324,14 @@
     var out = [];
     for (var c = 0; c < CELLS.length; c++) {
       var cc = CELLS[c];
-      if (cc.kind === "rest" && config.level < 2) continue;
-      if (cc.kind === "special" && config.level < 3) continue;
+      if (cc.kind !== "base" && !hasProcede(config, cc.kind)) continue;
       if (cc.lenInt > m.beats) continue;
       var ok = true;
       for (var e = 0; e < cc.elems.length; e++) {
         var el = cc.elems[e];
         var v = beatsTo64(el.d, m.den);
         if (fig64[v]) continue;
-        if (!el.rest && cc.kind === "special" && v % 3 === 0 && fig64[v * 2 / 3]) continue;
+        if (!el.rest && cc.kind === "dots" && v % 3 === 0 && fig64[v * 2 / 3]) continue;
         ok = false;
         break;
       }
@@ -309,23 +365,129 @@
     return reach;
   }
 
-  /* ---------- tirage d'une mesure ---------- */
+  /* Placements réellement tirables : { cell, pos } pour chaque cellule qui
+     peut démarrer en pos sur un chemin qui remplit toute la mesure. */
+  function placements(cells, beats) {
+    const reach = reachable(cells, beats);
+    const from = [];
+    const out = [];
+    for (let pos = 0; pos <= beats; pos++) from[pos] = pos === 0;
+    for (let pos = 0; pos < beats; pos++) {
+      if (!from[pos]) continue;
+      for (let c = 0; c < cells.length; c++) {
+        const end = pos + cells[c].lenInt;
+        if (end > beats || !startAllowed(cells[c].lenInt, pos, beats) || !reach[end]) continue;
+        from[end] = true;
+        out.push({ cell: cells[c], pos: pos });
+      }
+    }
+    return out;
+  }
 
-  function restTargetFor(level, rng) {
-    if (level < 2) return 0;
-    if (level === 2) { /* ~1 silence par mesure en moyenne */
-      var x = rng();
+  /* Liaison par-dessus la barre : de la dernière note d'une mesure (un temps
+     au plus) vers la première note de la suivante (deux temps au plus). */
+  function crossBarTieFits(last, first) {
+    return !last.rest && !first.rest && last.d <= 1 && first.d <= 2;
+  }
+
+  function crossBarTiePossible(usable, beats) {
+    let canEnd = false;
+    let canStart = false;
+    for (let i = 0; i < usable.length; i++) {
+      const elems = usable[i].cell.elems;
+      const last = elems[elems.length - 1];
+      if (usable[i].pos + usable[i].cell.lenInt === beats && !last.tie && crossBarTieFits(last, last)) {
+        canEnd = true;
+      }
+      if (usable[i].pos === 0 && crossBarTieFits(elems[0], elems[0])) canStart = true;
+    }
+    return canEnd && canStart;
+  }
+
+  /* Un procédé est applicable si les figures cochées, sous la signature,
+     permettent de le tirer au moins une fois. */
+  function procedeApplicable(config, procede) {
+    const beats = parseMeter(config.meter).beats;
+    const usable = placements(availableCells({
+      figures: config.figures,
+      meter: config.meter,
+      procedes: [procede]
+    }), beats);
+    for (let i = 0; i < usable.length; i++) {
+      if (usable[i].cell.kind === procede) return true;
+    }
+    return procede === "ties" && crossBarTiePossible(usable, beats);
+  }
+
+  /*
+   * Ce qui manque à un procédé : null s'il est applicable avec les figures
+   * cochées ({ figures, meter }) ; sinon les figures à cocher en plus pour le
+   * rendre applicable (une, ou deux à défaut, de la plus longue à la plus
+   * courte), ou [] si aucune ne suffit. On propose d'abord les figures voisines
+   * de celles déjà cochées, la plus courte d'abord à égale distance.
+   */
+  function procedeNeeds(config, procede) {
+    if (procedeApplicable(config, procede)) return null;
+    const checked = config.figures;
+    const distance = function (fig) {
+      let best = FIGURE_ORDER.length;
+      for (let i = 0; i < checked.length; i++) {
+        best = Math.min(best, Math.abs(FIGURE_ORDER.indexOf(fig) - FIGURE_ORDER.indexOf(checked[i])));
+      }
+      return best;
+    };
+    const candidates = FIGURE_ORDER.filter(function (fig) {
+      return checked.indexOf(fig) === -1;
+    }).sort(function (a, b) {
+      return distance(a) - distance(b) || FIGURE_ORDER.indexOf(b) - FIGURE_ORDER.indexOf(a);
+    });
+    const tryFigures = function (extra) {
+      return procedeApplicable({ figures: checked.concat(extra), meter: config.meter }, procede);
+    };
+    for (let i = 0; i < candidates.length; i++) {
+      if (tryFigures([candidates[i]])) return [candidates[i]];
+    }
+    const pairs = [];
+    for (let i = 0; i < candidates.length; i++) {
+      for (let j = i + 1; j < candidates.length; j++) {
+        pairs.push([candidates[i], candidates[j]]);
+      }
+    }
+    pairs.sort(function (a, b) {
+      return distance(a[0]) + distance(a[1]) - distance(b[0]) - distance(b[1]);
+    });
+    for (let i = 0; i < pairs.length; i++) {
+      if (tryFigures(pairs[i])) {
+        return pairs[i].sort(function (a, b) {
+          return FIGURE_ORDER.indexOf(a) - FIGURE_ORDER.indexOf(b);
+        });
+      }
+    }
+    return [];
+  }
+
+  /* ---------- tirage d'une mesure ----------
+   *
+   * Dosage : les silences gardent leur densité propre (~1 par mesure) tant
+   * qu'aucun autre procédé n'est coché, puis se raréfient (0 ou 1) ; les
+   * procédés spéciaux (points, liaisons, syncopes) se partagent 1 à 2
+   * cellules par mesure, quel que soit le nombre de procédés cochés.
+   */
+  function restTargetFor(config, rng) {
+    if (!hasProcede(config, "rests")) return 0;
+    if (!hasSpecialProcede(config)) {
+      const x = rng();
       return x < 0.25 ? 0 : (x < 0.8 ? 1 : 2);
     }
-    return rng() < 0.6 ? 0 : 1; /* niveau 3 : densité de silences réduite */
+    return rng() < 0.6 ? 0 : 1;
   }
 
-  function specialTargetFor(level, rng) {
-    if (level < 3) return 0;
-    return rng() < 0.55 ? 1 : 2; /* 1–2 cellules pointées/liées/syncopées par mesure */
+  function specialTargetFor(config, rng) {
+    if (!hasSpecialProcede(config)) return 0;
+    return rng() < 0.55 ? 1 : 2;
   }
 
-  function buildMeasure(cells, reach, beats, level, rng) {
+  function buildMeasure(cells, reach, beats, config, rng) {
     var hasPartial = false;
     for (var i = 0; i < cells.length; i++) {
       if (cells[i].lenInt < beats) { hasPartial = true; break; }
@@ -335,8 +497,8 @@
       var plainOnly = attempt === 39; /* dernier recours : notes seules */
       events = [];
       var pos = 0;
-      var restLeft = plainOnly ? 0 : restTargetFor(level, rng);
-      var specialLeft = plainOnly ? 0 : specialTargetFor(level, rng);
+      var restLeft = plainOnly ? 0 : restTargetFor(config, rng);
+      var specialLeft = plainOnly ? 0 : specialTargetFor(config, rng);
       var dead = false;
       while (pos < beats) {
         var candidates = [], specials = [], rests = [], bases = [];
@@ -346,8 +508,8 @@
           if (!startAllowed(cc.lenInt, pos, beats)) continue;
           if (!reach[pos + cc.lenInt]) continue;
           candidates.push(cc);
-          if (cc.kind === "special") specials.push(cc);
-          else if (cc.kind === "rest") rests.push(cc);
+          if (SPECIAL_PROCEDES.indexOf(cc.kind) !== -1) specials.push(cc);
+          else if (cc.kind === "rests") rests.push(cc);
           else bases.push(cc);
         }
         if (!candidates.length) { dead = true; break; } /* impossible en pratique (reach) */
@@ -375,15 +537,16 @@
     return events || [];
   }
 
-  /* Liaisons à travers la barre de mesure (syncopes inter-mesures, niveau 3). */
-  function addCrossBarTies(measures, rng) {
+  /* Liaisons à travers la barre de mesure (procédé Liaisons). La dernière note
+     d'une mesure pleine finit sur la barre, donc sur un début de temps. */
+  function addCrossBarTies(measures, beats, rng) {
     for (var i = 0; i + 1 < measures.length; i++) {
       if ((i + 1) % 4 === 0) continue; /* pas de liaison à travers un retour à la ligne */
       var a = measures[i], b = measures[i + 1];
       if (!a.length || !b.length) continue;
       var last = a[a.length - 1], first = b[0];
-      if (last.rest || first.rest || last.tie) continue;
-      if (last.d > 1 || first.d > 2) continue;
+      if (last.tie || !crossBarTieFits(last, first)) continue;
+      if (!endsOnBeat(beats - last.d, last.d)) continue;
       if (rng() < 0.22) last.tie = true;
     }
   }
@@ -546,8 +709,11 @@
    * d'une tranche à l'autre (l'état avance) pour un flux déterministe et varié.
    *
    * encodeShare / decodeShare : sérialisent l'état minimal qui détermine une
-   * grille (graine + figures + niveau + signature + note + nombre de mesures)
-   * en une chaîne compacte pour le hash d'URL, et l'inverse (null si invalide).
+   * grille (graine + figures + procédés + signature + note + nombre de
+   * mesures) en une chaîne compacte pour le hash d'URL, et l'inverse (null si
+   * invalide). Les procédés tiennent dans la clé « p » (un caractère chacun,
+   * vide si aucun). Un ancien lien à niveau (clé « l ») est rejeté : aucune
+   * compatibilité n'est due (ADR 0001 amendé), l'app tire une grille neuve.
    */
   function makeRng(seed) {
     var a = seed >>> 0;
@@ -568,6 +734,7 @@
     if (FIG_CODE.hasOwnProperty(_f)) CODE_FIG[FIG_CODE[_f]] = _f;
   }
   var MEASURE_CHOICES = ["4", "8", "16", "inf"];
+  const PROCEDE_CODE = { rests: "r", dots: "d", ties: "t", syncopes: "s", triplets: "3" };
 
   function encodeShare(state) {
     var figs = "";
@@ -575,10 +742,14 @@
       var code = FIG_CODE[state.figures[i]];
       if (code) figs += code;
     }
+    let procedes = "";
+    for (let p = 0; p < PROCEDES.length; p++) {
+      if ((state.procedes || []).indexOf(PROCEDES[p]) !== -1) procedes += PROCEDE_CODE[PROCEDES[p]];
+    }
     var meas = state.measures === "inf" ? "i" : String(state.measures);
     return "s=" + ((state.seed >>> 0).toString(36)) +
       "&f=" + figs +
-      "&l=" + state.level +
+      "&p=" + procedes +
       "&m=" + String(state.meter).replace("/", "") +
       "&n=" + state.note +
       "&x=" + meas;
@@ -592,9 +763,11 @@
       var kv = parts[i].split("=");
       if (kv.length === 2 && kv[0]) map[kv[0]] = kv[1];
     }
-    if (!("s" in map && "f" in map && "l" in map && "m" in map && "n" in map && "x" in map)) {
+    if (!("s" in map && "f" in map && "p" in map && "m" in map && "n" in map && "x" in map)) {
       return null;
     }
+    /* Ancien lien à niveau : rejeté. */
+    if ("l" in map) return null;
 
     var seed = parseInt(map.s, 36);
     if (!isFinite(seed) || seed < 0) return null;
@@ -608,8 +781,17 @@
     }
     if (!figures.length) return null;
 
-    var level = parseInt(map.l, 10);
-    if (level !== 1 && level !== 2 && level !== 3) return null;
+    const procedes = [];
+    for (let c = 0; c < map.p.length; c++) {
+      let known = false;
+      for (let p = 0; p < PROCEDES.length; p++) {
+        if (PROCEDE_CODE[PROCEDES[p]] === map.p.charAt(c)) known = true;
+      }
+      if (!known) return null;
+    }
+    for (let p = 0; p < PROCEDES.length; p++) {
+      if (map.p.indexOf(PROCEDE_CODE[PROCEDES[p]]) !== -1) procedes.push(PROCEDES[p]);
+    }
 
     if (!/^[2-4][2-4]$/.test(map.m)) return null;
     var meter = map.m.charAt(0) + "/" + map.m.charAt(1);
@@ -623,7 +805,7 @@
     return {
       seed: seed,
       figures: figures,
-      level: level,
+      procedes: procedes,
       meter: meter,
       note: map.n,
       measures: measures
@@ -742,9 +924,14 @@
         throw new Error("Figure inconnue : " + figures[i]);
       }
     }
-    var level = config.level;
-    if (level !== 1 && level !== 2 && level !== 3) {
-      throw new Error("Niveau invalide : " + level);
+    var procedes = config.procedes === undefined ? [] : config.procedes;
+    if (Object.prototype.toString.call(procedes) !== "[object Array]") {
+      throw new Error("Procédés invalides : " + procedes);
+    }
+    for (var p = 0; p < procedes.length; p++) {
+      if (PROCEDES.indexOf(procedes[p]) === -1) {
+        throw new Error("Procédé inconnu : " + procedes[p]);
+      }
     }
     if (config.note !== undefined && !/^[A-G],{0,2}$/.test(config.note)) {
       throw new Error("Note d'entraînement invalide : " + config.note);
@@ -764,9 +951,9 @@
 
     var measures = [];
     for (var k = 0; k < count; k++) {
-      measures.push(buildMeasure(cells, reach, m.beats, level, rng));
+      measures.push(buildMeasure(cells, reach, m.beats, config, rng));
     }
-    if (level === 3) addCrossBarTies(measures, rng);
+    if (hasProcede(config, "ties")) addCrossBarTies(measures, m.beats, rng);
 
     return assemble(measures, config, m);
   }
@@ -783,12 +970,14 @@
     abcHeader: abcHeader,
     joinBars: joinBars,
     availableCells: availableCells,
+    procedeNeeds: procedeNeeds,
     makeRng: makeRng,
     encodeShare: encodeShare,
     decodeShare: decodeShare,
     encodeComposed: encodeComposed,
     decodeComposed: decodeComposed,
     FIGURE_64: FIGURE_64,
-    METERS: METERS
+    METERS: METERS,
+    PROCEDES: PROCEDES
   };
 }));

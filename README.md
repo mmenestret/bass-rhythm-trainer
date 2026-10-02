@@ -40,7 +40,8 @@ bouton **copier le lien** (à côté du repeat/∞) : l'URL encode la grille
 affichée — graine et réglages — et la rejoue à l'identique chez qui l'ouvre
 (l'appli la restaure au chargement) ; réglages : son (basse growl, synthé,
 basse Ergo, contrebasse à l'archet — avec préécoute), note d'entraînement
-(E à D), niveau 1–3, figures de notes, signature, nombre de mesures.
+(E à D), procédés (Silences, Points, Liaisons, Syncopes, Triolets — ces
+derniers bientôt), figures de notes, signature, nombre de mesures.
 
 **Composer** (bouton dans l'en-tête, à côté de **Jouer** — le panneau de
 réglages et de génération) : construire une grille à la main figure par figure
@@ -48,6 +49,8 @@ au lieu de la tirer au sort. Tiroir à droite (signature, familles Notes /
 Silences / Modificateurs, palette, point et liaison), scène non grisée où la
 portée en travail reste centrée et s'écarte depuis le centre au fil du
 remplissage ; remplissage strict (chaque mesure vaut exactement la signature) ;
+liaison grisée quand la dernière note finit au milieu d'un temps, point refusé
+s'il y ferait tomber une liaison posée ;
 duplication de mesures par sélection sur la portée ; **Jouer** charge la grille
 composée dans le lecteur comme une grille générée (une grille courte y est
 recentrée, à l'allure d'une partition habituelle). Le panneau **Jouer** propose
@@ -125,7 +128,7 @@ Huit harnais Node, sans dépendance de test ni navigateur (code de sortie non nu
 en cas d'échec) :
 
 ```sh
-node scripts/test-generator.mjs   # grilles : sommes de mesures, figures cochées, niveaux, variété
+node scripts/test-generator.mjs   # grilles : sommes de mesures, figures et procédés cochés, règle de liaison, variété
 node scripts/test-engine.mjs      # transport : battements exacts, tempo en vol, décompte, signatures
 node scripts/test-guidage.mjs     # allumage des notes : durées, liaisons, frontières, cas dégradés
 node scripts/test-son.mjs         # son des notes : une attaque par note, liaisons cumulées, coupes
@@ -138,8 +141,14 @@ node scripts/test-i18n.mjs        # dictionnaires, marqueurs, ?lang=en et builds
 ## Décisions validées
 
 - Configuration : son + note d'entraînement, figures de notes à cocher,
-  niveau 1–3 (notes seules → + silences → + pointées/liaisons/syncopes),
-  signature (2/4, 3/4, 4/4, 2/2, 3/2, 4/2), 4/8/16 mesures.
+  procédés à cocher indépendamment (Silences, Points, Liaisons, Syncopes
+  écrites sans liaison ; Triolets à venir), tous décochés par défaut — des
+  notes seules. Un procédé inapplicable avec les figures cochées est grisé,
+  avec ce qui lui manque (« nécessite la croche »). Signature (2/4, 3/4, 4/4,
+  2/2, 3/2, 4/2), 4/8/16 mesures.
+- Règle de liaison : une liaison se fait toujours sur un début de temps (la
+  blanche en x/2), au tirage comme dans Composer ; dans un même temps, on écrit
+  la valeur cumulée.
 - Exercice : tempo 40–200 BPM (défaut 60) saisissable et ajustable en vol,
   décompte d'une mesure toujours audible, aides de lecture indépendantes.
 - Sons : uniquement des sons capables de tenir une ronde (sustain long ou
@@ -149,7 +158,9 @@ node scripts/test-i18n.mjs        # dictionnaires, marqueurs, ?lang=en et builds
   générés depuis la même source que la version dossier.
 - Partage d'une grille par lien : la génération est seedée (`makeRng`,
   mulberry32 déterministe injectée dans le générateur) ; le hash de l'URL
-  encode graine + réglages, mis à jour en continu et restauré au chargement.
+  encode graine + réglages (dont les procédés), mis à jour en continu et
+  restauré au chargement. Un lien ancien devenu invalide est rejeté et l'app
+  tire une grille neuve (ADR 0001 amendé).
   Copie robuste (repli `execCommand` là où l'API Clipboard exige https).
   Volontairement dépouillé : pas de scoring, de défi ni de suivi.
 - Parké v2 : mesures composées (6/8…), streaks, détection micro.

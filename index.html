@@ -1055,51 +1055,6 @@
     color: var(--ink);
   }
 
-  .levels {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .level {
-    display: flex;
-    gap: 14px;
-    align-items: baseline;
-    border: 1px solid var(--hairline);
-    border-radius: 12px;
-    padding: 11px 15px;
-    cursor: pointer;
-    transition: border-color 0.35s,background 0.35s;
-  }
-  .level input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-  }
-  .level .n {
-    font-family: 'Cormorant Garamond',serif;
-    font-size: 23px;
-    font-weight: 400;
-    color: var(--ink-faint);
-    transition: color 0.35s;
-  }
-  .level .txt b {
-    display: block;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-  }
-  .level .txt span {
-    font-size: 11.5px;
-    color: var(--ink-soft);
-  }
-  .level.checked {
-    border-color: var(--accent);
-    background: rgba(255,255,255,0.55);
-  }
-  .level.checked .n {
-    color: var(--accent);
-  }
-
   .pills {
     display: flex;
     flex-wrap: wrap;
@@ -1130,6 +1085,21 @@
     font-family: 'Cormorant Garamond',serif;
     font-size: 15.5px;
     font-weight: 500;
+  }
+  /* procédé inapplicable ou pas encore livré : grisé, avec son aide */
+  .pill.disabled {
+    cursor: not-allowed;
+    border-style: dashed;
+    color: var(--ink-faint);
+  }
+  .pill-hint {
+    margin-left: 6px;
+    font-size: 11px;
+    font-style: italic;
+    letter-spacing: 0.02em;
+  }
+  .pill-hint:empty {
+    display: none;
   }
 
   .btn {
@@ -1546,9 +1516,6 @@
     .note-pills .pill {
       padding: 13px 0;
     }
-    .level {
-      padding: 13px 15px;
-    }
     .btn {
       min-height: 48px;
     }
@@ -1656,9 +1623,6 @@
     }
     .fig {
       min-height: 46px;
-    }
-    .level {
-      padding: 13px 15px;
     }
     .btn {
       min-height: 48px;
@@ -1847,11 +1811,13 @@
   </div>
 
   <div class="field">
-    <h3 data-i18n="field.level">Niveau</h3>
-    <div class="levels">
-      <label class="level checked"><input type="radio" name="niveau" value="1" checked><span class="n">1</span><span class="txt"><b data-i18n="level.notesOnly">Notes seules</b><span data-i18n="level.notesOnlyDescription">Uniquement des figures jouées</span></span></label>
-      <label class="level"><input type="radio" name="niveau" value="2"><span class="n">2</span><span class="txt"><b data-i18n="level.withRests">Avec silences</b><span data-i18n="level.withRestsDescription">Ajoute soupirs et pauses</span></span></label>
-      <label class="level"><input type="radio" name="niveau" value="3"><span class="n">3</span><span class="txt"><b data-i18n="level.complete">Complet</b><span data-i18n="level.completeDescription">Pointées, liaisons, syncopes</span></span></label>
+    <h3 data-i18n="field.procedes">Procédés</h3>
+    <div class="pills" id="procede-pills" role="group" aria-label="Procédés" data-i18n-aria-label="field.procedes">
+      <label class="pill"><input type="checkbox" name="procede" value="rests"><span data-i18n="procede.rests">Silences</span><span class="pill-hint"></span></label>
+      <label class="pill"><input type="checkbox" name="procede" value="dots"><span data-i18n="procede.dots">Points</span><span class="pill-hint"></span></label>
+      <label class="pill"><input type="checkbox" name="procede" value="ties"><span data-i18n="procede.ties">Liaisons</span><span class="pill-hint"></span></label>
+      <label class="pill"><input type="checkbox" name="procede" value="syncopes"><span data-i18n="procede.syncopes">Syncopes</span><span class="pill-hint"></span></label>
+      <label class="pill disabled"><input type="checkbox" name="procede" value="triplets" disabled><span data-i18n="procede.triplets">Triolets</span><span class="pill-hint" data-i18n="procede.soon">bientôt</span></label>
     </div>
   </div>
 
@@ -2022,30 +1988,48 @@
 
   /* ---------- en-tête d'exercice ----------
      La leçon nomme la configuration en vocabulaire Agostini — palier de la
-     figure la plus fine cochée croisé avec le niveau
-     (cf. docs/agostini-progression.md). */
+     figure la plus fine cochée, avec son silence si Silences est coché —
+     puis les autres procédés cochés (cf. docs/agostini-progression.md). */
   var FINEST_ORDER = ["quadruple", "triple", "double", "croche", "noire", "blanche", "ronde"];
   var LESSON_KEY = { ronde: "long", blanche: "long", noire: "long" };
   var LESSONS = {
-    long:       ["lesson.long.1", "lesson.long.2", "lesson.long.3"],
-    croche:     ["lesson.eighth.1", "lesson.eighth.2", "lesson.eighth.3"],
-    double:     ["lesson.sixteenth.1", "lesson.sixteenth.2", "lesson.sixteenth.3"],
-    triple:     ["lesson.thirtySecond.1", "lesson.thirtySecond.2", "lesson.thirtySecond.3"],
-    quadruple:  ["lesson.sixtyFourth.1", "lesson.sixtyFourth.2", "lesson.sixtyFourth.3"]
+    long:       ["lesson.long", "lesson.long.rests"],
+    croche:     ["lesson.eighth", "lesson.eighth.rests"],
+    double:     ["lesson.sixteenth", "lesson.sixteenth.rests"],
+    triple:     ["lesson.thirtySecond", "lesson.thirtySecond.rests"],
+    quadruple:  ["lesson.sixtyFourth", "lesson.sixtyFourth.rests"]
   };
+  const LESSON_PROCEDES = [
+    ["dots", "lesson.procede.dots"],
+    ["ties", "lesson.procede.ties"],
+    ["syncopes", "lesson.procede.syncopes"],
+    ["triplets", "lesson.procede.triplets"]
+  ];
 
-  function lessonName(figures, level){
+  /* Liste lisible : « a, b et c » / « a, b and c ». */
+  function joinList(items){
+    if (items.length < 2) return items.join("");
+    return items.slice(0, -1).join(", ") + " " + t("list.and") + " " + items[items.length - 1];
+  }
+
+  function lessonName(figures, procedes){
     var finest = null;
     for (var i = 0; i < FINEST_ORDER.length; i++){
       if (figures.indexOf(FINEST_ORDER[i]) !== -1){ finest = FINEST_ORDER[i]; break; }
     }
     if (!finest) return "";
-    var names = LESSONS[LESSON_KEY[finest] || finest];
-    return t(names[Math.min(Math.max(level, 1), 3) - 1]);
+    const names = LESSONS[LESSON_KEY[finest] || finest];
+    const lesson = t(procedes.indexOf("rests") !== -1 ? names[1] : names[0]);
+    const extras = [];
+    LESSON_PROCEDES.forEach(function(entry){
+      if (procedes.indexOf(entry[0]) !== -1) extras.push(t(entry[1]));
+    });
+    if (!extras.length) return lesson;
+    return t("lesson.withProcedes", { lesson: lesson, procedes: joinList(extras) });
   }
 
   function updateExerciseTitle(cfg, animate){
-    exTitle.textContent = lessonName(cfg.figures, cfg.level);
+    exTitle.textContent = lessonName(cfg.figures, cfg.procedes);
     if (animate){
       exTitle.classList.remove("regen");
       void exTitle.offsetWidth;
@@ -2869,14 +2853,6 @@
     if (e.key === "Escape"){ closeDrawer(); closeComposer(); }
   });
 
-  /* états visuels des radios du tiroir */
-  document.querySelectorAll(".levels .level input").forEach(function(inp){
-    inp.addEventListener("change", function(){
-      document.querySelectorAll(".levels .level").forEach(function(l){
-        l.classList.toggle("checked", l.querySelector("input").checked);
-      });
-    });
-  });
   function bindPills(containerId, onChange){
     var box = document.getElementById(containerId);
     box.querySelectorAll("input").forEach(function(inp){
@@ -2891,6 +2867,58 @@
   bindPills("sig-pills", function(v){
     signature = v;
     buildBeats();
+    updateProcedeAvailability();
+  });
+  bindPills("procede-pills");
+
+  /* ---------- procédés : pastilles à cocher ----------
+     Un procédé inapplicable avec les figures cochées et la signature, ou pas
+     encore livré, est grisé et décoché, avec une aide courte : ce qui lui
+     manque (« nécessite la croche ») ou « bientôt ». Le générateur dit ce qui
+     manque (procedeNeeds) ; la page n'en fait que le texte. */
+  const SOON_PROCEDES = ["triplets"];
+  const FIGURE_DEFINITE = {
+    ronde: "figureDefinite.whole", blanche: "figureDefinite.half", noire: "figureDefinite.quarter",
+    croche: "figureDefinite.eighth", double: "figureDefinite.sixteenth",
+    triple: "figureDefinite.thirtySecond", quadruple: "figureDefinite.sixtyFourth"
+  };
+
+  function checkedFigures(){
+    const figures = [];
+    document.querySelectorAll('input[name="fig"]:checked').forEach(function(inp){
+      figures.push(inp.value);
+    });
+    return figures;
+  }
+
+  function procedeHelp(procede, figures){
+    if (SOON_PROCEDES.indexOf(procede) !== -1) return t("procede.soon");
+    if (!figures.length) return "";
+    const needs = window.BassRhythmGenerator.procedeNeeds({ figures: figures, meter: signature }, procede);
+    if (!needs) return "";
+    if (!needs.length) return t("procede.needsMore");
+    return t("procede.needs", {
+      figures: joinList(needs.map(function(fig){ return t(FIGURE_DEFINITE[fig]); }))
+    });
+  }
+
+  function updateProcedeAvailability(){
+    if (!window.BassRhythmGenerator) return;
+    const figures = checkedFigures();
+    document.querySelectorAll("#procede-pills .pill").forEach(function(pill){
+      const input = pill.querySelector("input");
+      const help = procedeHelp(input.value, figures);
+      input.disabled = help !== "";
+      if (input.disabled) input.checked = false;
+      pill.classList.toggle("disabled", input.disabled);
+      pill.classList.toggle("checked", input.checked);
+      pill.querySelector(".pill-hint").textContent = help;
+      if (help) pill.title = help;
+      else pill.removeAttribute("title");
+    });
+  }
+  document.querySelectorAll('input[name="fig"]').forEach(function(inp){
+    inp.addEventListener("change", updateProcedeAvailability);
   });
   bindPills("mes-pills", function(v){
     measuresChoice = v;
@@ -2969,15 +2997,14 @@
 
   /* ---------- génération de la grille ---------- */
   function readConfig(){
-    var figures = [];
-    document.querySelectorAll('input[name="fig"]:checked').forEach(function(inp){
-      figures.push(inp.value);
+    const procedes = [];
+    document.querySelectorAll('input[name="procede"]:checked').forEach(function(inp){
+      procedes.push(inp.value);
     });
-    var lvl = document.querySelector('input[name="niveau"]:checked');
     var inf = measuresChoice === "inf";
     return {
-      figures: figures,
-      level: lvl ? parseInt(lvl.value, 10) : 1,
+      figures: checkedFigures(),
+      procedes: procedes,
       meter: signature,
       // ∞ : le flux est généré par chunks de CHUNK_BARS avec ces réglages
       measures: inf ? CHUNK_BARS : parseInt(measuresChoice, 10),
@@ -3038,7 +3065,7 @@
     return {
       seed: currentSeed,
       figures: cfg.figures,
-      level: cfg.level,
+      procedes: cfg.procedes,
       meter: cfg.meter,
       note: noteChoice,       // lettre A–G ; la note ne change que la hauteur affichée, pas le rythme
       measures: measuresChoice // "4" | "8" | "16" | "inf"
@@ -3351,16 +3378,15 @@
     document.querySelectorAll('input[name="fig"]').forEach(function(inp){
       inp.checked = st.figures.indexOf(inp.value) !== -1;
     });
-    // niveau : radio + classe .checked du libellé
-    var lvl = document.querySelector('input[name="niveau"][value="' + st.level + '"]');
-    if (lvl) lvl.checked = true;
-    document.querySelectorAll('.levels .level').forEach(function(l){
-      l.classList.toggle("checked", l.querySelector("input").checked);
-    });
     // signature / note / mesures : pastilles + variables d'état
     setPill("sig-pills", st.meter);    signature = st.meter;
     setPill("note-pills", st.note);    noteChoice = st.note;
     setPill("mes-pills", st.measures); measuresChoice = st.measures;
+    // procédés : cases à cocher, puis grisage selon figures et signature
+    document.querySelectorAll('input[name="procede"]').forEach(function(inp){
+      inp.checked = st.procedes.indexOf(inp.value) !== -1;
+    });
+    updateProcedeAvailability();
   }
 
   /* Le hash peut porter DEUX formats : contenu complet (grille composée) ou
@@ -4004,6 +4030,8 @@
   });
 
   /* ---------- init ---------- */
+  // aides des procédés traduites, grisage initial
+  updateProcedeAvailability();
   var restored = readShareFromHash(); // grille partagée dans l'URL -> réglages restaurés
   if (restored && restored.kind === "composed"){
     restoreComposedFromShare(restored.state); // grille composée : contenu complet restauré

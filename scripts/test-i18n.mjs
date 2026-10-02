@@ -119,7 +119,9 @@ for (const text of [
   "Play",
   "Space — start or pause playback",
   "Bowed double bass",
-  "Notes only",
+  "Techniques",
+  "Syncopation",
+  "coming soon",
   "Sixteenth note",
   "Time signature",
   "Generate",
@@ -133,6 +135,10 @@ for (const frenchPattern of [
   />Son</,
   />Pulsation</,
   />Niveau</,
+  />Procédés</,
+  />Silences</,
+  />Liaisons</,
+  />bientôt</,
   />Mesures</,
   />Générer</,
   />Ronde</,
@@ -159,6 +165,7 @@ for (const dynamicText of [
 
 expect(frMarkup.includes("Jouer"), "build FR — interface française altérée");
 expect(frMarkup.includes("Figures de notes"), "build FR — réglages français altérés");
+expect(frMarkup.includes("Procédés") && frMarkup.includes("bientôt"), "build FR — pastilles des procédés absentes");
 
 if (failures.length) {
   console.error(`\nÉCHEC — ${failures.length} problème(s) sur ${checks} vérifications :`);

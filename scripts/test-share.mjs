@@ -13,7 +13,8 @@
  *      à chaque tranche répéterait la même tranche (justifie la réutilisation) ;
  *  (d) encodeShare/decodeShare : aller-retour exact sur un large balayage de
  *      configurations, sortie sûre pour un fragment d'URL ;
- *  (e) decodeShare rejette (null) les chaînes corrompues ou hors domaine.
+ *  (e) decodeShare rejette (null) les chaînes corrompues ou hors domaine,
+ *      dont les anciens liens à niveau (l=), qui retombent sur une grille neuve.
  */
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -55,7 +56,7 @@ function expect(cond, ctx, msg) {
 /* ---------- (b) reproductibilité de la grille ---------- */
 (function () {
   const ctx = "reproductibilité";
-  const cfg = { figures: ["noire", "croche", "double"], level: 2, meter: "4/4", measures: 8, note: "D," };
+  const cfg = { figures: ["noire", "croche", "double"], procedes: ["rests"], meter: "4/4", measures: 8, note: "D," };
 
   const g1 = generateExercise(Object.assign({}, cfg, { rng: makeRng(2024) }));
   const g2 = generateExercise(Object.assign({}, cfg, { rng: makeRng(2024) }));
@@ -74,7 +75,7 @@ function expect(cond, ctx, msg) {
 /* ---------- (c) flux ∞ : une seule rng réutilisée ---------- */
 (function () {
   const ctx = "flux ∞";
-  const cfg = { figures: ["noire", "croche"], level: 1, meter: "4/4", measures: 8, note: "D," };
+  const cfg = { figures: ["noire", "croche"], procedes: [], meter: "4/4", measures: 8, note: "D," };
   const CHUNKS = 4;
 
   // Approche appli : une rng, réutilisée -> l'état avance d'une tranche à l'autre.
@@ -110,10 +111,17 @@ function expect(cond, ctx, msg) {
   const NOTES = ["E", "F", "G", "A", "B", "C", "D"];
   const MEAS = ["4", "8", "16", "inf"];
   const SEEDS = [0, 1, 42, 65535, 2147483647, 4294967295];
+  const PROCEDE_SETS = [
+    [],
+    ["rests"],
+    ["dots", "syncopes"],
+    ["ties", "rests"],
+    ["rests", "dots", "ties", "syncopes", "triplets"],
+  ];
 
   const eq = (a, b) =>
     a.seed === b.seed &&
-    a.level === b.level &&
+    a.procedes.slice().sort().join(",") === b.procedes.slice().sort().join(",") &&
     a.meter === b.meter &&
     a.note === b.note &&
     a.measures === b.measures &&
@@ -121,12 +129,12 @@ function expect(cond, ctx, msg) {
 
   let round = 0;
   for (const meter of METERS)
-    for (const level of [1, 2, 3])
+    for (const procedes of PROCEDE_SETS)
       for (const figs of FIGURE_SETS)
         for (const note of NOTES)
           for (const measures of MEAS)
             for (const seed of SEEDS) {
-              const st = { seed, figures: figs, level, meter, note, measures };
+              const st = { seed, figures: figs, procedes, meter, note, measures };
               const enc = encodeShare(st);
               expect(/^[0-9a-zA-Z=&]+$/.test(enc), ctx, `encodage sûr pour un fragment d'URL (${enc})`);
               const dec = decodeShare(enc);
@@ -140,24 +148,32 @@ function expect(cond, ctx, msg) {
 /* ---------- (e) rejet des chaînes invalides ---------- */
 (function () {
   const ctx = "decode invalide";
-  const good = encodeShare({ seed: 42, figures: ["noire", "croche"], level: 2, meter: "4/4", note: "D", measures: "8" });
+  const good = encodeShare({ seed: 42, figures: ["noire", "croche"], procedes: ["rests"], meter: "4/4", note: "D", measures: "8" });
   expect(decodeShare(good) !== null, ctx, "témoin valide accepté");
+  expect(good.indexOf("&p=r") !== -1, ctx, `procédés portés par le lien (${good})`);
+  const none = decodeShare(encodeShare({ seed: 42, figures: ["noire"], procedes: [], meter: "4/4", note: "D", measures: "8" }));
+  expect(none !== null && none.procedes.length === 0, ctx, "aucun procédé coché : lien valide, notes seules");
+  const shuffled = decodeShare("s=2a&f=nc&p=srr&m=44&n=D&x=8");
+  expect(shuffled !== null && shuffled.procedes.join(",") === "rests,syncopes", ctx,
+    "procédés dédoublonnés et remis dans l'ordre canonique");
 
   const bad = [
     ["", "chaîne vide"],
     [null, "null"],
     [undefined, "undefined"],
     [42, "non-chaîne"],
-    ["s=2a&f=nc&l=2&m=44&n=D", "clé x manquante"],
-    ["f=nc&l=2&m=44&n=D&x=8", "clé s manquante"],
-    ["s=2a&f=nz&l=2&m=44&n=D&x=8", "code de figure inconnu (z)"],
-    ["s=2a&f=&l=2&m=44&n=D&x=8", "aucune figure"],
-    ["s=2a&f=nc&l=4&m=44&n=D&x=8", "niveau hors 1–3"],
-    ["s=2a&f=nc&l=2&m=23&n=D&x=8", "signature hors liste (2/3)"],
-    ["s=2a&f=nc&l=2&m=444&n=D&x=8", "signature mal formée"],
-    ["s=2a&f=nc&l=2&m=44&n=H&x=8", "note hors A–G"],
-    ["s=2a&f=nc&l=2&m=44&n=D&x=32", "nombre de mesures hors liste"],
-    ["s=zz&f=nc&l=x&m=44&n=D&x=8", "niveau non numérique"],
+    ["s=2a&f=nc&p=r&m=44&n=D", "clé x manquante"],
+    ["f=nc&p=r&m=44&n=D&x=8", "clé s manquante"],
+    ["s=2a&f=nz&p=r&m=44&n=D&x=8", "code de figure inconnu (z)"],
+    ["s=2a&f=&p=r&m=44&n=D&x=8", "aucune figure"],
+    ["s=2a&f=nc&p=rz&m=44&n=D&x=8", "code de procédé inconnu (z)"],
+    ["s=2a&f=nc&m=44&n=D&x=8", "clé p manquante"],
+    ["s=2a&f=nc&l=2&m=44&n=D&x=8", "ancien lien à niveau (l=)"],
+    ["s=2a&f=nc&l=3&p=r&m=44&n=D&x=8", "niveau mêlé aux procédés"],
+    ["s=2a&f=nc&p=r&m=23&n=D&x=8", "signature hors liste (2/3)"],
+    ["s=2a&f=nc&p=r&m=444&n=D&x=8", "signature mal formée"],
+    ["s=2a&f=nc&p=r&m=44&n=H&x=8", "note hors A–G"],
+    ["s=2a&f=nc&p=r&m=44&n=D&x=32", "nombre de mesures hors liste"],
   ];
   for (const [str, why] of bad) {
     expect(decodeShare(str) === null, ctx, `rejeté : ${why}`);
@@ -184,14 +200,14 @@ function expect(cond, ctx, msg) {
 
   // Grille bornée : un seul appel, comme l'appli en mode 4/8/16 mesures.
   const boundedAbc = (st) => generateExercise({
-    figures: st.figures, level: st.level, meter: st.meter,
+    figures: st.figures, procedes: st.procedes, meter: st.meter,
     measures: Number(st.measures), note: st.note, rng: makeRng(st.seed)
   }).abc;
 
   // Flux ∞ : une rng réutilisée sur plusieurs tranches, comme extendStream.
   const flowAbc = (st, chunks) => {
     const rng = makeRng(st.seed);
-    const cfg = { figures: st.figures, level: st.level, meter: st.meter, measures: 8, note: st.note };
+    const cfg = { figures: st.figures, procedes: st.procedes, meter: st.meter, measures: 8, note: st.note };
     const out = [];
     for (let i = 0; i < chunks; i++) out.push(generateExercise(Object.assign({}, cfg, { rng })).abc);
     return out.join("|");
@@ -201,13 +217,14 @@ function expect(cond, ctx, msg) {
   let infRounds = 0;
   const SEEDS = [3, 88, 100000, 4294967290];
 
+  const PROCEDE_SETS = [[], ["rests"], ["dots", "ties"], ["rests", "dots", "ties", "syncopes"]];
   for (const meter of METERS)
-    for (const level of [1, 2, 3])
+    for (const procedes of PROCEDE_SETS)
       for (const figures of SAFE_FIGURES)
         for (const note of NOTES)
           for (const seed of SEEDS) {
             // -- bornée (8 mesures) --
-            const st = { seed, figures, level, meter, note, measures: "8" };
+            const st = { seed, figures, procedes, meter, note, measures: "8" };
             const original = boundedAbc(st);
             const restored = decodeShare(encodeShare(st));
             if (expect(restored !== null, ctx, `décodage du partage (${encodeShare(st)})`)) {
@@ -217,7 +234,7 @@ function expect(cond, ctx, msg) {
             }
 
             // -- flux ∞ (3 tranches) --
-            const stInf = { seed, figures, level, meter, note, measures: "inf" };
+            const stInf = { seed, figures, procedes, meter, note, measures: "inf" };
             const originalFlow = flowAbc(stInf, 3);
             const restoredInf = decodeShare(encodeShare(stInf));
             if (expect(restoredInf !== null && restoredInf.measures === "inf", ctx,
@@ -232,7 +249,7 @@ function expect(cond, ctx, msg) {
 
   // Sécurité : deux graines différentes NE doivent PAS donner la même grille
   // (sinon l'« invariant » serait trivialement vrai et sans valeur).
-  const base = { figures: ["noire", "croche", "double"], level: 2, meter: "4/4", note: "D", measures: "8" };
+  const base = { figures: ["noire", "croche", "double"], procedes: ["rests"], meter: "4/4", note: "D", measures: "8" };
   const gA = boundedAbc(Object.assign({}, base, { seed: 1 }));
   const gB = boundedAbc(Object.assign({}, base, { seed: 2 }));
   expect(gA !== gB, ctx, "graines différentes -> grilles différentes (invariant non trivial)");
