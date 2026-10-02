@@ -14,7 +14,9 @@
  *  (d) encodeShare/decodeShare : aller-retour exact sur un large balayage de
  *      configurations, sortie sûre pour un fragment d'URL ;
  *  (e) decodeShare rejette (null) les chaînes corrompues ou hors domaine,
- *      dont les anciens liens à niveau (l=), qui retombent sur une grille neuve.
+ *      dont les anciens liens à niveau (l=), qui retombent sur une grille neuve ;
+ *  (f) aucune préférence de lecture (voix, volumes de pulsation, aides) ne
+ *      passe dans un lien, graine comme contenu composé.
  */
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -22,7 +24,9 @@ import path from "node:path";
 
 const require = createRequire(import.meta.url);
 const generatorPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "js", "generator.js");
-const { generateExercise, makeRng, encodeShare, decodeShare, METERS } = require(generatorPath);
+const {
+  generateExercise, makeRng, encodeShare, decodeShare, encodeComposed, decodeComposed, METERS,
+} = require(generatorPath);
 
 let checks = 0;
 const failures = [];
@@ -253,6 +257,38 @@ function expect(cond, ctx, msg) {
   const gA = boundedAbc(Object.assign({}, base, { seed: 1 }));
   const gB = boundedAbc(Object.assign({}, base, { seed: 2 }));
   expect(gA !== gB, ctx, "graines différentes -> grilles différentes (invariant non trivial)");
+})();
+
+/* ---------- (f) les préférences de lecture restent hors du lien ---------- */
+(function () {
+  const ctx = "préférences hors lien";
+  const prefs = {
+    pulsationVoice: "groove",
+    pulsationVolumes: { clic: 2.5, groove: 0.4 },
+    aids: { click: false, visual: false, sound: true },
+  };
+  const prefKeys = Object.keys(prefs);
+  const seedState = { seed: 42, figures: ["noire", "croche"], procedes: ["dots"], meter: "3/4", note: "A", measures: "8" };
+  const seedLink = encodeShare(seedState);
+  expect(encodeShare(Object.assign({}, seedState, prefs)) === seedLink, ctx,
+    "graine — le lien change quand des préférences de lecture accompagnent l'état");
+  const seedBack = decodeShare(seedLink);
+  expect(seedBack !== null && prefKeys.every((k) => !(k in seedBack)), ctx,
+    "graine — le lien relu porte une préférence de lecture");
+
+  const composedState = { meter: "4/4", note: "D", events: [
+    { fig: "blanche", rest: false, dot: false, tie: false },
+    { fig: "blanche", rest: false, dot: false, tie: false },
+  ] };
+  const composedLink = encodeComposed(composedState);
+  expect(encodeComposed(Object.assign({}, composedState, prefs)) === composedLink, ctx,
+    "contenu — le lien change quand des préférences de lecture accompagnent l'état");
+  const composedBack = decodeComposed(composedLink);
+  expect(composedBack !== null && prefKeys.every((k) => !(k in composedBack)), ctx,
+    "contenu — le lien relu porte une préférence de lecture");
+  for (const link of [seedLink, composedLink]) {
+    expect(!/groove|clic|volume|aids|pulsation/i.test(link), ctx, `lien sans trace de préférence (${link})`);
+  }
 })();
 
 /* ---------- rapport ---------- */
