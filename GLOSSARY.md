@@ -109,7 +109,8 @@ _Avoid_: volume du métronome
 
 **Préférence de lecture** :
 Un réglage personnel du lecteur (voix de pulsation, volume de pulsation, aides
-activées), mémorisé sur l'appareil et jamais transmis par un lien de partage.
+activées, subdivision), mémorisé sur l'appareil et jamais transmis par un lien
+de partage.
 
 ### Le mode Composer
 

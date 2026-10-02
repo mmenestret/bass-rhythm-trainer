@@ -908,8 +908,9 @@
     background: var(--accent);
   }
 
-  /* volume de pulsation : la voix active et son pourcentage, puis un curseur
-     à filet fin (rempli d'accent jusqu'au pouce, --fill posé par le script) */
+  /* volume de pulsation : le nom de la voix active, sans chiffre, puis un
+     curseur à filet fin (rempli d'accent jusqu'au pouce, --fill posé par le
+     script) */
   .pulse-volume {
     display: flex;
     flex-direction: column;
@@ -929,7 +930,7 @@
     color: var(--ink-soft);
   }
   .pulse-volume-range {
-    --fill: 33%;
+    --fill: calc(100% / 3);
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
@@ -1944,7 +1945,7 @@
           <label class="pulse-volume-head" for="pulse-volume">
             <span id="pulse-volume-voice" data-i18n="beat.click">Clic</span>
           </label>
-          <input type="range" id="pulse-volume" class="pulse-volume-range" min="0" max="100" step="1" value="33" aria-label="Volume du clic" data-i18n-aria-label="volume.click">
+          <input type="range" id="pulse-volume" class="pulse-volume-range" min="0" max="300" step="5" value="100" aria-label="Volume du clic" data-i18n-aria-label="volume.click">
         </div>
       </div>
     </div>
@@ -3113,22 +3114,23 @@
 
   /* Volume de pulsation : le curseur du panneau des aides règle la voix
      active (clic ou groove), du silence à PULSATION_VOLUME_MAX fois son
-     niveau par défaut, en vol. Aucun chiffre affiché : la position du curseur
-     (0–100) suffit. Chaque voix garde sa valeur : changer de voix restaure la
-     sienne. La préférence est écrite au relâchement (change), pas à chaque pas. */
+     niveau par défaut, en vol. Valeur du curseur de 0 à 300 par pas de 5,
+     volume = valeur / 100 : le niveau par défaut tombe pile sur 100. Aucun
+     chiffre affiché : la position du curseur suffit. Chaque voix garde sa
+     valeur : changer de voix restaure la sienne. La préférence est écrite au
+     relâchement (change), pas à chaque pas. */
   const pulseVolumeInput = document.getElementById("pulse-volume");
   const pulseVolumeVoice = document.getElementById("pulse-volume-voice");
 
   function refreshPulseVolume(){
     const isGroove = pulsationVoice === "groove";
-    const position = Math.round(playbackPrefs.pulsationVolumes[pulsationVoice] / Preferences.PULSATION_VOLUME_MAX * 100);
-    pulseVolumeInput.value = String(position);
+    pulseVolumeInput.value = String(Math.round(playbackPrefs.pulsationVolumes[pulsationVoice] * 100));
     pulseVolumeInput.setAttribute("aria-label", t(isGroove ? "volume.groove" : "volume.click"));
-    pulseVolumeInput.style.setProperty("--fill", position + "%");
+    pulseVolumeInput.style.setProperty("--fill", Number(pulseVolumeInput.value) / 3 + "%");
     pulseVolumeVoice.textContent = t(isGroove ? "beat.groove" : "beat.click");
   }
   pulseVolumeInput.addEventListener("input", function(){
-    const volume = Number(pulseVolumeInput.value) / 100 * Preferences.PULSATION_VOLUME_MAX;
+    const volume = Number(pulseVolumeInput.value) / 100;
     playbackPrefs.pulsationVolumes[pulsationVoice] = volume;
     if (playing && transport) transport.setPulsationVolume(pulsationVoice, volume);
     refreshPulseVolume();
