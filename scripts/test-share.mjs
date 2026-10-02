@@ -18,7 +18,10 @@
  *  (f) aucune préférence de lecture (voix, volumes de pulsation, aides,
  *      subdivision) ne passe dans un lien, graine comme contenu composé ;
  *  (g) toute signature permise (n de 1 à 12, d parmi 2, 4 et 8) fait
- *      l'aller-retour, graine comme contenu composé, et reproduit la grille.
+ *      l'aller-retour, graine comme contenu composé, et reproduit la grille ;
+ *  (h) triolets : une graine avec Triolets reproduit ses triolets, et une
+ *      grille composée qui en porte fait l'aller-retour dans toute signature
+ *      qui en permet.
  * Les balayages (d) et (f) couvrent toutes les signatures permises.
  */
 import { createRequire } from "node:module";
@@ -29,7 +32,7 @@ const require = createRequire(import.meta.url);
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const {
   generateExercise, makeRng, encodeShare, decodeShare, encodeComposed, decodeComposed, assembleComposed,
-  figureBeats,
+  figureBeats, eventBeats, tripletFigure,
 } = require(path.join(ROOT, "js", "generator.js"));
 const { allMeters, analyzeMeter } = require(path.join(ROOT, "js", "meter.js"));
 const METERS = allMeters();
@@ -328,6 +331,46 @@ function expect(cond, ctx, msg) {
   for (const meter of ["10/4", "11/8", "12/8", "12/2"]) {
     const link = encodeShare({ seed: 1, figures: ["croche"], procedes: [], meter, note: "D", measures: "8" });
     expect(link.indexOf("&m=" + meter.replace("/", "") + "&") !== -1, ctx, `${meter} — clé m inattendue (${link})`);
+  }
+})();
+
+/* ---------- (h) triolets dans les deux formats ---------- */
+(function () {
+  const ctx = "triolets";
+  // Graine : la grille relue depuis le lien reproduit ses triolets.
+  let withTriplets = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const st = { seed, figures: ["noire", "croche"], procedes: ["rests", "triplets"], meter: "4/4", note: "D", measures: "8" };
+    const back = decodeShare(encodeShare(st));
+    if (!expect(back !== null && back.procedes.includes("triplets"), ctx, `graine ${seed} : Triolets perdu`)) continue;
+    const cfg = (s) => ({ figures: s.figures, procedes: s.procedes, meter: s.meter, measures: 8, note: "D,", rng: makeRng(s.seed) });
+    const a = generateExercise(cfg(st));
+    const b = generateExercise(cfg(back));
+    expect(a.abc === b.abc && JSON.stringify(a.notes) === JSON.stringify(b.notes), ctx, `graine ${seed} : grille non reproduite`);
+    if (a.abc.includes("(3")) withTriplets++;
+  }
+  expect(withTriplets > 30, ctx, `trop peu de grilles à triolets (${withTriplets} / 40)`);
+
+  // Contenu composé : un triolet (silence interne), un temps, un triolet lié au temps suivant.
+  for (const meter of METERS) {
+    const fig = tripletFigure(meter);
+    if (!fig) continue;
+    const info = analyzeMeter(meter);
+    const beat = { fig: info.beatFigure, rest: false, dot: false, tie: false, triplet: false };
+    const t = (extra) => Object.assign({ fig, rest: false, dot: false, tie: false, triplet: true }, extra || {});
+    const events = [t(), t({ rest: true }), t()];
+    for (let i = 1; i < info.beats; i++) events.push(beat);
+    if (info.beats > 1) {
+      events.splice(3, 1, t(), t(), t({ tie: true }));
+    }
+    const link = encodeComposed({ meter, note: "A", events });
+    const back = decodeComposed(link);
+    if (!expect(back !== null, ctx, `contenu — ${meter} non relu (${link})`)) continue;
+    expect(JSON.stringify(back.events) === JSON.stringify(events), ctx, `contenu — ${meter} : événements altérés`);
+    const toD = (bar) => bar.map((e) => ({ d: eventBeats(e, meter), rest: e.rest, tie: e.tie, triplet: e.triplet }));
+    const original = assembleComposed(back.measures.map(toD), { meter, note: "A," });
+    expect(original.abc.includes("(3"), ctx, `contenu — ${meter} : triolet non gravé`);
+    expect(original.notes.length === events.length, ctx, `contenu — ${meter} : timeline incomplète`);
   }
 })();
 

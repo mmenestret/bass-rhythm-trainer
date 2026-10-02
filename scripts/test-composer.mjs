@@ -17,7 +17,12 @@
  *  (g) règle de liaison (endsOnBeat) et règles de pose de Composer (canTie,
  *      canDot) en /4, en /2, en /8 simple et en mesure composée (le temps y
  *      est la noire pointée), sans mutation de l'état ; rejet d'un lien
- *      composé qui lie au milieu d'un temps.
+ *      composé qui lie au milieu d'un temps ;
+ *  (h) triolets : assemblage (« (3 », ligature, instants exacts au tiers de
+ *      temps, triolet de noires en /2), règles pures de Composer (ouvrir un
+ *      triolet, figures permises dans un triolet ouvert, cases remplies,
+ *      liaison et point autour d'un triolet), aller-retour du lien composé
+ *      et rejet des triolets invalides.
  * Les balayages couvrent toutes les signatures permises.
  */
 import { createRequire } from "node:module";
@@ -28,7 +33,8 @@ const require = createRequire(import.meta.url);
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const {
   assembleComposed, encodeComposed, decodeComposed, decodeShare, encodeShare,
-  figureBeats, endsOnBeat, canTie, canDot
+  figureBeats, eventBeats, endsOnBeat, canTie, canDot,
+  canOpenTriplet, tripletFigures, tripletFilled
 } = require(path.join(ROOT, "js", "generator.js"));
 const { analyzeMeter, allMeters } = require(path.join(ROOT, "js", "meter.js"));
 const METERS = allMeters();
@@ -181,7 +187,7 @@ function measuresFromEvents(events, meter) {
       if (!expect(dec !== null, ctx, `décodage non nul (${enc})`)) continue;
       expect(dec.meter === meter && dec.note === note, ctx, `signature + note préservées (${enc})`);
       expect(JSON.stringify(dec.events) === JSON.stringify(events.map((e) => ({
-        fig: e.fig, rest: !!e.rest, dot: !!e.dot, tie: !!e.tie
+        fig: e.fig, rest: !!e.rest, dot: !!e.dot, tie: !!e.tie, triplet: false
       }))), ctx, `suite d'événements préservée (${enc})`);
       round++;
     }
@@ -216,18 +222,19 @@ function measuresFromEvents(events, meter) {
     ["", "chaîne vide"],
     [null, "null"],
     [42, "non-chaîne"],
-    ["c=1&m=44&n=D", "clé e manquante"],
+    ["c=2&m=44&n=D", "clé e manquante"],
     ["m=44&n=D&e=nnnn", "marqueur c manquant"],
-    ["c=2&m=44&n=D&e=aaaa", "version inconnue"],
-    ["c=1&m=23&n=D&e=", "flux vide"],
-    ["c=1&m=99&n=D&e=222", "signature hors domaine"],
-    ["c=1&m=134&n=D&e=222", "numérateur au-delà de 12"],
-    ["c=1&m=416&n=D&e=222", "dénominateur /16"],
-    ["c=1&m=04&n=D&e=2", "numérateur nul"],
-    ["c=1&m=44&n=H&e=222", "note hors A–G"],
-    ["c=1&m=44&n=D&e=zzz", "caractère hors base36 utile (z)"],
-    ["c=1&m=44&n=D&e=22", "grille non close sur la signature (reste)"],
-    ["c=1&m=24&n=D&e=0", "ronde qui déborde une mesure de 2/4"]
+    ["c=1&m=44&n=D&e=2222", "ancienne version (c=1)"],
+    ["c=3&m=44&n=D&e=2222", "version inconnue"],
+    ["c=2&m=23&n=D&e=", "flux vide"],
+    ["c=2&m=99&n=D&e=222", "signature hors domaine"],
+    ["c=2&m=134&n=D&e=222", "numérateur au-delà de 12"],
+    ["c=2&m=416&n=D&e=222", "dénominateur /16"],
+    ["c=2&m=04&n=D&e=2", "numérateur nul"],
+    ["c=2&m=44&n=H&e=222", "note hors A–G"],
+    ["c=2&m=44&n=D&e=zzz", "caractère hors base36 utile (z)"],
+    ["c=2&m=44&n=D&e=22", "grille non close sur la signature (reste)"],
+    ["c=2&m=24&n=D&e=0", "ronde qui déborde une mesure de 2/4"]
   ];
   for (const [str, why] of bad) {
     expect(decodeComposed(str) === null, ctx, `rejeté : ${why}`);
@@ -410,6 +417,176 @@ function measuresFromEvents(events, meter) {
     { fig: "croche" }, { fig: "croche", tie: true }, { fig: "noire" }, { fig: "blanche" }
   ] });
   expect(decodeComposed(onBeat) !== null, ctx, "liaison sur un début de temps acceptée");
+})();
+
+/* ---------- (h) triolets ---------- */
+const T = (fig, extra) => Object.assign({ fig, triplet: true }, extra || {});
+const N = (fig, extra) => Object.assign({ fig }, extra || {});
+/* État de composition comme la page : mesures pleines + mesure ouverte. */
+function composition(meter, events, openTriplet) {
+  const b = beats(meter);
+  const measures = [];
+  let bar = [], sum = 0;
+  for (const e of events) {
+    const ev = { fig: e.fig, rest: !!e.rest, dot: !!e.dot, tie: !!e.tie, triplet: !!e.triplet };
+    bar.push(ev);
+    sum += eventBeats(ev, meter);
+    if (Math.abs(sum - b) < 1e-9) { measures.push(bar); bar = []; sum = 0; }
+  }
+  measures.push(bar);
+  return { meter, measures, openTriplet: !!openTriplet };
+}
+/* Mesures { d, rest, tie, triplet } d'une liste d'événements riches. */
+const toD = (meter, events) => composition(meter, events).measures
+  .filter((bar) => bar.length)
+  .map((bar) => bar.map((e) => ({ d: eventBeats(e, meter), rest: e.rest, tie: e.tie, triplet: e.triplet })));
+
+(function () {
+  const ctx = "triolet · assemblage";
+  expect(Math.abs(eventBeats(T("croche"), "4/4") - 1 / 3) < 1e-12, ctx, "croche de triolet : 1/3 de temps en 4/4");
+  expect(Math.abs(eventBeats(T("noire"), "2/2") - 1 / 3) < 1e-12, ctx, "noire de triolet : 1/3 de temps en 2/2");
+  expect(eventBeats(N("noire", { dot: true }), "4/4") === 1.5, ctx, "eventBeats suit figureBeats hors triolet");
+
+  const four = assembleComposed(toD("4/4", [
+    T("croche"), T("croche", { rest: true }), T("croche"), N("noire"), N("blanche")
+  ]), { meter: "4/4", note: "D," });
+  expect(four.bars[0] === "(3D,zD, D,2 D,4", ctx, `triolet gravé « (3 » et ligaturé (${four.bars[0]})`);
+  const starts = four.notes.map((n) => n.startBeats);
+  expect(starts[0] === 0 && starts[3] === 1 && starts[4] === 2, ctx, `débuts de temps entiers exacts (${starts})`);
+  expect(Math.abs(starts[1] - 1 / 3) < 1e-12 && Math.abs(starts[2] - 2 / 3) < 1e-12, ctx, `tiers de temps exacts (${starts})`);
+  expect(four.notes[1].isRest && !four.notes[0].isRest, ctx, "silence interne au triolet dans la timeline");
+  expect(four.notes.slice(0, 3).every((n) => Math.abs(n.durationBeats - 1 / 3) < 1e-12), ctx, "trois tiers de temps");
+
+  const half = assembleComposed(toD("2/2", [T("noire"), T("noire"), T("noire"), N("blanche")]), { meter: "2/2", note: "D," });
+  expect(half.bars[0] === "(3D,2D,2D,2 D,4", ctx, `triolet de noires en 2/2 (${half.bars[0]})`);
+  expect(half.header.indexOf("L:1/8") !== -1, ctx, "unité L:1/8 en 2/2 avec des noires de triolet");
+
+  // Deux triolets de suite, puis une liaison qui sort du second par-dessus la barre.
+  const chain = assembleComposed(toD("2/4", [
+    T("croche"), T("croche"), T("croche"), T("croche"), T("croche"), T("croche", { tie: true }),
+    N("blanche")
+  ]), { meter: "2/4", note: "D," });
+  expect(chain.bars[0] === "(3D,D,D, (3D,D,D,-", ctx, `deux triolets, liaison sortante (${chain.bars[0]})`);
+  expect(chain.notes[5].tiedToNext === true && chain.notes[6].startBeats === 2, ctx, "la liaison sortante tombe sur la barre");
+
+  // Somme exacte sur de nombreuses mesures de triolets.
+  const many = assembleComposed(toD("3/4", Array.from({ length: 9 * 30 }, () => T("croche"))), { meter: "3/4", note: "D," });
+  expect(many.bars.length === 30, ctx, `30 mesures de triolets (${many.bars.length})`);
+  expect(many.notes.every((n, i) => i % 3 !== 0 || n.startBeats === i / 3), ctx, "chaque triolet commence sur un temps entier exact");
+})();
+
+(function () {
+  const ctx = "triolet · peut ouvrir";
+  expect(canOpenTriplet(composition("4/4", [])) === true, ctx, "grille vide en 4/4");
+  expect(canOpenTriplet(composition("4/4", [N("noire")])) === true, ctx, "après une noire : début de temps");
+  expect(canOpenTriplet(composition("4/4", [N("croche")])) === false, ctx, "après une croche : milieu de temps");
+  expect(canOpenTriplet(composition("4/4", [N("croche"), N("croche")])) === true, ctx, "après deux croches : début de temps");
+  expect(canOpenTriplet(composition("4/4", [N("noire", { dot: true })])) === false, ctx, "après une noire pointée : milieu de temps");
+  expect(canOpenTriplet(composition("2/4", [N("blanche")])) === true, ctx, "mesure pleine : début de la suivante");
+  expect(canOpenTriplet(composition("4/4", [T("croche"), T("croche"), T("croche")])) === true, ctx, "après un triolet complet");
+  expect(canOpenTriplet(composition("4/4", [], true)) === false, ctx, "triolet déjà ouvert");
+  expect(canOpenTriplet(composition("4/4", [T("croche")], true)) === false, ctx, "triolet en cours");
+  expect(canOpenTriplet(composition("2/2", [])) === true, ctx, "2/2 : début de temps");
+  expect(canOpenTriplet(composition("2/2", [N("noire")])) === false, ctx, "2/2 : noire seule, milieu du temps (blanche)");
+  expect(canOpenTriplet(composition("3/2", [N("noire"), N("noire")])) === true, ctx, "3/2 : deux noires, début de temps");
+  expect(canOpenTriplet(composition("4/4", [N("noire", { tie: true })])) === true, ctx, "liaison en attente : le triolet peut l'accueillir");
+  for (const meter of ["6/8", "9/8", "12/8"]) {
+    expect(canOpenTriplet(composition(meter, [])) === false, ctx, `${meter} : jamais en mesure composée`);
+  }
+  for (const meter of ["3/8", "5/8", "7/8"]) {
+    expect(canOpenTriplet(composition(meter, [])) === false, ctx, `${meter} : jamais en /8`);
+  }
+  for (const meter of METERS) {
+    const info = analyzeMeter(meter);
+    const want = !info.compound && info.denominator !== 8;
+    expect(canOpenTriplet(composition(meter, [])) === want, ctx, `${meter} : ouverture ${want ? "permise" : "refusée"}`);
+  }
+})();
+
+(function () {
+  const ctx = "triolet · figures permises";
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  expect(same(tripletFigures(composition("4/4", [])), []), ctx, "aucun triolet ouvert : rien");
+  expect(same(tripletFigures(composition("4/4", [], true)),
+    [{ fig: "croche", rest: false }, { fig: "croche", rest: true }]), ctx, "4/4 : croche ou demi-soupir");
+  expect(same(tripletFigures(composition("3/4", [T("croche"), T("croche", { rest: true })], true)),
+    [{ fig: "croche", rest: false }, { fig: "croche", rest: true }]), ctx, "3/4 : après un silence interne");
+  expect(same(tripletFigures(composition("2/2", [N("blanche")], true)),
+    [{ fig: "noire", rest: false }, { fig: "noire", rest: true }]), ctx, "2/2 : noire ou soupir");
+  expect(same(tripletFigures(composition("4/4", [N("noire", { tie: true })], true)),
+    [{ fig: "croche", rest: false }]), ctx, "liaison en attente : pas de silence");
+
+  expect(tripletFilled(composition("4/4", [])) === null, ctx, "aucun triolet ouvert : null");
+  expect(tripletFilled(composition("4/4", [N("noire")], true)) === 0, ctx, "triolet vide : 0");
+  expect(tripletFilled(composition("4/4", [N("noire"), T("croche")], true)) === 1, ctx, "une case remplie");
+  expect(tripletFilled(composition("4/4", [T("croche"), T("croche"), T("croche"), T("croche"), T("croche")], true)) === 2, ctx,
+    "deux cases du second triolet");
+})();
+
+(function () {
+  const ctx = "triolet · liaison et point";
+  expect(canTie(composition("4/4", [T("croche")], true)) === false, ctx, "première note d'un triolet : jamais liée");
+  expect(canTie(composition("4/4", [N("noire")], true)) === false, ctx, "triolet ouvert : la liaison est grisée");
+  expect(canTie(composition("4/4", [T("croche"), T("croche"), T("croche")])) === true, ctx,
+    "troisième note du triolet : la liaison tombe sur le temps");
+  expect(canTie(composition("4/4", [T("croche"), T("croche"), T("croche", { rest: true })])) === false, ctx,
+    "silence final du triolet : jamais lié");
+  expect(canDot(composition("4/4", [T("croche"), T("croche"), T("croche")])) === false, ctx, "note de triolet : jamais pointée");
+  expect(canDot(composition("4/4", [N("noire")], true)) === false, ctx, "triolet ouvert : le point est grisé");
+
+  const st = composition("4/4", [N("noire"), T("croche")], true);
+  const before = JSON.stringify(st);
+  canOpenTriplet(st); tripletFigures(st); tripletFilled(st); canTie(st); canDot(st);
+  expect(JSON.stringify(st) === before, ctx, "état de composition intact après appel");
+})();
+
+(function () {
+  const ctx = "triolet · lien composé";
+  const NOTES = ["E", "D"];
+  const grids = {
+    "4/4": [T("croche"), T("croche", { rest: true }), T("croche"), N("noire"), N("croche"), N("croche"),
+      T("croche"), T("croche"), T("croche", { tie: true }),
+      N("noire"), T("croche", { rest: true }), T("croche"), T("croche"), N("blanche")],
+    "2/2": [T("noire"), T("noire"), T("noire", { tie: true }), N("blanche")],
+    "3/4": [N("noire", { tie: true }), T("croche"), T("croche"), T("croche"), N("noire")],
+    "2/4": [T("croche"), T("croche"), T("croche"), T("croche"), T("croche"), T("croche")]
+  };
+  for (const meter of Object.keys(grids)) {
+    for (const note of NOTES) {
+      const events = grids[meter];
+      const enc = encodeComposed({ meter, note, events });
+      expect(/^[0-9a-zA-Z=&]+$/.test(enc), ctx, `encodage sûr pour un fragment d'URL (${enc})`);
+      const dec = decodeComposed(enc);
+      if (!expect(dec !== null, ctx, `décodage non nul (${meter} : ${enc})`)) continue;
+      expect(JSON.stringify(dec.events) === JSON.stringify(events.map((e) => ({
+        fig: e.fig, rest: !!e.rest, dot: !!e.dot, tie: !!e.tie, triplet: !!e.triplet
+      }))), ctx, `triolets préservés (${meter} : ${enc})`);
+      const original = assembleComposed(toD(meter, events), { meter, note: note + "," });
+      const rebuilt = assembleComposed(dec.measures.map((bar) => bar.map((e) => ({
+        d: eventBeats(e, meter), rest: e.rest, tie: e.tie, triplet: e.triplet
+      }))), { meter, note: note + "," });
+      expect(rebuilt.abc === original.abc, ctx, `grille reproduite après aller-retour (${meter})`);
+      expect(JSON.stringify(rebuilt.notes) === JSON.stringify(original.notes), ctx, `timeline reproduite (${meter})`);
+    }
+  }
+
+  // Liens invalides : triolet mal placé, mal formé ou hors signature.
+  const encode = (meter, events) => encodeComposed({ meter, note: "D", events });
+  const bad = [
+    [encode("4/4", [N("croche"), T("croche"), T("croche"), T("croche"), N("croche"), N("noire"), N("noire")]),
+      "triolet hors d'un début de temps"],
+    [encode("4/4", [T("croche", { tie: true }), T("croche"), T("croche"), N("noire"), N("blanche")]),
+      "liaison au milieu d'un triolet"],
+    [encode("4/4", [T("noire"), T("noire"), T("noire"), N("blanche")]), "figure de triolet invalide en 4/4"],
+    [encode("4/4", [T("croche", { dot: true }), T("croche"), T("croche"), N("noire"), N("blanche")]), "note de triolet pointée"],
+    ["c=2&m=44&n=D&e=T33", "triolet incomplet"],
+    ["c=2&m=44&n=D&e=T3332T", "marqueur de triolet sans notes"],
+    ["c=2&m=68&n=D&e=T333T333", "triolet en mesure composée"],
+    ["c=2&m=38&n=D&e=T444", "triolet en /8"]
+  ];
+  for (const [str, why] of bad) {
+    expect(decodeComposed(str) === null, ctx, `rejeté : ${why} (${str})`);
+  }
 })();
 
 /* ---------- rapport ---------- */
