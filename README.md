@@ -32,6 +32,11 @@ Deux façons de lancer l'application, strictement équivalentes :
 Dans l'application : tempo 40–200 BPM saisissable au clavier, aux boutons ±5,
 à la molette ou au glisser vertical ; décompte d'une mesure ; trois aides
 de lecture indépendantes (métronome, guide visuel, son) débrayables en vol ;
+dans le même panneau, un curseur de **volume de pulsation** règle la voix
+active (clic ou groove) de 0 à 250 % de son niveau, en vol, sous un limiteur
+qui évite toute saturation ; chaque voix garde son volume et le décompte prend
+celui de la voix choisie ; ces **préférences de lecture** (voix, volumes,
+aides) sont mémorisées sur l'appareil et restaurées à l'ouverture ;
 bouclage de l'exercice (repeat, sans nouveau décompte) ; sur écran étroit,
 partition en 2 mesures par système gravées pleine largeur, avec fenêtre de
 lecture de 3 systèmes qui garde la mesure jouée au centre ; mesures ∞ :
@@ -100,7 +105,8 @@ node scripts/build-single-file.mjs
 
 Le script lit `index.html` (source unique, aucune logique dupliquée) et produit
 les fichiers autonomes français et anglais. Il inline les fontes (data URI),
-les figures (data URI), les scripts (abcjs, générateur, moteur, i18n) et tous
+les figures (data URI), les scripts (abcjs, générateur, moteur, i18n,
+préférences) et tous
 les samples audio (table base64 `window.BRT_EMBEDDED_SAMPLES`, consommée avant
 tout `fetch`). Il vérifie lui-même son résultat — aucune référence externe
 restante, syntaxe de chaque bloc de script (`node --check`), unique `fetch`
@@ -113,6 +119,7 @@ index.html                 # l'application complète : HTML, CSS Apnée, script 
 js/generator.js            # générateur de grilles (calibrage Agostini vol. 1), pur, testable sous Node
 js/engine.js               # moteur de lecture Web Audio : métronome, transport, voix des notes, préécoute
 js/i18n.js                 # dictionnaires FR/EN, détection de langue et traduction de l'interface
+js/preferences.js          # préférences de lecture : lecture tolérante et écriture, stockage injecté
 vendor/abcjs-basic-min.js  # gravure de la partition (abcjs 6.6.4)
 assets/fonts/              # Cormorant Garamond & Karla (woff2 + fonts.css)
 assets/figures/            # glyphes des figures rythmiques (PNG)
@@ -124,7 +131,7 @@ dist/                      # fichiers uniques FR et EN générés par le build
 
 ## Tests
 
-Huit harnais Node, sans dépendance de test ni navigateur (code de sortie non nul
+Neuf harnais Node, sans dépendance de test ni navigateur (code de sortie non nul
 en cas d'échec) :
 
 ```sh
@@ -132,10 +139,11 @@ node scripts/test-generator.mjs   # grilles : sommes de mesures, figures et proc
 node scripts/test-engine.mjs      # transport : battements exacts, tempo en vol, décompte, signatures
 node scripts/test-guidage.mjs     # allumage des notes : durées, liaisons, frontières, cas dégradés
 node scripts/test-son.mjs         # son des notes : une attaque par note, liaisons cumulées, coupes
-node scripts/test-sync.mjs        # synchronisation de bout en bout (mock AudioContext, latence)
+node scripts/test-sync.mjs        # synchronisation de bout en bout (mock AudioContext, latence, volume, limiteur)
 node scripts/test-share.mjs       # graine + lien partageable : reproductibilité, flux ∞, aller-retour du codec d'URL
 node scripts/test-composer.mjs    # grille composée : assemblage, point/liaison, codec de contenu, invariants
 node scripts/test-i18n.mjs        # dictionnaires, marqueurs, ?lang=en et builds autonomes FR/EN
+node scripts/test-preferences.mjs # préférences de lecture : défauts, aller-retour, valeurs corrompues, stockage défaillant
 ```
 
 ## Décisions validées
@@ -151,6 +159,12 @@ node scripts/test-i18n.mjs        # dictionnaires, marqueurs, ?lang=en et builds
   la valeur cumulée.
 - Exercice : tempo 40–200 BPM (défaut 60) saisissable et ajustable en vol,
   décompte d'une mesure toujours audible, aides de lecture indépendantes.
+- Préférences de lecture : la voix de pulsation, le volume de chaque voix et
+  les aides activées sont la seule persistance de l'app, rangée dans
+  `localStorage` sous une clé versionnée ; une valeur absente ou invalide
+  retombe sur son défaut, et un stockage indisponible (mode privé, quota)
+  laisse simplement les réglages valoir pour la session. Elles n'entrent
+  jamais dans le lien de partage (ADR 0001 et 0002 amendés).
 - Sons : uniquement des sons capables de tenir une ronde (sustain long ou
   boucle) ; préécoute ~1,5 s dans les réglages ; la note choisie transpose
   le sample le plus proche et re-hausse la portée sans changer le rythme.
