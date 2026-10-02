@@ -1,8 +1,9 @@
 # Rhythm Trainer
 
 Application HTML d'entraînement à la lecture rythmique pour bassiste débutant,
-inspirée du *Solfège Rythmique Vol. 1* de Dante Agostini (mesures simples,
-progression ronde → triple croche avec silences, puis pointées/liaisons/syncopes).
+inspirée du *Solfège Rythmique Vol. 1* de Dante Agostini (progression ronde →
+triple croche avec silences, puis pointées/liaisons/syncopes), en mesures
+simples comme en mesures composées (6/8, 9/8, 12/8).
 
 Rythme pur sur une note fixe au choix (E à D grave, clé de Fa) : seule la
 durée compte. Design « Apnée » : brume qui respire, hairlines, Cormorant
@@ -29,16 +30,22 @@ Deux façons de lancer l'application, strictement équivalentes :
   Ajouter `?lang=en` à l'URL affiche l'interface anglaise. Le paramètre de
   langue cohabite avec le fragment qui encode l'exercice partagé.
 
-Dans l'application : tempo 40–200 BPM saisissable au clavier, aux boutons ±5,
-à la molette ou au glisser vertical ; décompte d'une mesure ; trois aides
+Dans l'application : tempo 40–200 BPM (40–120 en mesure composée, où il compte
+la noire pointée) saisissable au clavier, aux boutons ±5, à la molette ou au
+glisser vertical, avec l'unité du tempo affichée quand le temps n'est pas une
+noire ; décompte d'une mesure ; trois aides
 de lecture indépendantes (métronome, guide visuel, son) débrayables en vol ;
 dans le même panneau, un curseur de **volume de pulsation** règle la voix
 active (clic ou groove) de 0 à 250 % de son niveau, en vol, sous un limiteur
 qui évite toute saturation ; chaque voix garde son volume et le décompte prend
-celui de la voix choisie ; ces **préférences de lecture** (voix, volumes,
-aides) sont mémorisées sur l'appareil et restaurées à l'ouverture ;
+celui de la voix choisie ; en mesure composée, une bascule **Subdiviser**
+(active par défaut) fait entendre ou coupe les croches entre les temps, au
+clic comme au charley du groove ; ces **préférences de lecture** (voix,
+volumes, aides, subdivision) sont mémorisées sur l'appareil et restaurées à
+l'ouverture ;
 bouclage de l'exercice (repeat, sans nouveau décompte) ; sur écran étroit,
-partition en 2 mesures par système gravées pleine largeur, avec fenêtre de
+partition en 2 mesures par système gravées pleine largeur (une seule pour une
+mesure longue : 5/4, 7/4, 12/8…), avec fenêtre de
 lecture de 3 systèmes qui garde la mesure jouée au centre ; mesures ∞ :
 grille générée en continu pendant la lecture (fenêtre de rendu glissante) ;
 bouton **copier le lien** (à côté du repeat/∞) : l'URL encode la grille
@@ -46,11 +53,14 @@ affichée — graine et réglages — et la rejoue à l'identique chez qui l'ouv
 (l'appli la restaure au chargement) ; réglages : son (basse growl, synthé,
 basse Ergo, contrebasse à l'archet — avec préécoute), note d'entraînement
 (E à D), procédés (Silences, Points, Liaisons, Syncopes, Triolets — ces
-derniers bientôt), figures de notes, signature, nombre de mesures.
+derniers bientôt), figures de notes, signature (2/4 · 3/4 · 4/4 · 6/8, ou
+« Autre… » : numérateur de 1 à 12 sur 2, 4 ou 8), nombre de mesures.
 
 **Composer** (bouton dans l'en-tête, à côté de **Jouer** — le panneau de
 réglages et de génération) : construire une grille à la main figure par figure
-au lieu de la tirer au sort. Tiroir à droite (signature, familles Notes /
+au lieu de la tirer au sort. Tiroir à droite (signature, avec le même choix
+qu'au tirage ; en mesure composée, la noire pointée et la blanche pointée
+sont dans la palette ; familles Notes /
 Silences / Modificateurs, palette, point et liaison), scène non grisée où la
 portée en travail reste centrée et s'écarte depuis le centre au fil du
 remplissage ; remplissage strict (chaque mesure vaut exactement la signature) ;
@@ -105,8 +115,8 @@ node scripts/build-single-file.mjs
 
 Le script lit `index.html` (source unique, aucune logique dupliquée) et produit
 les fichiers autonomes français et anglais. Il inline les fontes (data URI),
-les figures (data URI), les scripts (abcjs, générateur, moteur, i18n,
-préférences) et tous
+les figures (data URI), les scripts (abcjs, signature, générateur, moteur,
+i18n, préférences) et tous
 les samples audio (table base64 `window.BRT_EMBEDDED_SAMPLES`, consommée avant
 tout `fetch`). Il vérifie lui-même son résultat — aucune référence externe
 restante, syntaxe de chaque bloc de script (`node --check`), unique `fetch`
@@ -116,6 +126,7 @@ résiduel bien court-circuité au chargement — et sort en erreur sinon.
 
 ```text
 index.html                 # l'application complète : HTML, CSS Apnée, script applicatif
+js/meter.js                # analyse d'une signature (temps, durée du temps, simple ou composée), source unique
 js/generator.js            # générateur de grilles (calibrage Agostini vol. 1), pur, testable sous Node
 js/engine.js               # moteur de lecture Web Audio : métronome, transport, voix des notes, préécoute
 js/i18n.js                 # dictionnaires FR/EN, détection de langue et traduction de l'interface
@@ -131,15 +142,16 @@ dist/                      # fichiers uniques FR et EN générés par le build
 
 ## Tests
 
-Neuf harnais Node, sans dépendance de test ni navigateur (code de sortie non nul
+Dix harnais Node, sans dépendance de test ni navigateur (code de sortie non nul
 en cas d'échec) :
 
 ```sh
-node scripts/test-generator.mjs   # grilles : sommes de mesures, figures et procédés cochés, règle de liaison, variété
-node scripts/test-engine.mjs      # transport : battements exacts, tempo en vol, décompte, signatures
+node scripts/test-meter.mjs       # signatures : domaine permis, temps, durée du temps, mesures composées
+node scripts/test-generator.mjs   # grilles : toutes signatures, figures et procédés cochés, règle de liaison, ligature, variété
+node scripts/test-engine.mjs      # transport : battements exacts, tempo en vol et ses bornes, décompte, subdivision, groove
 node scripts/test-guidage.mjs     # allumage des notes : durées, liaisons, frontières, cas dégradés
 node scripts/test-son.mjs         # son des notes : une attaque par note, liaisons cumulées, coupes
-node scripts/test-sync.mjs        # synchronisation de bout en bout (mock AudioContext, latence, volume, limiteur)
+node scripts/test-sync.mjs        # synchronisation de bout en bout (mock AudioContext, latence, volume, limiteur, 6/8 à 12/8)
 node scripts/test-share.mjs       # graine + lien partageable : reproductibilité, flux ∞, aller-retour du codec d'URL
 node scripts/test-composer.mjs    # grille composée : assemblage, point/liaison, codec de contenu, invariants
 node scripts/test-i18n.mjs        # dictionnaires, marqueurs, ?lang=en et builds autonomes FR/EN
@@ -152,15 +164,34 @@ node scripts/test-preferences.mjs # préférences de lecture : défauts, aller-r
   procédés à cocher indépendamment (Silences, Points, Liaisons, Syncopes
   écrites sans liaison ; Triolets à venir), tous décochés par défaut — des
   notes seules. Un procédé inapplicable avec les figures cochées est grisé,
-  avec ce qui lui manque (« nécessite la croche »). Signature (2/4, 3/4, 4/4,
-  2/2, 3/2, 4/2), 4/8/16 mesures.
+  avec ce qui lui manque (« nécessite la croche »). 4/8/16 mesures.
+- Signatures : pastilles 2/4 · 3/4 · 4/4 · 6/8, plus « Autre… » qui déplie un
+  numérateur (1 à 12) et un dénominateur (2, 4 ou 8), au tirage comme dans
+  Composer ; une seule analyse de signature (`js/meter.js`) sert le
+  générateur, le moteur et la page. En /8, un numérateur multiple de 3 au
+  moins égal à 6 donne une mesure composée (6/8, 9/8, 12/8 : le temps est la
+  noire pointée) ; les autres /8 sont des mesures simples à la croche. En
+  5/4 ou 7/4, seul le 1 est accentué et le groove garde son motif.
+- Mesures composées : catalogue de cellules propre (noire pointée, noire–
+  croche, croche–noire, trois croches, doubles…), où la noire pointée et la
+  blanche pointée sont des figures ordinaires ; *Points* n'y gouverne que la
+  sicilienne, *Syncopes* l'hémiole (trois noires sur deux temps) ; croches
+  ligaturées par trois, liaisons sur un début de temps de noire pointée. Le
+  clic joue trois niveaux (1, autres temps, croches faibles), le décompte
+  aussi ; le groove garde grosse caisse et caisse claire sur les temps et
+  joue le charley sur chaque croche ; la bascule Subdiviser coupe ces croches
+  (cf. `docs/mesures-composees-pulsation.md`, ADR 0002 amendé).
 - Règle de liaison : une liaison se fait toujours sur un début de temps (la
   blanche en x/2), au tirage comme dans Composer ; dans un même temps, on écrit
   la valeur cumulée.
-- Exercice : tempo 40–200 BPM (défaut 60) saisissable et ajustable en vol,
-  décompte d'une mesure toujours audible, aides de lecture indépendantes.
-- Préférences de lecture : la voix de pulsation, le volume de chaque voix et
-  les aides activées sont la seule persistance de l'app, rangée dans
+- Exercice : tempo 40–200 BPM (défaut 60) saisissable et ajustable en vol ;
+  il compte le temps de la signature (blanche en /2, croche en /8 simple,
+  noire pointée en mesure composée), dont l'unité s'affiche quand ce n'est
+  pas une noire, et plafonne à 120 en mesure composée. Changer de signature
+  garde le nombre affiché, ramené sous le plafond. Décompte d'une mesure
+  toujours audible, aides de lecture indépendantes.
+- Préférences de lecture : la voix de pulsation, le volume de chaque voix,
+  les aides activées et la subdivision sont la seule persistance de l'app, rangée dans
   `localStorage` sous une clé versionnée ; une valeur absente ou invalide
   retombe sur son défaut, et un stockage indisponible (mode privé, quota)
   laisse simplement les réglages valoir pour la session. Elles n'entrent
@@ -177,7 +208,7 @@ node scripts/test-preferences.mjs # préférences de lecture : défauts, aller-r
   tire une grille neuve (ADR 0001 amendé).
   Copie robuste (repli `execCommand` là où l'API Clipboard exige https).
   Volontairement dépouillé : pas de scoring, de défi ni de suivi.
-- Parké v2 : mesures composées (6/8…), streaks, détection micro.
+- Parké v2 : streaks, détection micro.
 
 ## Crédits et licences
 
