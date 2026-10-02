@@ -16,8 +16,7 @@
  *  (e) decodeShare rejette (null) les chaînes corrompues ou hors domaine,
  *      dont les anciens liens à niveau (l=), qui retombent sur une grille neuve ;
  *  (f) aucune préférence de lecture (voix, volumes de pulsation, aides,
- *      subdivision) ne
- *      passe dans un lien, graine comme contenu composé ;
+ *      subdivision) ne passe dans un lien, graine comme contenu composé ;
  *  (g) toute signature permise (n de 1 à 12, d parmi 2, 4 et 8) fait
  *      l'aller-retour, graine comme contenu composé, et reproduit la grille.
  * Les balayages (d) et (f) couvrent toutes les signatures permises.

@@ -126,6 +126,7 @@ for (const text of [
   "Time signature",
   "Generate",
   "Clear all",
+  "Subdivide",
 ]) {
   expect(enMarkup.includes(text), `build EN — texte statique absent : ${text}`);
 }
@@ -148,6 +149,7 @@ for (const frenchPattern of [
   /grille composée/,
   /Retour au début/,
   /Écouter/,
+  />Subdiviser</,
 ]) {
   expect(!frenchPattern.test(enMarkup), `build EN — texte français visible : ${frenchPattern}`);
 }
@@ -159,6 +161,11 @@ for (const dynamicText of [
   "Whole rest",
   "Tie to<br>next note",
   "Current measure:",
+  "Other…",
+  "Time signature top number",
+  "Tempo unit: {figure}",
+  "dotted quarter note",
+  "Dotted half note",
 ]) {
   expect(enBuild.includes(dynamicText), `build EN — traduction dynamique absente : ${dynamicText}`);
 }

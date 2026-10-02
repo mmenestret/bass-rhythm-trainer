@@ -73,7 +73,8 @@
     cursor: pointer;
   }
   button:focus-visible,
-  input:focus-visible {
+  input:focus-visible,
+  select:focus-visible {
     outline: 1.5px solid var(--accent);
     outline-offset: 3px;
     border-radius: 4px;
@@ -305,6 +306,25 @@
     text-transform: uppercase;
     color: var(--ink-faint);
     font-weight: 500;
+  }
+  /* unité du tempo (blanche, croche, noire pointée) devant « BPM », quand le
+     temps n'est pas une noire : glyphe SVG embarqué, à l'encre douce */
+  .tempo-unit {
+    display: inline-block;
+    height: 19px;
+    margin-right: 7px;
+    vertical-align: -3px;
+    color: var(--ink-soft);
+  }
+  .tempo-unit[hidden] {
+    display: none;
+  }
+  .tempo-unit svg {
+    display: block;
+    height: 100%;
+    width: auto;
+    fill: currentColor;
+    stroke: currentColor;
   }
   .step-btn {
     font-size: 12px;
@@ -848,6 +868,57 @@
     background: none;
   }
 
+  /* bascule Subdiviser : visible seulement en mesure composée, sous les
+     trois aides ; un petit interrupteur à filet, rempli d'accent quand actif */
+  .aids-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--hairline);
+    font-size: 9.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--ink-soft);
+    transition: color 0.3s;
+  }
+  .aids-switch[hidden] {
+    display: none;
+  }
+  .aids-switch.active {
+    color: var(--ink);
+  }
+  .aids-switch-track {
+    position: relative;
+    flex: none;
+    width: 24px;
+    height: 13px;
+    border: 1px solid var(--hairline-strong);
+    border-radius: 999px;
+    transition: border-color 0.3s,background 0.3s;
+  }
+  .aids-switch-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ink-faint);
+    transition: transform 0.3s var(--ease-drift),background 0.3s;
+  }
+  .aids-switch.active .aids-switch-track {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .aids-switch.active .aids-switch-track::after {
+    transform: translateX(11px);
+    background: var(--accent);
+  }
+
   /* volume de pulsation : la voix active et son pourcentage, puis un curseur
      à filet fin (rempli d'accent jusqu'au pouce, --fill posé par le script) */
   .pulse-volume {
@@ -1196,6 +1267,37 @@
     display: none;
   }
 
+  /* ---------- signature : pastilles courantes, « Autre… » déplie n / d ---------- */
+  .meter-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .meter-custom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .meter-custom[hidden] {
+    display: none;
+  }
+  .meter-select {
+    font-family: 'Cormorant Garamond',serif;
+    font-size: 17px;
+    font-weight: 500;
+    color: var(--ink);
+    background: rgba(255,255,255,0.6);
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    padding: 4px 12px;
+    cursor: pointer;
+  }
+  .meter-slash {
+    font-family: 'Cormorant Garamond',serif;
+    font-size: 21px;
+    color: var(--ink-soft);
+  }
+
   .btn {
     display: inline-flex;
     align-items: center;
@@ -1406,6 +1508,19 @@
   .palette-item:disabled {
     opacity: 0.26;
     cursor: default;
+  }
+  /* figure pointée de la palette (mesure composée) : glyphe + point */
+  .palette-dotted {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+  }
+  .palette-dot {
+    width: 4px;
+    height: 4px;
+    margin-bottom: 3px;
+    border-radius: 50%;
+    background: var(--ink);
   }
   .palette-glyph {
     height: 28px;
@@ -1938,7 +2053,7 @@ Wikimedia Commons and are in the public domain.
       <input id="tempo-num" class="tempo-num" type="text" inputmode="numeric" maxlength="3" value="60" autocomplete="off"
              aria-label="Tempo en BPM" title="Cliquer pour saisir · glisser verticalement ou utiliser la molette pour ajuster"
              data-i18n-aria-label="tempo.input" data-i18n-title="tempo.help">
-      <span class="bpm">BPM</span>
+      <span class="bpm"><span id="tempo-unit" class="tempo-unit" role="img" hidden></span>BPM</span>
     </div>
     <button id="plus5" class="step-btn" aria-label="Augmenter le tempo de 5 BPM" data-i18n-aria-label="tempo.increase">+5</button>
   </div>
@@ -1980,6 +2095,11 @@ Wikimedia Commons and are in the public domain.
             <svg viewBox="0 0 24 24"><path d="M4.5 9.6v4.8h3.2l4.5 3.7V5.9L7.7 9.6z"/><path d="M15.6 9.4a3.7 3.7 0 0 1 0 5.2M18.2 7.1a7 7 0 0 1 0 9.8"/></svg>
           </button>
         </div>
+        <!-- subdivision : croches entre les temps, seulement en mesure composée -->
+        <button id="tgl-subdivide" class="aids-switch" aria-pressed="true" title="Subdiviser — croches entre les temps, au clic et au charley" data-i18n-title="subdivide.title" hidden>
+          <span data-i18n="subdivide.label">Subdiviser</span>
+          <span class="aids-switch-track" aria-hidden="true"></span>
+        </button>
         <!-- volume de pulsation de la voix active (clic ou groove), réglable en vol -->
         <div class="pulse-volume">
           <label class="pulse-volume-head" for="pulse-volume">
@@ -2106,14 +2226,8 @@ Wikimedia Commons and are in the public domain.
 
   <div class="field">
     <h3 data-i18n="field.timeSignature">Signature</h3>
-    <div class="pills" id="sig-pills">
-      <label class="pill"><input type="radio" name="sig" value="2/4"><span class="frac">2/4</span></label>
-      <label class="pill"><input type="radio" name="sig" value="3/4"><span class="frac">3/4</span></label>
-      <label class="pill checked"><input type="radio" name="sig" value="4/4" checked><span class="frac">4/4</span></label>
-      <label class="pill"><input type="radio" name="sig" value="2/2"><span class="frac">2/2</span></label>
-      <label class="pill"><input type="radio" name="sig" value="3/2"><span class="frac">3/2</span></label>
-      <label class="pill"><input type="radio" name="sig" value="4/2"><span class="frac">4/2</span></label>
-    </div>
+    <!-- pastilles courantes + « Autre… » (composant partagé avec Composer) -->
+    <div class="meter-picker" id="sig-picker"></div>
   </div>
 
   <div class="field">
@@ -2141,7 +2255,7 @@ Wikimedia Commons and are in the public domain.
 
   <div class="field">
     <h3 data-i18n="field.timeSignature">Signature</h3>
-    <div class="pills" id="composer-sig-pills"></div>
+    <div class="meter-picker" id="composer-sig-picker"></div>
   </div>
 
   <div class="field">
@@ -4600,6 +4714,10 @@ window.BRT_EMBEDDED_SAMPLES = {
       "tempo.input": "Tempo en BPM",
       "tempo.help": "Cliquer pour saisir · glisser verticalement ou utiliser la molette pour ajuster",
       "tempo.increase": "Augmenter le tempo de 5 BPM",
+      "tempo.unit": "Unité du tempo : {figure}",
+      "tempoUnit.half": "blanche",
+      "tempoUnit.eighth": "croche",
+      "tempoUnit.dottedQuarter": "noire pointée",
       "aids.title": "Aides de lecture",
       "aids.description": "Aides de lecture — métronome, guide visuel, son, volume de pulsation",
       "metronome.title": "Métronome — clics des temps",
@@ -4608,6 +4726,8 @@ window.BRT_EMBEDDED_SAMPLES = {
       "visual.label": "Guide visuel",
       "noteSound.title": "Son — rythmique jouée",
       "noteSound.label": "Son",
+      "subdivide.label": "Subdiviser",
+      "subdivide.title": "Subdiviser — croches entre les temps, au clic et au charley",
       "volume.click": "Volume du clic",
       "volume.groove": "Volume du groove",
       "volume.value": "{percent} %",
@@ -4664,7 +4784,12 @@ window.BRT_EMBEDDED_SAMPLES = {
       "figure.sixteenth": "Double croche",
       "figure.thirtySecond": "Triple croche",
       "figure.sixtyFourth": "Quadruple croche",
+      "figure.dottedHalf": "Blanche pointée",
+      "figure.dottedQuarter": "Noire pointée",
       "field.timeSignature": "Signature",
+      "meter.other": "Autre…",
+      "meter.numerator": "Numérateur de la signature",
+      "meter.denominator": "Dénominateur de la signature",
       "field.measures": "Mesures",
       "measures.unlimited": "Mesures illimitées, générées en continu",
       "action.generate": "Générer",
@@ -4729,6 +4854,10 @@ window.BRT_EMBEDDED_SAMPLES = {
       "tempo.input": "Tempo in BPM",
       "tempo.help": "Click to type · drag vertically or use the mouse wheel to adjust",
       "tempo.increase": "Increase tempo by 5 BPM",
+      "tempo.unit": "Tempo unit: {figure}",
+      "tempoUnit.half": "half note",
+      "tempoUnit.eighth": "eighth note",
+      "tempoUnit.dottedQuarter": "dotted quarter note",
       "aids.title": "Reading aids",
       "aids.description": "Reading aids — metronome, visual guide, note sound, beat volume",
       "metronome.title": "Metronome — beat clicks",
@@ -4737,6 +4866,8 @@ window.BRT_EMBEDDED_SAMPLES = {
       "visual.label": "Visual guide",
       "noteSound.title": "Note sound — plays the written rhythm",
       "noteSound.label": "Note sound",
+      "subdivide.label": "Subdivide",
+      "subdivide.title": "Subdivide — eighth notes between beats, on the click and the hi-hat",
       "volume.click": "Click volume",
       "volume.groove": "Groove volume",
       "volume.value": "{percent}%",
@@ -4793,7 +4924,12 @@ window.BRT_EMBEDDED_SAMPLES = {
       "figure.sixteenth": "Sixteenth note",
       "figure.thirtySecond": "Thirty-second note",
       "figure.sixtyFourth": "Sixty-fourth note",
+      "figure.dottedHalf": "Dotted half note",
+      "figure.dottedQuarter": "Dotted quarter note",
       "field.timeSignature": "Time signature",
+      "meter.other": "Other…",
+      "meter.numerator": "Time signature top number",
+      "meter.denominator": "Time signature bottom number",
       "field.measures": "Measures",
       "measures.unlimited": "Unlimited measures, generated continuously",
       "action.generate": "Generate",
@@ -4927,13 +5063,15 @@ window.BRT_EMBEDDED_SAMPLES = {
 /* ---- js/preferences.js (inline) ---- */
 /*
  * Bass Rhythm Trainer — préférences de lecture (voix et volumes de
- * pulsation, aides activées), mémorisées sur l'appareil.
+ * pulsation, aides activées, subdivision), mémorisées sur l'appareil.
  *
  * Module pur : le stockage est injecté (localStorage dans la page, un objet
  * { getItem, setItem } sous Node). Contrat :
  *   - defaultPreferences() rend une copie neuve des défauts :
  *     { pulsationVoice: "clic", pulsationVolumes: { clic: 1, groove: 1 },
- *       aids: { click: true, visual: true, sound: false } } ;
+ *       aids: { click: true, visual: true, sound: false },
+ *       subdivide: true } — subdivide : croches entendues entre les temps
+ *       d'une mesure composée (au clic comme au charley du groove) ;
  *   - readPreferences(storage) lit l'unique clé versionnée STORAGE_KEY et
  *     rend des préférences complètes. La lecture est tolérante, champ par
  *     champ : stockage absent ou défaillant, JSON corrompu, valeur de mauvais
@@ -4969,7 +5107,8 @@ window.BRT_EMBEDDED_SAMPLES = {
     return {
       pulsationVoice: "clic",
       pulsationVolumes: { clic: 1, groove: 1 },
-      aids: { click: true, visual: true, sound: false }
+      aids: { click: true, visual: true, sound: false },
+      subdivide: true
     };
   }
 
@@ -5003,6 +5142,7 @@ window.BRT_EMBEDDED_SAMPLES = {
         if (typeof raw.aids[aid] === "boolean") prefs.aids[aid] = raw.aids[aid];
       });
     }
+    if (typeof raw.subdivide === "boolean") prefs.subdivide = raw.subdivide;
     return prefs;
   }
 
@@ -5099,7 +5239,8 @@ window.BRT_EMBEDDED_SAMPLES = {
   var lines = [];
   var cursorAnchors = null; // [{ beat, x, line }] — une ancre par événement de currentNotes (curseur asservi aux notes)
   var lineEndXs = [];       // abscisse de fin de chaque ligne (repère glissière)
-  var perLine = 4;          // mesures par système au dernier rendu (2 sur écran étroit)
+  var perLine = 4;          // mesures par système au dernier rendu (2 sur écran étroit, moins pour une mesure longue)
+  var renderedNarrow = false; // dernier rendu gravé à la largeur native de la scène (écran étroit)
   var followedLine = -99;   // cran haut de la fenêtre téléprompteur (-1 = 1re ligne centrée, -99 = à recadrer)
   var repeatOn = false;     // bouclage de l'exercice (bouton repeat)
   var infiniteOn = false;   // mesures ∞ : grille générée en flux
@@ -5116,7 +5257,8 @@ window.BRT_EMBEDDED_SAMPLES = {
   var shiftAt = 0;          // instant (performance.now) du recalage différé de la fenêtre de rendu (∞)
   var CHUNK_BARS = 8;       // taille de génération du flux ∞
   var RENDER_LINES = 8;     // systèmes rendus à la fois en flux ∞ (marge sous la ligne jouée)
-  var signature = "4/4";
+  var signature = "4/4";         // signature choisie dans le tiroir Jouer (prochain tirage)
+  var gridMeter = "4/4";         // signature de la grille affichée : lecture, pastilles, tempo
   var measuresChoice = "8";
   var beatEls = [];
   var noteEls = [];   // éléments SVG notes/silences, alignés 1:1 sur currentNotes
@@ -5147,11 +5289,16 @@ window.BRT_EMBEDDED_SAMPLES = {
   var clickOn = playbackPrefs.aids.click;
   var visualOn = playbackPrefs.aids.visual;
   var soundOn = playbackPrefs.aids.sound;
+  /* Subdivision (mesure composée) : croches entendues entre les temps, au
+     clic comme au charley — préférence mémorisée, active par défaut. */
+  let subdivideOn = playbackPrefs.subdivide;
 
   /* Analyse de signature (js/meter.js) : temps par mesure, durée du temps,
-     mesure simple ou composée — la même pour le générateur et le moteur. */
+     mesure simple ou composée — la même pour le générateur et le moteur.
+     La lecture suit la signature de la grille AFFICHÉE (gridMeter), pas celle
+     du tiroir, qui ne vaut qu'au prochain tirage. */
   const Meter = window.BassRhythmMeter;
-  function beatsPerBar(){ return Meter.analyzeMeter(signature).beats; }
+  function beatsPerBar(){ return Meter.analyzeMeter(gridMeter).beats; }
 
   /* ---------- en-tête d'exercice ----------
      La leçon nomme la configuration en vocabulaire Agostini — palier de la
@@ -5210,8 +5357,25 @@ window.BRT_EMBEDDED_SAMPLES = {
      réduit de moitié par responsive — les notes doublent de taille.
      Sinon : 4 mesures par système, rendu inchangé. Le re-découpage passe
      par les mesures de la grille courante, sans regénérer l'exercice. */
+  function isNarrowStage(){
+    return stage.clientWidth < 620;
+  }
+  /* Mesures par système selon la longueur de la mesure : une mesure longue
+     (5/4, 7/4, 12/8…) passe à 2 mesures par système, voire 1, pour rester
+     lisible. Budget en noires par système : 18 sur écran large (4/4 et 9/8
+     gardent 4 mesures), 9 sur écran étroit (4/4 et 6/8 en gardent 2). */
+  function measuresPerLineFor(meter, narrow){
+    const info = Meter.analyzeMeter(meter);
+    const barQuarters = info.numerator * 4 / info.denominator;
+    const budget = narrow ? 9 : 18;
+    const choices = narrow ? [2, 1] : [4, 2, 1];
+    for (let i = 0; i < choices.length; i++){
+      if (choices[i] * barQuarters <= budget) return choices[i];
+    }
+    return 1;
+  }
   function measuresPerLine(){
-    return stage.clientWidth < 620 ? 2 : 4;
+    return measuresPerLineFor(gridMeter, isNarrowStage());
   }
   function currentAbcFor(pl){
     if (infiniteOn && streamBars.length){
@@ -5283,7 +5447,8 @@ window.BRT_EMBEDDED_SAMPLES = {
       renderBaseBeat = 0;
     }
     var opts = { add_classes: true, responsive: "resize" };
-    if (perLine === 2){
+    renderedNarrow = isNarrowStage();
+    if (renderedNarrow){
       opts.staffwidth = stage.clientWidth;
       opts.paddingleft = 0;
       opts.paddingright = 0;
@@ -5360,7 +5525,7 @@ window.BRT_EMBEDDED_SAMPLES = {
        enfants se translatent avec elle — la géométrie est invariante quelle
        que soit la position courante du téléprompteur. */
     var baseRect = scoreSlide.getBoundingClientRect();
-    for (var i = 0; i < 12; i++){
+    for (var i = 0; ; i++){
       var sel = ".abcjs-l" + i + ".abcjs-note, .abcjs-l" + i + ".abcjs-rest, .abcjs-l" + i + ".abcjs-bar";
       var els = svg.querySelectorAll(sel);
       if (!els.length) break;
@@ -5520,6 +5685,16 @@ window.BRT_EMBEDDED_SAMPLES = {
     }
   }
 
+  /* La grille affichée change de signature : pastilles, tempo (nombre gardé,
+     borné au plafond), unité du tempo et bascule Subdiviser (mesure
+     composée seulement) la suivent. */
+  function refreshGridMeter(){
+    buildBeats();
+    setBpm(bpm);
+    updateTempoUnit();
+    subdivideBtn.hidden = !Meter.analyzeMeter(gridMeter).compound;
+  }
+
   function pulseBeat(idx){
     var el = beatEls[idx];
     if (!el) return;
@@ -5529,9 +5704,12 @@ window.BRT_EMBEDDED_SAMPLES = {
     if (idx === 0) el.classList.add("strong");
   }
 
-  /* ---------- tempo ---------- */
+  /* ---------- tempo ----------
+     Le tempo compte le temps de la grille affichée (la noire pointée en
+     mesure composée), borné par le moteur : 40–200, 40–120 en composée.
+     Changer de signature garde le nombre, ramené sous le plafond. */
   function setBpm(v){
-    v = Math.max(40, Math.min(200, Math.round(v)));
+    v = window.BassRhythmEngine.clampTempo(v, gridMeter);
     if (v === bpm) return;
     bpm = v;
     // En vol : le moteur se ré-ancre au prochain battement, sans saut ni dérive.
@@ -5540,6 +5718,36 @@ window.BRT_EMBEDDED_SAMPLES = {
     tempoNum.classList.remove("blip");
     void tempoNum.offsetWidth;
     tempoNum.classList.add("blip");
+  }
+
+  /* Unité du tempo, devant « BPM », quand le temps n'est pas une noire :
+     blanche en /2, croche dans les /8 simples, noire pointée en mesure
+     composée. Glyphe SVG embarqué (tête, hampe, crochet, point). */
+  const tempoUnit = document.getElementById("tempo-unit");
+  const TEMPO_UNIT_LABELS = {
+    blanche: "tempoUnit.half",
+    croche: "tempoUnit.eighth",
+    noirePointee: "tempoUnit.dottedQuarter"
+  };
+  function noteGlyphSvg(figure, dotted){
+    const hollow = figure === "blanche";
+    const head = '<ellipse cx="5" cy="19.5" rx="3.7" ry="2.6" transform="rotate(-20 5 19.5)"' +
+      (hollow ? ' fill="none" stroke-width="1.3"' : ' stroke="none"') + '/>';
+    const stem = '<path d="M8.4 18.6V3" fill="none" stroke-width="1.2"/>';
+    const flag = figure === "croche" ? '<path d="M8.4 3c3 1.4 5.3 3.4 4.2 8.2" fill="none" stroke-width="1.2"/>' : "";
+    const dot = dotted ? '<circle cx="13.3" cy="19.5" r="1.4" stroke="none"/>' : "";
+    return '<svg viewBox="0 0 16 24" aria-hidden="true">' + head + stem + flag + dot + '</svg>';
+  }
+  function updateTempoUnit(){
+    const info = Meter.analyzeMeter(gridMeter);
+    const plainQuarter = info.beatFigure === "noire" && !info.beatDotted;
+    tempoUnit.hidden = plainQuarter;
+    if (plainQuarter) return;
+    tempoUnit.innerHTML = noteGlyphSvg(info.beatFigure, info.beatDotted);
+    const figure = t(TEMPO_UNIT_LABELS[info.beatDotted ? "noirePointee" : info.beatFigure]);
+    const label = t("tempo.unit", { figure: figure });
+    tempoUnit.setAttribute("aria-label", label);
+    tempoUnit.title = label;
   }
 
   /* ---------- banque de sons ----------
@@ -5747,6 +5955,7 @@ window.BRT_EMBEDDED_SAMPLES = {
       beatsPerBar: activeBpb,
       totalBeats: TOTAL_BEATS,
       startGridBeat: fromGridBeat || 0,
+      subdivisions: window.BassRhythmEngine.beatSubdivisions(gridMeter, subdivideOn),
       noteEvents: liveNoteEvents,
       notesEnabled: soundOn,
       clicksEnabled: clickOn,
@@ -5947,6 +6156,17 @@ window.BRT_EMBEDDED_SAMPLES = {
     savePlaybackPrefs();
     if (playing && transport) transport.setNotesEnabled(on);
   });
+  /* Subdiviser : n'apparaît qu'en mesure composée (refreshGridMeter) ;
+     s'applique en vol aux temps suivants. */
+  const subdivideBtn = document.getElementById("tgl-subdivide");
+  bindToggle("tgl-subdivide", subdivideOn, function(on){
+    subdivideOn = on;
+    playbackPrefs.subdivide = on;
+    savePlaybackPrefs();
+    if (playing && transport){
+      transport.setSubdivisions(window.BassRhythmEngine.beatSubdivisions(gridMeter, on));
+    }
+  });
 
   /* Volume de pulsation : le curseur du panneau des aides règle la voix
      active (clic ou groove), de 0 à 250 % de son niveau par défaut, en vol.
@@ -6071,9 +6291,94 @@ window.BRT_EMBEDDED_SAMPLES = {
       });
     });
   }
-  bindPills("sig-pills", function(v){
+  /* ---------- signature : composant partagé (tiroir Jouer et Composer) ----------
+     Quatre pastilles courantes (2/4, 3/4, 4/4, 6/8) et « Autre… », qui
+     déplie un numérateur (1 à 12) et un dénominateur (2, 4 ou 8). Une
+     signature hors des pastilles ouvre « Autre… » d'elle-même. onChange
+     reçoit la nouvelle signature et peut la refuser en rendant false : le
+     composant revient alors à la précédente. setValue l'aligne sur un état
+     restauré (lien, grille composée), sans appeler onChange. */
+  const COMMON_METERS = ["2/4", "3/4", "4/4", "6/8"];
+  function createMeterPicker(host, initial, onChange){
+    let value = initial;
+    let customOpen = COMMON_METERS.indexOf(initial) === -1;
+    const optionsHtml = function(values){
+      return values.map(function(v){ return '<option value="' + v + '">' + v + '</option>'; }).join("");
+    };
+    const numerators = [];
+    for (let n = 1; n <= Meter.METER_NUMERATOR_MAX; n++) numerators.push(n);
+    host.innerHTML =
+      '<div class="pills" role="group" aria-label="' + t("field.timeSignature") + '">' +
+      COMMON_METERS.map(function(m){
+        return '<button type="button" class="pill" data-meter="' + m + '"><span class="frac">' + m + '</span></button>';
+      }).join("") +
+      '<button type="button" class="pill" data-meter-other aria-expanded="false">' + t("meter.other") + '</button>' +
+      '</div>' +
+      '<div class="meter-custom" hidden>' +
+      '<select class="meter-select" data-meter-part="numerator" aria-label="' + t("meter.numerator") + '">' + optionsHtml(numerators) + '</select>' +
+      '<span class="meter-slash" aria-hidden="true">/</span>' +
+      '<select class="meter-select" data-meter-part="denominator" aria-label="' + t("meter.denominator") + '">' + optionsHtml(Meter.METER_DENOMINATORS) + '</select>' +
+      '</div>';
+    const other = host.querySelector("[data-meter-other]");
+    const custom = host.querySelector(".meter-custom");
+    const numerator = host.querySelector('[data-meter-part="numerator"]');
+    const denominator = host.querySelector('[data-meter-part="denominator"]');
+
+    function render(){
+      host.querySelectorAll("[data-meter]").forEach(function(pill){
+        const on = !customOpen && pill.dataset.meter === value;
+        pill.classList.toggle("checked", on);
+        pill.setAttribute("aria-pressed", String(on));
+      });
+      other.classList.toggle("checked", customOpen);
+      other.setAttribute("aria-expanded", String(customOpen));
+      custom.hidden = !customOpen;
+      const parts = value.split("/");
+      numerator.value = parts[0];
+      denominator.value = parts[1];
+    }
+    function request(next, openCustom){
+      const previous = value;
+      const previousOpen = customOpen;
+      customOpen = openCustom;
+      value = next;
+      render();
+      if (next !== previous && onChange(next) === false){
+        value = previous;
+        customOpen = previousOpen;
+        render();
+      }
+    }
+    host.addEventListener("click", function(e){
+      const pill = e.target.closest("[data-meter]");
+      if (pill){
+        request(pill.dataset.meter, false);
+        return;
+      }
+      if (e.target.closest("[data-meter-other]")){
+        // « Autre… » se replie sur une signature courante, reste ouvert sinon.
+        request(value, !customOpen || COMMON_METERS.indexOf(value) === -1);
+      }
+    });
+    host.addEventListener("change", function(e){
+      if (!e.target.closest(".meter-select")) return;
+      request(numerator.value + "/" + denominator.value, true);
+    });
+    render();
+    return {
+      value: function(){ return value; },
+      setValue: function(meter){
+        value = meter;
+        customOpen = COMMON_METERS.indexOf(meter) === -1;
+        render();
+      }
+    };
+  }
+
+  /* Tiroir Jouer : la signature ne vaut qu'au prochain tirage (Générer) ; la
+     grille affichée garde la sienne jusque-là. */
+  const sigPicker = createMeterPicker(document.getElementById("sig-picker"), signature, function(v){
     signature = v;
-    buildBeats();
     updateProcedeAvailability();
   });
   bindPills("procede-pills");
@@ -6098,10 +6403,21 @@ window.BRT_EMBEDDED_SAMPLES = {
     return figures;
   }
 
+  function checkedProcedes(){
+    const procedes = [];
+    document.querySelectorAll('input[name="procede"]:checked').forEach(function(inp){
+      procedes.push(inp.value);
+    });
+    return procedes;
+  }
+
+  /* Les autres procédés cochés comptent : en 5/8, la noire pointée de
+     Points peut seule ouvrir la place d'un soupir. */
   function procedeHelp(procede, figures){
     if (SOON_PROCEDES.indexOf(procede) !== -1) return t("procede.soon");
     if (!figures.length) return "";
-    const needs = window.BassRhythmGenerator.procedeNeeds({ figures: figures, meter: signature }, procede);
+    const others = checkedProcedes().filter(function(p){ return p !== procede; });
+    const needs = window.BassRhythmGenerator.procedeNeeds({ figures: figures, meter: signature, procedes: others }, procede);
     if (!needs) return "";
     if (!needs.length) return t("procede.needsMore");
     return t("procede.needs", {
@@ -6125,6 +6441,9 @@ window.BRT_EMBEDDED_SAMPLES = {
     });
   }
   document.querySelectorAll('input[name="fig"]').forEach(function(inp){
+    inp.addEventListener("change", updateProcedeAvailability);
+  });
+  document.querySelectorAll('input[name="procede"]').forEach(function(inp){
     inp.addEventListener("change", updateProcedeAvailability);
   });
   bindPills("mes-pills", function(v){
@@ -6211,10 +6530,7 @@ window.BRT_EMBEDDED_SAMPLES = {
 
   /* ---------- génération de la grille ---------- */
   function readConfig(){
-    const procedes = [];
-    document.querySelectorAll('input[name="procede"]:checked').forEach(function(inp){
-      procedes.push(inp.value);
-    });
+    const procedes = checkedProcedes();
     var inf = measuresChoice === "inf";
     return {
       figures: checkedFigures(),
@@ -6362,6 +6678,8 @@ window.BRT_EMBEDDED_SAMPLES = {
     // Graine imposée (restauration depuis l'URL) : reproduction exacte, sans
     // anti-doublon. Sinon graine tirée au sort à chaque génération.
     var fixed = (typeof seed === "number");
+    const previousMeter = gridMeter;
+    gridMeter = cfg.meter; // le flux et la durée de la grille comptent ses temps
     try {
       clearShift();
       infiniteOn = !!cfg.infinite;
@@ -6422,8 +6740,10 @@ window.BRT_EMBEDDED_SAMPLES = {
       }
       updateExerciseTitle(cfg, animate); // l'en-tête suit chaque grille réellement affichée
       updateShareUrl(); // le hash de l'URL reflète la grille affichée (bookmarkable, prêt à copier)
+      refreshGridMeter();
       return true;
     } catch (err) {
+      gridMeter = previousMeter; // figures incapables de remplir la signature : la grille reste
       return false;
     }
   }
@@ -6570,7 +6890,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     clearTimeout(resizeT);
     resizeT = setTimeout(function(){
       if (composer.active) buildComposerOverlays(); // la portée composée se recale sur la nouvelle largeur
-      if (measuresPerLine() !== perLine || perLine === 2) renderScore(false);
+      if (measuresPerLine() !== perLine || renderedNarrow) renderScore(false);
       computeLines();
     }, 200);
   });
@@ -6593,7 +6913,7 @@ window.BRT_EMBEDDED_SAMPLES = {
       inp.checked = st.figures.indexOf(inp.value) !== -1;
     });
     // signature / note / mesures : pastilles + variables d'état
-    setPill("sig-pills", st.meter);    signature = st.meter;
+    sigPicker.setValue(st.meter);      signature = st.meter;
     setPill("note-pills", st.note);    noteChoice = st.note;
     setPill("mes-pills", st.measures); measuresChoice = st.measures;
     // procédés : cases à cocher, puis grisage selon figures et signature
@@ -6622,7 +6942,6 @@ window.BRT_EMBEDDED_SAMPLES = {
   /* Mode Composer — construction manuelle d'une grille (grille composée).  */
   /* ==================================================================== */
 
-  var COMPOSER_METERS = ["2/4", "3/4", "4/4", "2/2", "3/2", "4/2"];
   var COMPOSER_FIGS = ["ronde", "blanche", "noire", "croche", "double", "triple", "quadruple"];
   var FIG_NAMES = {
     ronde: "figure.whole", blanche: "figure.half", noire: "figure.quarter", croche: "figure.eighth",
@@ -6630,6 +6949,9 @@ window.BRT_EMBEDDED_SAMPLES = {
   };
   /* Noms propres des silences (solfège) : chaque silence a son nom, distinct de
      la figure de note de même durée. */
+  /* Figures pointées proposées d'emblée en mesure composée : la noire
+     pointée et la blanche pointée y sont les valeurs du temps. */
+  const DOTTED_NAMES = { blanche: "figure.dottedHalf", noire: "figure.dottedQuarter" };
   var REST_NAMES = {
     ronde: "rest.whole", blanche: "rest.half", noire: "rest.quarter", croche: "rest.eighth",
     double: "rest.sixteenth", triple: "rest.thirtySecond", quadruple: "rest.sixtyFourth"
@@ -6688,7 +7010,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     var e = lastPlacedEvent();
     return !!(e && e.tie && !e.rest);
   }
-  function fitsFigure(fig){ return figBeats(fig, false) <= composerRemaining() + COMPOSER_EPSILON; }
+  function fitsFigure(fig, dot){ return figBeats(fig, !!dot) <= composerRemaining() + COMPOSER_EPSILON; }
 
   /* Rétablit l'invariant : re-répartit tous les événements en mesures pleines
      (remplissage strict, chaque mesure close pile sur la signature) suivies
@@ -6715,10 +7037,10 @@ window.BRT_EMBEDDED_SAMPLES = {
   }
 
   /* ---------- pose et modificateurs ---------- */
-  function placeFigure(fig, isRest){
+  function placeFigure(fig, isRest, dot){
     if (isRest && pendingTie()) return; // on ne lie pas vers un silence
-    if (!fitsFigure(fig)) return;       // ne rentre pas dans la place restante
-    openMeasure().push({ fig: fig, rest: !!isRest, dot: false, tie: false });
+    if (!fitsFigure(fig, dot)) return;  // ne rentre pas dans la place restante
+    openMeasure().push({ fig: fig, rest: !!isRest, dot: !isRest && !!dot, tie: false });
     composer.selection = null;
     normalizeComposer();
     refreshComposer();
@@ -6741,15 +7063,18 @@ window.BRT_EMBEDDED_SAMPLES = {
     composer.selection = null;
     refreshComposer();
   }
+  /* Rend false si l'utilisateur refuse de perdre sa grille : le sélecteur de
+     signature revient alors à la précédente. */
   function setComposerMeter(v){
-    if (v === composer.meter) return;
+    if (v === composer.meter) return true;
     if (fullMeasureCount() > 0 || openMeasure().length){
-      if (!window.confirm(t("composer.confirmMeter"))) return;
+      if (!window.confirm(t("composer.confirmMeter"))) return false;
     }
     composer.meter = v;
     composer.measures = [[]];
     composer.selection = null;
     refreshComposer();
+    return true;
   }
   /* Point : allonge la dernière note de moitié (bascule). Liaison : la
      dernière note est liée à la suivante (bascule). Les règles de pose (place
@@ -6858,7 +7183,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     // La mesure ouverte garde une liaison PENDANTE (arc vers le silence
     // invisible) comme repère visuel « la prochaine note sera liée » ; à Jouer,
     // assembleComposed la neutralise (une liaison sans cible ne se joue pas).
-    return G.abcHeader(composer.meter, lden) + G.joinBars(bars, 4);
+    return G.abcHeader(composer.meter, lden) + G.joinBars(bars, composerPerLine());
   }
   function renderComposerStaff(){
     var el = document.getElementById("composer-staff");
@@ -6875,10 +7200,16 @@ window.BRT_EMBEDDED_SAMPLES = {
   }
 
   /* ---------- zones de sélection + barrette flottante ---------- */
+  /* Mesures par système de la portée composée : 4, moins pour une mesure
+     longue (même règle que la vue de jeu sur écran large). */
+  function composerPerLine(){
+    return measuresPerLineFor(composer.meter, false);
+  }
   function composerMeasureEls(svg, i){
     var direct = svg.querySelectorAll(".abcjs-mm" + i);
     if (direct.length) return direct;
-    var line = Math.floor(i / 4), within = i % 4;
+    var per = composerPerLine();
+    var line = Math.floor(i / per), within = i % per;
     return svg.querySelectorAll(".abcjs-l" + line + ".abcjs-m" + within);
   }
   function buildComposerOverlays(){
@@ -6948,12 +7279,6 @@ window.BRT_EMBEDDED_SAMPLES = {
     var el = document.getElementById(id);
     if (el) el.innerHTML = html;
   }
-  function composerSigPillsHTML(){
-    return COMPOSER_METERS.map(function(k){
-      return '<button type="button" class="pill' + (k === composer.meter ? " checked" : "") +
-        '" data-csig="' + k + '"><span class="frac">' + k + '</span></button>';
-    }).join("");
-  }
   function composerFamiliesHTML(){
     var f = composer.families;
     return '<button type="button" class="fam on" data-cfam="notes" aria-pressed="true" disabled>' + t("family.notes") + '</button>' +
@@ -6996,21 +7321,34 @@ window.BRT_EMBEDDED_SAMPLES = {
     restGlyphCache[fig] = svg;
     return svg;
   }
-  function composerItemHTML(fig, isRest){
-    var ok = fitsFigure(fig) && !(isRest && pendingTie());
+  function composerItemHTML(fig, isRest, dot){
+    var ok = fitsFigure(fig, dot) && !(isRest && pendingTie());
+    var image = '<img class="palette-glyph" src="' + (FIG_SRC[fig] || "") + '" alt="">';
     var glyph = isRest
       ? '<span class="palette-glyph palette-rest">' + restGlyphSvg(fig) + '</span>'
-      : '<img class="palette-glyph" src="' + (FIG_SRC[fig] || "") + '" alt="">';
-    var label = t(isRest ? REST_NAMES[fig] : FIG_NAMES[fig]);
+      : (dot ? '<span class="palette-dotted">' + image + '<span class="palette-dot"></span></span>' : image);
+    var label = t(isRest ? REST_NAMES[fig] : (dot ? DOTTED_NAMES[fig] : FIG_NAMES[fig]));
     return '<button type="button" class="palette-item" data-cfig="' + fig + '" data-crest="' + isRest + '"' +
+      ' data-cdot="' + !!dot + '"' +
       (ok ? "" : " disabled") + '>' +
       glyph +
       '<span class="palette-label">' + label + '</span></button>';
   }
+  /* Notes de la palette : en mesure composée, la blanche pointée et la noire
+     pointée précèdent leur figure simple. */
+  function composerNoteItems(){
+    const compound = Meter.analyzeMeter(composer.meter).compound;
+    const items = [];
+    COMPOSER_FIGS.forEach(function(fig){
+      if (compound && DOTTED_NAMES[fig]) items.push({ fig: fig, dot: true });
+      items.push({ fig: fig, dot: false });
+    });
+    return items;
+  }
   function composerPaletteHTML(){
     var html = '<div class="palette-group"><div class="palette-family">' + t("family.notes") + '</div><div class="palette-items">';
     var i;
-    for (i = 0; i < COMPOSER_FIGS.length; i++) html += composerItemHTML(COMPOSER_FIGS[i], false);
+    composerNoteItems().forEach(function(item){ html += composerItemHTML(item.fig, false, item.dot); });
     html += '</div></div>';
     if (composer.families.silences){
       html += '<div class="palette-group"><div class="palette-family">' + t("family.rests") + '</div><div class="palette-items">';
@@ -7031,10 +7369,29 @@ window.BRT_EMBEDDED_SAMPLES = {
     return html;
   }
   function round2(x){ return Math.round(x * 100) / 100; }
+  /* Temps lisibles : décimales courtes (0,5 ; 1,25), sinon fraction pour les
+     tiers et sixièmes de la mesure composée (« 1 1/3 » plutôt que 1,33). */
+  function formatBeats(x){
+    if (Math.abs(x * 100 - Math.round(x * 100)) < COMPOSER_EPSILON) return String(round2(x));
+    const denominators = [3, 6, 12, 24];
+    for (let i = 0; i < denominators.length; i++){
+      const d = denominators[i];
+      const n = Math.round(x * d);
+      if (Math.abs(x * d - n) > COMPOSER_EPSILON) continue;
+      const whole = Math.floor(n / d);
+      let num = n - whole * d;
+      let den = d;
+      for (let g = num; g > 1; g--){
+        if (num % g === 0 && den % g === 0){ num /= g; den /= g; break; }
+      }
+      return (whole ? whole + " " : "") + num + "/" + den;
+    }
+    return String(round2(x));
+  }
   function composerReadoutHTML(){
-    var placed = round2(measSum(openMeasure()));
+    var placed = formatBeats(measSum(openMeasure()));
     var total = composerBeats();
-    var rem = round2(composerRemaining());
+    var rem = formatBeats(composerRemaining());
     var extra = pendingTie() ? t("composer.tiePending") : "";
     return t("composer.readout", {
       placed: placed,
@@ -7055,7 +7412,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     if (btn) btn.disabled = fullMeasureCount() === 0;
   }
   function refreshComposer(){
-    setHTMLById("composer-sig-pills", composerSigPillsHTML());
+    composerMeterPicker.setValue(composer.meter);
     setHTMLById("composer-families", composerFamiliesHTML());
     setHTMLById("composer-palette", composerPaletteHTML());
     setHTMLById("composer-readout", composerReadoutHTML());
@@ -7107,7 +7464,8 @@ window.BRT_EMBEDDED_SAMPLES = {
     streamCfg = null;
     composedGrid = meta; // { meter, events, measures }
     signature = meta.meter;
-    setPill("sig-pills", signature);
+    sigPicker.setValue(signature);
+    gridMeter = meta.meter;
     currentAbc = artifact.abc;
     currentNotes = artifact.notes;
     currentBars = artifact.bars;
@@ -7121,7 +7479,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     repeatBtn.setAttribute("aria-label", t("transport.loop"));
     repeatBtn.title = t("transport.loop");
     exTitle.textContent = t("composer.viewTitle");
-    buildBeats();
+    refreshGridMeter();
     renderScore(true);
     computeLines();
     updateShareUrl();
@@ -7176,7 +7534,7 @@ window.BRT_EMBEDDED_SAMPLES = {
   composerDrawer.addEventListener("click", function(e){
     var el;
     if ((el = e.target.closest("[data-cfig]"))){
-      if (!el.disabled) placeFigure(el.dataset.cfig, el.dataset.crest === "true");
+      if (!el.disabled) placeFigure(el.dataset.cfig, el.dataset.crest === "true", el.dataset.cdot === "true");
       return;
     }
     if ((el = e.target.closest("[data-cmod]"))){
@@ -7191,11 +7549,10 @@ window.BRT_EMBEDDED_SAMPLES = {
       refreshComposer();
       return;
     }
-    if ((el = e.target.closest("[data-csig]"))){
-      setComposerMeter(el.dataset.csig);
-      return;
-    }
   });
+  const composerMeterPicker = createMeterPicker(
+    document.getElementById("composer-sig-picker"), composer.meter, setComposerMeter
+  );
 
   /* Sélection de plage sur la portée : clic = ancre, glisser ou maj+clic
      étend la plage contiguë ; clic en dehors de la sélection en sort. */
@@ -7254,7 +7611,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     renderScore(false);
     computeLines();      // fenêtre téléprompteur dimensionnée dès le chargement
   }
-  buildBeats();
+  refreshGridMeter();
 })();
 </script>
 </body>
