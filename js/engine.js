@@ -14,7 +14,7 @@
  *      positionAt(t) : position continue en battements, linéaire par morceaux
  *      entre les changements de tempo.
  *    - clampPulsationVolume(v) : facteur de volume de pulsation borné à
- *      [0, PULSATION_VOLUME_MAX = 2,5] ; valeur non numérique -> 1.
+ *      [0, PULSATION_VOLUME_MAX = 3] ; valeur non numérique -> 1.
  *    - meterBeats("3/2") -> 3 : temps par mesure d'une signature, d'après
  *      l'analyse de signature (js/meter.js) — meterBeats("6/8") -> 2.
  *    - tempoRange(meter) -> { min, max } : 40–200 BPM, 40–120 en mesure
@@ -93,7 +93,7 @@
  *      (attaque du sample pleine échelle + clic accentué) ≈ 0,96, sans
  *      saturation, la basse nette et le clic derrière.
  *      Volume de pulsation : pulsationVolumes { clic, groove } donne à chaque
- *      voix un facteur de 0 à 2,5 (défaut 1) appliqué à son niveau ; le
+ *      voix un facteur de 0 à 3 (défaut 1) appliqué à son niveau ; le
  *      décompte prend le volume de la voix choisie. setPulsationVolume(voice,
  *      v) le règle en vol, pulsationVolume(voice) le relit ;
  *      setPulsationVoice(voice) change de voix en vol, à son propre volume. Un limiteur
@@ -157,9 +157,9 @@
   const TEMPO_MAX_COMPOUND = 120;
 
   /* Volume de pulsation : facteur par voix (clic, groove) appliqué au niveau
-     par défaut ci-dessus, de 0 (silence) à 2,5. Au-delà de 100 %, la somme
+     par défaut ci-dessus, de 0 (silence) à 3. Au-delà de 100 %, la somme
      peut dépasser la pleine échelle : le limiteur de sortie la contient. */
-  const PULSATION_VOLUME_MAX = 2.5;
+  const PULSATION_VOLUME_MAX = 3;
   const PULSATION_VOLUME_RAMP_S = 0.02; // glissé du réglage en vol (pas de zip)
 
   /* Limiteur de sortie : compresseur natif à seuil haut, ratio fort et
@@ -962,7 +962,7 @@
       setBpm: function (v) { clock.setBpm(v); },
       bpm: function () { return clock.bpm(); },
       /* Volume de pulsation d'une voix ("clic" | "groove"), facteur borné à
-         [0, 2,5]. Réglé en vol : la voix active glisse vers sa nouvelle
+         [0, 3]. Réglé en vol : la voix active glisse vers sa nouvelle
          valeur en PULSATION_VOLUME_RAMP_S, ce qui est déjà programmé compris ;
          l'autre voix mémorise la sienne. */
       setPulsationVolume: function (voice, value) {

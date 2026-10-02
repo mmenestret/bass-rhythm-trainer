@@ -37,7 +37,7 @@
   const STORAGE_KEY = "bass-rhythm-trainer.preferences.v1";
   const PULSATION_VOICES = ["clic", "groove"];
   const PULSATION_VOLUME_MIN = 0;
-  const PULSATION_VOLUME_MAX = 2.5;
+  const PULSATION_VOLUME_MAX = 3;
   const AIDS = ["click", "visual", "sound"];
 
   function defaultPreferences() {

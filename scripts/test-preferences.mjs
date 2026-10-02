@@ -113,7 +113,7 @@ const DEFAULTS = {
     [{ pulsationVoice: "cowbell" }, DEFAULTS],
     [{ pulsationVoice: 3 }, DEFAULTS],
     [{ pulsationVoice: "groove" }, { ...DEFAULTS, pulsationVoice: "groove" }],
-    [{ pulsationVolumes: { clic: 3, groove: -0.1 } }, DEFAULTS],
+    [{ pulsationVolumes: { clic: 3.1, groove: -0.1 } }, DEFAULTS],
     [{ pulsationVolumes: { clic: "2", groove: null } }, DEFAULTS],
     [{ pulsationVolumes: { clic: 1.8, groove: Number.NaN } },
       { ...DEFAULTS, pulsationVolumes: { clic: 1.8, groove: 1 } }],
@@ -166,7 +166,7 @@ const DEFAULTS = {
 
 /* ---------- (e) borne haute commune avec le moteur ---------- */
 {
-  expect(Preferences.PULSATION_VOLUME_MAX === 2.5, `borne — attendu 2,5, reçu ${Preferences.PULSATION_VOLUME_MAX}`);
+  expect(Preferences.PULSATION_VOLUME_MAX === 3, `borne — attendu 3, reçu ${Preferences.PULSATION_VOLUME_MAX}`);
   expect(Preferences.PULSATION_VOLUME_MAX === Engine.PULSATION_VOLUME_MAX,
     "borne — le maximum des préférences diffère de celui du moteur");
 }

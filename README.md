@@ -36,7 +36,7 @@ glisser vertical, avec l'unité du tempo affichée quand le temps n'est pas une
 noire ; décompte d'une mesure ; trois aides
 de lecture indépendantes (métronome, guide visuel, son) débrayables en vol ;
 dans le même panneau, un curseur de **volume de pulsation** règle la voix
-active (clic ou groove) de 0 à 250 % de son niveau, en vol, sous un limiteur
+active (clic ou groove), du silence au triple de son niveau, en vol, sous un limiteur
 qui évite toute saturation ; chaque voix garde son volume et le décompte prend
 celui de la voix choisie ; en mesure composée, une bascule **Subdiviser**
 (active par défaut) fait entendre ou coupe les croches entre les temps, au

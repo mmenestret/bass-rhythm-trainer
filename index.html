@@ -927,13 +927,8 @@
     white-space: nowrap;
     color: var(--ink-soft);
   }
-  .pulse-volume-value {
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.06em;
-    color: var(--ink);
-  }
   .pulse-volume-range {
-    --fill: 40%;
+    --fill: 33%;
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
@@ -1938,9 +1933,8 @@
         <div class="pulse-volume">
           <label class="pulse-volume-head" for="pulse-volume">
             <span id="pulse-volume-voice" data-i18n="beat.click">Clic</span>
-            <span id="pulse-volume-value" class="pulse-volume-value">100 %</span>
           </label>
-          <input type="range" id="pulse-volume" class="pulse-volume-range" min="0" max="250" step="5" value="100" aria-label="Volume du clic" data-i18n-aria-label="volume.click">
+          <input type="range" id="pulse-volume" class="pulse-volume-range" min="0" max="100" step="1" value="33" aria-label="Volume du clic" data-i18n-aria-label="volume.click">
         </div>
       </div>
     </div>
@@ -3103,28 +3097,23 @@
   });
 
   /* Volume de pulsation : le curseur du panneau des aides règle la voix
-     active (clic ou groove), de 0 à 250 % de son niveau par défaut, en vol.
-     Chaque voix garde sa valeur : changer de voix restaure la sienne. La
-     préférence est écrite au relâchement (change), pas à chaque pas. */
+     active (clic ou groove), du silence à PULSATION_VOLUME_MAX fois son
+     niveau par défaut, en vol. Aucun chiffre affiché : la position du curseur
+     (0–100) suffit. Chaque voix garde sa valeur : changer de voix restaure la
+     sienne. La préférence est écrite au relâchement (change), pas à chaque pas. */
   const pulseVolumeInput = document.getElementById("pulse-volume");
   const pulseVolumeVoice = document.getElementById("pulse-volume-voice");
-  const pulseVolumeValue = document.getElementById("pulse-volume-value");
-  const PULSE_VOLUME_MAX_PERCENT = Preferences.PULSATION_VOLUME_MAX * 100;
-  pulseVolumeInput.max = String(PULSE_VOLUME_MAX_PERCENT);
 
   function refreshPulseVolume(){
     const isGroove = pulsationVoice === "groove";
-    const percent = Math.round(playbackPrefs.pulsationVolumes[pulsationVoice] * 100);
-    const text = t("volume.value", { percent: percent });
-    pulseVolumeInput.value = String(percent);
+    const position = Math.round(playbackPrefs.pulsationVolumes[pulsationVoice] / Preferences.PULSATION_VOLUME_MAX * 100);
+    pulseVolumeInput.value = String(position);
     pulseVolumeInput.setAttribute("aria-label", t(isGroove ? "volume.groove" : "volume.click"));
-    pulseVolumeInput.setAttribute("aria-valuetext", text);
-    pulseVolumeInput.style.setProperty("--fill", (percent / PULSE_VOLUME_MAX_PERCENT * 100) + "%");
+    pulseVolumeInput.style.setProperty("--fill", position + "%");
     pulseVolumeVoice.textContent = t(isGroove ? "beat.groove" : "beat.click");
-    pulseVolumeValue.textContent = text;
   }
   pulseVolumeInput.addEventListener("input", function(){
-    const volume = Number(pulseVolumeInput.value) / 100;
+    const volume = Number(pulseVolumeInput.value) / 100 * Preferences.PULSATION_VOLUME_MAX;
     playbackPrefs.pulsationVolumes[pulsationVoice] = volume;
     if (playing && transport) transport.setPulsationVolume(pulsationVoice, volume);
     refreshPulseVolume();

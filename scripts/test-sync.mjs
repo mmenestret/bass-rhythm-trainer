@@ -31,7 +31,7 @@
  *      caisse / caisse claire / charley) au lieu du clic, comptes conformes à
  *      grooveVoicesAt, premier hit à la barre 1 ; mode clic (défaut) inchangé.
  * (10) volume de pulsation : la crête de la voix active à la sortie suit le
- *      facteur réglé (0 à 2,5, borné), le décompte prend le volume de la voix
+ *      facteur réglé (0 à 3, borné), le décompte prend le volume de la voix
  *      choisie, chaque voix garde le sien, le réglage et le changement de voix
  *      s'appliquent en vol aux battements suivants ; un limiteur (compresseur natif) est le dernier
  *      nœud avant la sortie, pour le transport comme pour les préécoutes.
@@ -720,7 +720,7 @@ try {
     const ratiosOk = (got, ref, factor) => got.length === ref.length && got.length > 0 &&
       got.every((p, i) => close(p, ref[i] * factor, 1e-9));
 
-    expect(PULSATION_VOLUME_MAX === 2.5, `volume — borne haute ${PULSATION_VOLUME_MAX}, attendu 2,5`);
+    expect(PULSATION_VOLUME_MAX === 3, `volume — borne haute ${PULSATION_VOLUME_MAX}, attendu 3`);
 
     // Références au niveau par défaut (aucun volume fourni = 100 %).
     const refClic = clickPeaks(runFor("clic").ctx);
@@ -751,9 +751,9 @@ try {
       "volume — le volume du groove ne doit pas toucher le clic");
     expect(ratiosOk(groovePeaks(runFor("groove", { clic: 2.5, groove: 1 }).ctx), refGrooveHits, 1),
       "volume — le volume du clic ne doit pas toucher le groove");
-    // Bornes : au-delà de 2,5 -> 2,5 ; négatif -> silence ; invalide -> 100 %.
-    expect(ratiosOk(clickPeaks(runFor("clic", { clic: 9, groove: 1 }).ctx), refClic, 2.5),
-      "volume — un facteur au-delà de 2,5 doit être borné à 2,5");
+    // Bornes : au-delà de 3 -> 3 ; négatif -> silence ; invalide -> 100 %.
+    expect(ratiosOk(clickPeaks(runFor("clic", { clic: 9, groove: 1 }).ctx), refClic, 3),
+      "volume — un facteur au-delà de 3 doit être borné à 3");
     expect(ratiosOk(clickPeaks(runFor("clic", { clic: -1, groove: 1 }).ctx), refClic, 0),
       "volume — un facteur négatif doit être borné à 0");
     expect(ratiosOk(clickPeaks(runFor("clic", { clic: "fort", groove: 1 }).ctx), refClic, 1),
@@ -782,7 +782,7 @@ try {
       expect(tr.pulsationVolume("clic") === 2 && tr.pulsationVolume("groove") === 0,
         "volume en vol — chaque voix doit garder la valeur réglée");
       tr.setPulsationVolume("clic", 4);
-      expect(tr.pulsationVolume("clic") === 2.5, "volume en vol — borné à 2,5");
+      expect(tr.pulsationVolume("clic") === 3, "volume en vol — borné à 3");
     }
 
     // Changer de voix en vol : la nouvelle voix joue dès le battement suivant,

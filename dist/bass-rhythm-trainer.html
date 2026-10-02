@@ -939,13 +939,8 @@
     white-space: nowrap;
     color: var(--ink-soft);
   }
-  .pulse-volume-value {
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.06em;
-    color: var(--ink);
-  }
   .pulse-volume-range {
-    --fill: 40%;
+    --fill: 33%;
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
@@ -2104,9 +2099,8 @@ Wikimedia Commons and are in the public domain.
         <div class="pulse-volume">
           <label class="pulse-volume-head" for="pulse-volume">
             <span id="pulse-volume-voice" data-i18n="beat.click">Clic</span>
-            <span id="pulse-volume-value" class="pulse-volume-value">100 %</span>
           </label>
-          <input type="range" id="pulse-volume" class="pulse-volume-range" min="0" max="250" step="5" value="100" aria-label="Volume du clic" data-i18n-aria-label="volume.click">
+          <input type="range" id="pulse-volume" class="pulse-volume-range" min="0" max="100" step="1" value="33" aria-label="Volume du clic" data-i18n-aria-label="volume.click">
         </div>
       </div>
     </div>
@@ -3543,7 +3537,7 @@ window.BRT_EMBEDDED_SAMPLES = {
  *      positionAt(t) : position continue en battements, linéaire par morceaux
  *      entre les changements de tempo.
  *    - clampPulsationVolume(v) : facteur de volume de pulsation borné à
- *      [0, PULSATION_VOLUME_MAX = 2,5] ; valeur non numérique -> 1.
+ *      [0, PULSATION_VOLUME_MAX = 3] ; valeur non numérique -> 1.
  *    - meterBeats("3/2") -> 3 : temps par mesure d'une signature, d'après
  *      l'analyse de signature (js/meter.js) — meterBeats("6/8") -> 2.
  *    - tempoRange(meter) -> { min, max } : 40–200 BPM, 40–120 en mesure
@@ -3622,7 +3616,7 @@ window.BRT_EMBEDDED_SAMPLES = {
  *      (attaque du sample pleine échelle + clic accentué) ≈ 0,96, sans
  *      saturation, la basse nette et le clic derrière.
  *      Volume de pulsation : pulsationVolumes { clic, groove } donne à chaque
- *      voix un facteur de 0 à 2,5 (défaut 1) appliqué à son niveau ; le
+ *      voix un facteur de 0 à 3 (défaut 1) appliqué à son niveau ; le
  *      décompte prend le volume de la voix choisie. setPulsationVolume(voice,
  *      v) le règle en vol, pulsationVolume(voice) le relit ;
  *      setPulsationVoice(voice) change de voix en vol, à son propre volume. Un limiteur
@@ -3686,9 +3680,9 @@ window.BRT_EMBEDDED_SAMPLES = {
   const TEMPO_MAX_COMPOUND = 120;
 
   /* Volume de pulsation : facteur par voix (clic, groove) appliqué au niveau
-     par défaut ci-dessus, de 0 (silence) à 2,5. Au-delà de 100 %, la somme
+     par défaut ci-dessus, de 0 (silence) à 3. Au-delà de 100 %, la somme
      peut dépasser la pleine échelle : le limiteur de sortie la contient. */
-  const PULSATION_VOLUME_MAX = 2.5;
+  const PULSATION_VOLUME_MAX = 3;
   const PULSATION_VOLUME_RAMP_S = 0.02; // glissé du réglage en vol (pas de zip)
 
   /* Limiteur de sortie : compresseur natif à seuil haut, ratio fort et
@@ -4491,7 +4485,7 @@ window.BRT_EMBEDDED_SAMPLES = {
       setBpm: function (v) { clock.setBpm(v); },
       bpm: function () { return clock.bpm(); },
       /* Volume de pulsation d'une voix ("clic" | "groove"), facteur borné à
-         [0, 2,5]. Réglé en vol : la voix active glisse vers sa nouvelle
+         [0, 3]. Réglé en vol : la voix active glisse vers sa nouvelle
          valeur en PULSATION_VOLUME_RAMP_S, ce qui est déjà programmé compris ;
          l'autre voix mémorise la sienne. */
       setPulsationVolume: function (voice, value) {
@@ -4730,7 +4724,6 @@ window.BRT_EMBEDDED_SAMPLES = {
       "subdivide.title": "Subdiviser — croches entre les temps, au clic et au charley",
       "volume.click": "Volume du clic",
       "volume.groove": "Volume du groove",
-      "volume.value": "{percent} %",
       "transport.rewind": "Retour au début",
       "transport.play": "Lancer la lecture",
       "transport.pause": "Suspendre la lecture",
@@ -4870,7 +4863,6 @@ window.BRT_EMBEDDED_SAMPLES = {
       "subdivide.title": "Subdivide — eighth notes between beats, on the click and the hi-hat",
       "volume.click": "Click volume",
       "volume.groove": "Groove volume",
-      "volume.value": "{percent}%",
       "transport.rewind": "Back to the start",
       "transport.play": "Start playback",
       "transport.pause": "Pause playback",
@@ -5100,7 +5092,7 @@ window.BRT_EMBEDDED_SAMPLES = {
   const STORAGE_KEY = "bass-rhythm-trainer.preferences.v1";
   const PULSATION_VOICES = ["clic", "groove"];
   const PULSATION_VOLUME_MIN = 0;
-  const PULSATION_VOLUME_MAX = 2.5;
+  const PULSATION_VOLUME_MAX = 3;
   const AIDS = ["click", "visual", "sound"];
 
   function defaultPreferences() {
@@ -6169,28 +6161,23 @@ window.BRT_EMBEDDED_SAMPLES = {
   });
 
   /* Volume de pulsation : le curseur du panneau des aides règle la voix
-     active (clic ou groove), de 0 à 250 % de son niveau par défaut, en vol.
-     Chaque voix garde sa valeur : changer de voix restaure la sienne. La
-     préférence est écrite au relâchement (change), pas à chaque pas. */
+     active (clic ou groove), du silence à PULSATION_VOLUME_MAX fois son
+     niveau par défaut, en vol. Aucun chiffre affiché : la position du curseur
+     (0–100) suffit. Chaque voix garde sa valeur : changer de voix restaure la
+     sienne. La préférence est écrite au relâchement (change), pas à chaque pas. */
   const pulseVolumeInput = document.getElementById("pulse-volume");
   const pulseVolumeVoice = document.getElementById("pulse-volume-voice");
-  const pulseVolumeValue = document.getElementById("pulse-volume-value");
-  const PULSE_VOLUME_MAX_PERCENT = Preferences.PULSATION_VOLUME_MAX * 100;
-  pulseVolumeInput.max = String(PULSE_VOLUME_MAX_PERCENT);
 
   function refreshPulseVolume(){
     const isGroove = pulsationVoice === "groove";
-    const percent = Math.round(playbackPrefs.pulsationVolumes[pulsationVoice] * 100);
-    const text = t("volume.value", { percent: percent });
-    pulseVolumeInput.value = String(percent);
+    const position = Math.round(playbackPrefs.pulsationVolumes[pulsationVoice] / Preferences.PULSATION_VOLUME_MAX * 100);
+    pulseVolumeInput.value = String(position);
     pulseVolumeInput.setAttribute("aria-label", t(isGroove ? "volume.groove" : "volume.click"));
-    pulseVolumeInput.setAttribute("aria-valuetext", text);
-    pulseVolumeInput.style.setProperty("--fill", (percent / PULSE_VOLUME_MAX_PERCENT * 100) + "%");
+    pulseVolumeInput.style.setProperty("--fill", position + "%");
     pulseVolumeVoice.textContent = t(isGroove ? "beat.groove" : "beat.click");
-    pulseVolumeValue.textContent = text;
   }
   pulseVolumeInput.addEventListener("input", function(){
-    const volume = Number(pulseVolumeInput.value) / 100;
+    const volume = Number(pulseVolumeInput.value) / 100 * Preferences.PULSATION_VOLUME_MAX;
     playbackPrefs.pulsationVolumes[pulsationVoice] = volume;
     if (playing && transport) transport.setPulsationVolume(pulsationVoice, volume);
     refreshPulseVolume();
