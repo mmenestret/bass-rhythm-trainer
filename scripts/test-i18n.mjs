@@ -164,7 +164,7 @@ for (const dynamicText of [
   "Other…",
   "Time signature top number",
   "Tempo unit: {figure}",
-  "dotted quarter note",
+  "Dotted quarter note",
   "Dotted half note",
   "Triplet",
   "not in compound time",
