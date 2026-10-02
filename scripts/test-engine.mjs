@@ -8,7 +8,8 @@
  *  (b) changement de tempo au milieu : les temps déjà programmés inchangés,
  *      le battement d'ancrage garde son instant planifié, les suivants au
  *      nouvel intervalle, position continue sans saut ni régression ;
- *  (c) mapping mesure/temps pour 2/4, 3/4, 4/4, 2/2, 3/2, 4/2 ;
+ *  (c) mapping mesure/temps pour les signatures simples (dont 5/4, 7/4,
+ *      7/8) et composées (6/8 = 2 temps, 9/8 = 3, 12/8 = 4) ;
  *  (d) décompte d'une mesure correct pour chaque signature (départ et
  *      reprise en cours de grille) ;
  *  (e) +5 BPM en vol sans dérive sur les 100 temps suivants ;
@@ -121,10 +122,13 @@ const close = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
   expect(close(ev2.time, 4 + 0.6), `setBpm successifs — intervalle attendu 0,6 s, reçu ${ev2.time - ev.time}`);
 }
 
-/* ---------- (c) mapping mesure/temps pour les 6 signatures ---------- */
+/* ---------- (c) mapping mesure/temps, signatures simples et composées ---------- */
 const SIGNATURES = [
   ["2/4", 2], ["3/4", 3], ["4/4", 4],
   ["2/2", 2], ["3/2", 3], ["4/2", 4],
+  ["5/4", 5], ["7/4", 7], ["7/8", 7], ["1/4", 1], ["12/4", 12],
+  // mesures composées : le temps est la noire pointée
+  ["6/8", 2], ["9/8", 3], ["12/8", 4],
 ];
 for (const [meter, bpbAttendu] of SIGNATURES) {
   const bpb = meterBeats(meter);

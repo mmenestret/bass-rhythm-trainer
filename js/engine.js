@@ -15,7 +15,8 @@
  *      entre les changements de tempo.
  *    - clampPulsationVolume(v) : facteur de volume de pulsation borné à
  *      [0, PULSATION_VOLUME_MAX = 2,5] ; valeur non numérique -> 1.
- *    - meterBeats("3/2") -> 3 : temps par mesure d'une signature.
+ *    - meterBeats("3/2") -> 3 : temps par mesure d'une signature, d'après
+ *      l'analyse de signature (js/meter.js) — meterBeats("6/8") -> 2.
  *    - countInBeats(bpb) -> bpb : le décompte occupe une mesure entière.
  *    - barBeat(gridBeat, bpb) -> { measure, beat } (1-based).
  *    - describeBeat(step, startGridBeat, bpb, totalBeats) : classe chaque pas
@@ -95,15 +96,16 @@
  *      en phase avec les temps forts).
  *
  * UMD minimal : window.BassRhythmEngine dans la page, module.exports sous Node.
+ * Dépend de js/meter.js (window.BassRhythmMeter, chargé avant).
  */
 (function (root, factory) {
   "use strict";
   if (typeof module === "object" && typeof module.exports === "object") {
-    module.exports = factory();
+    module.exports = factory(require("./meter.js"));
   } else {
-    root.BassRhythmEngine = factory();
+    root.BassRhythmEngine = factory(root.BassRhythmMeter);
   }
-}(typeof self !== "undefined" ? self : this, function () {
+}(typeof self !== "undefined" ? self : this, function (Meter) {
   "use strict";
 
   var LOOKAHEAD_MS = 25;         // période de la pompe de programmation
@@ -210,10 +212,10 @@
     return Math.min(PULSATION_VOLUME_MAX, Math.max(0, value));
   }
 
+  /* Temps par mesure, lus dans l'analyse de signature (js/meter.js) : le
+     numérateur en mesure simple, le numérateur / 3 en composée (6/8 = 2). */
   function meterBeats(meter) {
-    var m = /^(\d+)\/(\d+)$/.exec(String(meter));
-    if (!m) throw new Error("Signature invalide : " + meter);
-    return parseInt(m[1], 10);
+    return Meter.analyzeMeter(meter).beats;
   }
 
   /* Le décompte occupe exactement une mesure de la signature courante. */
