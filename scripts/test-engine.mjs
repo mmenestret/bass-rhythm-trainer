@@ -16,7 +16,14 @@
  *  (f) describeLoopedBeat : identique à describeBeat sous totalBeats, cycles
  *      repliés sans fin ni décompte tant que la boucle est armée, fin à la
  *      prochaine frontière de grille quand elle se coupe, jamais de fin en
- *      totalBeats infini (flux ∞).
+ *      totalBeats infini (flux ∞) ;
+ *  (g) grooveVoicesAt : grosse caisse sur les temps impairs, caisse claire
+ *      sur les temps pairs, en 5/4 et 7/4 comme en mesure composée ;
+ *  (h) bornes du tempo selon la signature (40–200, 40–120 en mesure
+ *      composée) et nombre conservé au changement de signature ;
+ *  (i) subdivision : trois croches par temps en mesure composée quand elle
+ *      est active, aucune sinon (ni en mesure simple) ; pulsations d'un
+ *      temps à trois niveaux (1 accentué, autres temps, croches faibles).
  * Code de sortie non nul si échec.
  */
 import { createRequire } from "node:module";
@@ -33,6 +40,10 @@ const {
   grooveVoicesAt,
   describeBeat,
   describeLoopedBeat,
+  tempoRange,
+  clampTempo,
+  beatSubdivisions,
+  pulsesOfBeat,
 } = require(enginePath);
 
 let checks = 0;
@@ -296,6 +307,74 @@ for (const [meter] of SIGNATURES) {
   // 3/4 : grosse caisse 1 & 3, caisse claire 2. 2/4 : grosse caisse 1, caisse claire 2.
   expect(grooveVoicesAt(1).kick && grooveVoicesAt(2).snare && grooveVoicesAt(3).kick,
     "groove 3/4 — grosse caisse 1 & 3, caisse claire 2");
+}
+
+/* ---------- (g bis) groove en 5/4, 7/4 et en mesure composée ---------- */
+{
+  // Le motif s'applique tel quel aux temps : impairs grosse caisse, pairs caisse claire.
+  for (const [meter, kicksWant, snaresWant] of [
+    ["5/4", "1,3,5", "2,4"],
+    ["7/4", "1,3,5,7", "2,4,6"],
+    ["6/8", "1", "2"],
+    ["9/8", "1,3", "2"],
+    ["12/8", "1,3", "2,4"],
+  ]) {
+    const bpb = meterBeats(meter);
+    const beats = Array.from({ length: bpb }, (_, i) => i + 1);
+    const kicks = beats.filter((b) => grooveVoicesAt(b).kick).join(",");
+    const snares = beats.filter((b) => grooveVoicesAt(b).snare).join(",");
+    expect(kicks === kicksWant, `groove ${meter} — grosse caisse sur ${kicks}, attendu ${kicksWant}`);
+    expect(snares === snaresWant, `groove ${meter} — caisse claire sur ${snares}, attendu ${snaresWant}`);
+  }
+}
+
+/* ---------- (h) bornes du tempo selon la signature ---------- */
+{
+  for (const meter of ["2/4", "4/4", "7/4", "3/2", "5/8", "7/8"]) {
+    const r = tempoRange(meter);
+    expect(r.min === 40 && r.max === 200, `${meter} — tempo ${r.min}–${r.max}, attendu 40–200`);
+  }
+  for (const meter of ["6/8", "9/8", "12/8"]) {
+    const r = tempoRange(meter);
+    expect(r.min === 40 && r.max === 120, `${meter} — tempo ${r.min}–${r.max}, attendu 40–120`);
+  }
+  expect(clampTempo(90, "6/8") === 90, "6/8 — 90 conservé");
+  expect(clampTempo(160, "6/8") === 120, "6/8 — 160 borné à 120");
+  expect(clampTempo(160, "4/4") === 160, "4/4 — 160 conservé");
+  expect(clampTempo(20, "12/8") === 40, "12/8 — 20 borné à 40");
+  expect(clampTempo(250, "3/4") === 200, "3/4 — 250 borné à 200");
+  expect(clampTempo(87.6, "4/4") === 88, "tempo arrondi au BPM entier");
+  // Changer de signature garde le nombre affiché, borné au plafond.
+  let bpm = 90;
+  for (const meter of ["4/4", "6/8", "3/4", "12/8"]) bpm = clampTempo(bpm, meter);
+  expect(bpm === 90, `changements de signature — 90 devient ${bpm}`);
+  bpm = clampTempo(clampTempo(150, "6/8"), "4/4");
+  expect(bpm === 120, `150 en 4/4 puis 6/8 puis 4/4 — ${bpm}, attendu 120 (pas de retour en arrière)`);
+}
+
+/* ---------- (i) subdivision et pulsations d'un temps ---------- */
+{
+  for (const meter of ["6/8", "9/8", "12/8"]) {
+    expect(beatSubdivisions(meter, true) === 3, `${meter} — subdivision active : 3 croches par temps`);
+    expect(beatSubdivisions(meter, false) === 1, `${meter} — subdivision coupée : le temps seul`);
+    expect(beatSubdivisions(meter) === 3, `${meter} — subdivision active par défaut`);
+  }
+  for (const meter of ["4/4", "3/4", "7/8", "3/2"]) {
+    expect(beatSubdivisions(meter, true) === 1, `${meter} — aucune subdivision en mesure simple`);
+  }
+  const fmt = (pulses) => pulses.map((p) => `${p.offset.toFixed(4)}:${p.level}`).join(" ");
+  const first = describeBeat(2, 0, 2, 8); // 6/8 : temps 1 de la mesure 1
+  expect(fmt(pulsesOfBeat(first, 3)) === "0.0000:accent 0.3333:sub 0.6667:sub",
+    `pulsations du temps 1 en 6/8 — ${fmt(pulsesOfBeat(first, 3))}`);
+  const second = describeBeat(3, 0, 2, 8);
+  expect(fmt(pulsesOfBeat(second, 3)) === "0.0000:beat 0.3333:sub 0.6667:sub",
+    `pulsations du temps 2 en 6/8 — ${fmt(pulsesOfBeat(second, 3))}`);
+  expect(fmt(pulsesOfBeat(second, 1)) === "0.0000:beat", "subdivision coupée : le temps seul");
+  const countIn = describeBeat(0, 0, 2, 8);
+  expect(fmt(pulsesOfBeat(countIn, 3)) === "0.0000:accent 0.3333:sub 0.6667:sub",
+    "le décompte joue aussi les croches");
+  expect(pulsesOfBeat(second, 3)[1].offset === 1 / 3 && pulsesOfBeat(second, 3)[2].offset === 2 / 3,
+    "décalages exacts des croches (1/3, 2/3)");
 }
 
 /* ---------- bilan ---------- */

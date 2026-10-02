@@ -3432,6 +3432,14 @@ window.BRT_EMBEDDED_SAMPLES = {
  *      [0, PULSATION_VOLUME_MAX = 2,5] ; valeur non numérique -> 1.
  *    - meterBeats("3/2") -> 3 : temps par mesure d'une signature, d'après
  *      l'analyse de signature (js/meter.js) — meterBeats("6/8") -> 2.
+ *    - tempoRange(meter) -> { min, max } : 40–200 BPM, 40–120 en mesure
+ *      composée (le tempo y compte la noire pointée) ; clampTempo(v, meter)
+ *      arrondit et borne — changer de signature garde le nombre, borné.
+ *    - beatSubdivisions(meter, subdivide) : croches entendues par temps — 3 en
+ *      mesure composée quand la subdivision est active (défaut), 1 sinon.
+ *    - pulsesOfBeat(d, subdivisions) : pulsations d'un pas décrit par
+ *      describeBeat — le temps (niveau "accent" sur le 1, "beat" sinon) puis
+ *      ses croches de subdivision (niveau "sub"), décalages en temps.
  *    - countInBeats(bpb) -> bpb : le décompte occupe une mesure entière.
  *    - barBeat(gridBeat, bpb) -> { measure, beat } (1-based).
  *    - describeBeat(step, startGridBeat, bpb, totalBeats) : classe chaque pas
@@ -3473,12 +3481,16 @@ window.BRT_EMBEDDED_SAMPLES = {
  *    - playNotePreview(ctx, v, seconds) : préécoute hors transport (~1,5 s),
  *      rend { stop() }.
  *    - createTransport({ ctx, bpm, beatsPerBar, totalBeats, startGridBeat,
- *      noteEvents, notesEnabled, clicksEnabled, pulsationVoice,
+ *      subdivisions, noteEvents, notesEnabled, clicksEnabled, pulsationVoice,
  *      pulsationVolumes, getNoteVoice, loop }) :
  *      horloge à lookahead (setInterval ~25 ms, horizon ~120 ms), chaque clic
  *      programmé sur ctx.currentTime — jamais de setTimeout cumulatif.
  *      Clic = oscillateur sinus court avec enveloppe douce (esthétique Apnée) ;
- *      accent du temps 1 plus aigu et plus fort. pulsationVoice "groove" joue,
+ *      accent du temps 1 plus aigu et plus fort. subdivisions (défaut 1) :
+ *      en mesure composée, 3 ajoute les croches entre les temps, au clic
+ *      comme au charley, plus faibles (trois niveaux de clic : 1, autres
+ *      temps, croches) ; le décompte les joue aussi. setSubdivisions(n) la
+ *      coupe ou la rétablit en vol. pulsationVoice "groove" joue,
  *      aux battements de grille, une batterie de synthèse sobre mixée bas à la
  *      place du clic (le décompte reste au clic). L'AudioContext est créé et
  *      repris par la page au geste utilisateur (bouton play), puis fourni ici.
@@ -3540,7 +3552,24 @@ window.BRT_EMBEDDED_SAMPLES = {
   var GROOVE_KICK_LEVEL = 0.32;
   var GROOVE_SNARE_LEVEL = 0.16;
   var GROOVE_HAT_LEVEL = 0.08;
+  const GROOVE_HAT_SUB_LEVEL = 0.045; // charley des croches de subdivision, sous celui des temps
   var GROOVE_NOISE_S = 0.3;      // durée du buffer de bruit (caisse claire, charley)
+
+  /* Clic à trois niveaux : le 1 (aigu, fort), les autres temps, puis les
+     croches de subdivision en mesure composée (plus graves, nettement plus
+     faibles, plus brèves). */
+  const CLICK_VOICES = {
+    accent: { freq: 1320, peak: 0.4, decay: 0.1 },
+    beat: { freq: 880, peak: 0.18, decay: 0.06 },
+    sub: { freq: 660, peak: 0.07, decay: 0.04 }
+  };
+
+  /* Tempo : il compte le temps de la signature (la noire pointée en mesure
+     composée), plafonné plus bas en composée pour que les croches restent
+     jouables (docs/mesures-composees-pulsation.md). */
+  const TEMPO_MIN = 40;
+  const TEMPO_MAX = 200;
+  const TEMPO_MAX_COMPOUND = 120;
 
   /* Volume de pulsation : facteur par voix (clic, groove) appliqué au niveau
      par défaut ci-dessus, de 0 (silence) à 2,5. Au-delà de 100 %, la somme
@@ -3633,6 +3662,41 @@ window.BRT_EMBEDDED_SAMPLES = {
     return Meter.analyzeMeter(meter).beats;
   }
 
+  /* Bornes du tempo pour une signature : 40–200, 40–120 en mesure composée. */
+  function tempoRange(meter) {
+    return {
+      min: TEMPO_MIN,
+      max: Meter.analyzeMeter(meter).compound ? TEMPO_MAX_COMPOUND : TEMPO_MAX
+    };
+  }
+
+  /* Tempo arrondi au BPM entier et borné selon la signature : au changement
+     de signature, le nombre est conservé tant qu'il tient sous le plafond. */
+  function clampTempo(bpm, meter) {
+    const range = tempoRange(meter);
+    return Math.max(range.min, Math.min(range.max, Math.round(bpm)));
+  }
+
+  /* Croches entendues par temps : celles de la mesure composée quand la
+     subdivision est active (défaut), le temps seul sinon — jamais de
+     subdivision en mesure simple. */
+  function beatSubdivisions(meter, subdivide) {
+    if (subdivide === false) return 1;
+    return Meter.analyzeMeter(meter).subdivision;
+  }
+
+  /*
+   * Pulsations d'un pas (décompte ou battement de grille, cf. describeBeat) :
+   * le temps, au niveau "accent" (le 1) ou "beat", puis subdivisions - 1
+   * croches de niveau "sub", aux décalages k / subdivisions du temps.
+   */
+  function pulsesOfBeat(d, subdivisions) {
+    const n = subdivisions > 1 ? Math.round(subdivisions) : 1;
+    const pulses = [{ offset: 0, level: d.accent ? "accent" : "beat" }];
+    for (let k = 1; k < n; k++) pulses.push({ offset: k / n, level: "sub" });
+    return pulses;
+  }
+
   /* Le décompte occupe exactement une mesure de la signature courante. */
   function countInBeats(beatsPerBar) { return beatsPerBar; }
 
@@ -3645,7 +3709,9 @@ window.BRT_EMBEDDED_SAMPLES = {
 
   /*
    * Voix du groove d'accompagnement sobre à un temps donné (1-based). Motif
-   * fixe, binaire, indépendant de la signature : charley sur CHAQUE temps,
+   * fixe, indépendant de la signature (5/4, 7/4 et mesures composées
+   * comprises, la noire pointée y étant le temps) : charley sur CHAQUE temps
+   * — et sur chaque croche de subdivision en mesure composée —,
    * grosse caisse sur les temps impairs (le 1 porte le downbeat, comme l'accent
    * aigu du clic), caisse claire sur les temps pairs (backbeat). En 4/4 : kick
    * 1 & 3, caisse claire 2 & 4 ; en 3/4 : kick 1 & 3, caisse claire 2 ; en 2/4 :
@@ -4017,8 +4083,9 @@ window.BRT_EMBEDDED_SAMPLES = {
     return buildNoiseHit(ctx, dest, time, noise, 1500, GROOVE_SNARE_LEVEL, 0.14);
   }
 
-  function buildHat(ctx, dest, time, noise) {
-    return buildNoiseHit(ctx, dest, time, noise, 7000, GROOVE_HAT_LEVEL, 0.03);
+  /* Charley : au niveau des temps, ou plus bas sur une croche de subdivision. */
+  function buildHat(ctx, dest, time, noise, weak) {
+    return buildNoiseHit(ctx, dest, time, noise, 7000, weak ? GROOVE_HAT_SUB_LEVEL : GROOVE_HAT_LEVEL, 0.03);
   }
 
   /*
@@ -4080,6 +4147,11 @@ window.BRT_EMBEDDED_SAMPLES = {
     var stopped = false;
     var loopOn = !!opts.loop; // boucle sans couture (repeat) — bascule en vol via setLoop
     var everLooped = false;   // au moins un battement replié émis (pour la reprise)
+    /* Subdivision : croches par temps (1 = le temps seul). Les croches d'un
+       temps programmé attendent dans pendingSubs que leur instant entre dans
+       l'horizon ; elles lisent la voix et le métronome à ce moment-là. */
+    let subdivisions = opts.subdivisions > 1 ? Math.round(opts.subdivisions) : 1;
+    let pendingSubs = [];
 
     /* Son des notes : événements { startBeats, holdBeats } triés, fournis par
        noteSoundEvents. On ne rejoue jamais une attaque antérieure au point de
@@ -4137,14 +4209,17 @@ window.BRT_EMBEDDED_SAMPLES = {
     }
 
     /* Clic doux : sinus court, attaque 2,5 ms, décroissance exponentielle.
-       Accent du temps 1 : quinte + octave au-dessus, plus fort, un peu plus long. */
-    function scheduleClick(time, accent) {
+       Trois niveaux (CLICK_VOICES) : accent du temps 1 (quinte + octave
+       au-dessus, plus fort, un peu plus long), autres temps, croches de
+       subdivision (plus graves, faibles et brèves). */
+    function scheduleClick(time, level) {
+      const voice = CLICK_VOICES[level] || CLICK_VOICES.beat;
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.value = accent ? 1320 : 880;
-      var peak = accent ? 0.4 : 0.18;
-      var decay = accent ? 0.1 : 0.06;
+      osc.frequency.value = voice.freq;
+      var peak = voice.peak;
+      var decay = voice.decay;
       gain.gain.setValueAtTime(0.0001, time);
       gain.gain.linearRampToValueAtTime(peak, time + 0.0025);
       gain.gain.exponentialRampToValueAtTime(0.0001, time + decay);
@@ -4156,20 +4231,38 @@ window.BRT_EMBEDDED_SAMPLES = {
       trackPulsation({ srcs: [osc], gain: gain });
     }
 
-    /* Voix de pulsation à un battement : le décompte reste TOUJOURS au clic
-       (repère de départ limpide) ; en mode groove, les battements de la grille
-       jouent la batterie de synthèse (grosse caisse / caisse claire / charley
-       selon le temps), le groove n'entrant donc qu'à la barre 1. */
-    function schedulePulsation(time, d) {
+    /* Voix de pulsation à une pulsation (temps ou croche, cf. pulsesOfBeat) :
+       le décompte reste TOUJOURS au clic (repère de départ limpide) ; en mode
+       groove, les battements de la grille jouent la batterie de synthèse
+       (grosse caisse / caisse claire / charley selon le temps, charley seul
+       et plus bas sur une croche), le groove n'entrant donc qu'à la barre 1. */
+    function schedulePulsation(time, d, level) {
       if (pulsationVoice === "clic" || d.type === "countin") {
-        scheduleClick(time, d.accent);
+        scheduleClick(time, level);
         return;
       }
       if (!noise) noise = buildNoiseBuffer(ctx);
+      if (level === "sub") {
+        trackPulsation(buildHat(ctx, pulseBus, time, noise, true));
+        return;
+      }
       var v = grooveVoicesAt(d.beatInBar);
       if (v.kick) trackPulsation(buildKick(ctx, pulseBus, time));
       if (v.snare) trackPulsation(buildSnare(ctx, pulseBus, time, noise));
-      if (v.hat) trackPulsation(buildHat(ctx, pulseBus, time, noise));
+      if (v.hat) trackPulsation(buildHat(ctx, pulseBus, time, noise, false));
+    }
+
+    /* Croches de subdivision en attente dont l'instant entre dans l'horizon :
+       instant exact sur la grille (clock.timeAt du pas fractionnaire, au
+       tempo du temps qui les porte). */
+    function scheduleSubdivisions(horizon) {
+      while (pendingSubs.length) {
+        const sub = pendingSubs[0];
+        const time = clock.timeAt(sub.position);
+        if (time >= horizon) break;
+        pendingSubs.shift();
+        if (clicksOn || sub.d.type === "countin") schedulePulsation(time, sub.d, "sub");
+      }
     }
 
     /* Voix d'une note : construction partagée avec la préécoute
@@ -4262,13 +4355,18 @@ window.BRT_EMBEDDED_SAMPLES = {
           // Métronome coupé : les battements avancent et les visuels restent
           // (pastilles), seuls les clics de grille se taisent. Le décompte
           // reste toujours audible : c'est le repère de départ.
-          if (clicksOn || d.type === "countin") schedulePulsation(ev.time, d);
+          const pulses = pulsesOfBeat(d, subdivisions);
+          if (clicksOn || d.type === "countin") schedulePulsation(ev.time, d, pulses[0].level);
+          for (let k = 1; k < pulses.length; k++) {
+            pendingSubs.push({ position: ev.index + pulses[k].offset, d: d });
+          }
           d.time = ev.time;
           visuals.push(d);
         }
       }
+      scheduleSubdivisions(horizon);
       scheduleNotes(horizon);
-      if (allScheduled && noteIdx >= noteEvents.length) clearInterval(timer);
+      if (allScheduled && noteIdx >= noteEvents.length && !pendingSubs.length) clearInterval(timer);
     }
 
     var timer = setInterval(pump, LOOKAHEAD_MS);
@@ -4298,6 +4396,14 @@ window.BRT_EMBEDDED_SAMPLES = {
       },
       pulsationVolume: function (voice) {
         return pulsationVolumes[voice];
+      },
+      /* Subdivision en vol (croches par temps, 1 = le temps seul) : les
+         temps suivants la prennent ; coupée, les croches pas encore
+         programmées sont abandonnées (le déjà programmé, sur moins d'un
+         horizon, sonne encore). */
+      setSubdivisions: function (n) {
+        subdivisions = n > 1 ? Math.round(n) : 1;
+        if (subdivisions === 1) pendingSubs = [];
       },
       /* Position continue à l'instant t : { step, countIn, gridBeat }. */
       positionAt: function (t) {
@@ -4424,6 +4530,18 @@ window.BRT_EMBEDDED_SAMPLES = {
     START_DELAY_S: START_DELAY_S,
     NOTE_RELEASE_S: NOTE_RELEASE_S,
     PULSATION_VOLUME_MAX: PULSATION_VOLUME_MAX,
+    TEMPO_MIN: TEMPO_MIN,
+    TEMPO_MAX: TEMPO_MAX,
+    TEMPO_MAX_COMPOUND: TEMPO_MAX_COMPOUND,
+    CLICK_FREQUENCIES: {
+      accent: CLICK_VOICES.accent.freq,
+      beat: CLICK_VOICES.beat.freq,
+      sub: CLICK_VOICES.sub.freq
+    },
+    tempoRange: tempoRange,
+    clampTempo: clampTempo,
+    beatSubdivisions: beatSubdivisions,
+    pulsesOfBeat: pulsesOfBeat,
     clampPulsationVolume: clampPulsationVolume,
     createBeatClock: createBeatClock,
     meterBeats: meterBeats,

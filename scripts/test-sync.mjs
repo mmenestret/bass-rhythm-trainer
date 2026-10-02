@@ -35,6 +35,17 @@
  *      choisie, chaque voix garde le sien, le réglage et le changement de voix
  *      s'appliquent en vol aux battements suivants ; un limiteur (compresseur natif) est le dernier
  *      nœud avant la sortie, pour le transport comme pour les préécoutes.
+ * (11) mesures composées (6/8, 9/8, 12/8) : temps à la noire pointée,
+ *      croches de subdivision aux tiers exacts du temps, trois niveaux de
+ *      clic (1 accentué, autres temps, croches faibles), décompte subdivisé,
+ *      subdivision coupée au départ comme en vol ; signatures simples
+ *      jamais subdivisées ;
+ * (12) groove en mesure composée (grosse caisse et caisse claire sur les
+ *      temps, charley sur chaque croche accentué sur les temps, charley sur
+ *      les seuls temps quand la subdivision est coupée) et en 5/4, 7/4 ;
+ * (13) grille composée réelle en 6/8 (générateur + rng) : attaques des temps
+ *      === clics des temps, attaques des croches sur les clics de
+ *      subdivision — guidage visuel et son de basse synchrones.
  * Code de sortie non nul si échec.
  */
 import { createRequire } from "node:module";
@@ -57,6 +68,8 @@ const {
   playNotePreview,
   playGroovePreview,
   PULSATION_VOLUME_MAX,
+  CLICK_FREQUENCIES,
+  beatSubdivisions,
 } = require(path.join(ROOT, "js", "engine.js"));
 const { generateExercise } = require(path.join(ROOT, "js", "generator.js"));
 
@@ -854,6 +867,200 @@ try {
       const ctxN = createMockCtx();
       playNotePreview(ctxN, { buffer: BUFFER }, 1.5);
       limiterOk(ctxN, ctxN.noteStarts, "limiteur préécoute son");
+    }
+  }
+
+  /* ================ (11) mesures composées : temps, croches, trois niveaux ================ */
+  {
+    const { accent: F_ACCENT, beat: F_BEAT, sub: F_SUB } = CLICK_FREQUENCIES;
+    expect(F_ACCENT === ACCENT_FREQ && new Set([F_ACCENT, F_BEAT, F_SUB]).size === 3,
+      "composée — trois fréquences de clic distinctes attendues");
+    for (const [meter, bars] of [["6/8", 3], ["9/8", 2], ["12/8", 2]]) {
+      const bpb = meterBeats(meter);
+      const countIn = countInBeats(bpb);
+      const total = bars * bpb;
+      for (const BPM of [40, 120]) {
+        const spb = 60 / BPM;
+        const ctx = createMockCtx();
+        const t0 = ctx.currentTime + START_DELAY_S;
+        const tr = createTransport({
+          ctx, bpm: BPM, beatsPerBar: bpb, totalBeats: total, subdivisions: beatSubdivisions(meter, true),
+          noteEvents: [], notesEnabled: false, getNoteVoice: () => null,
+        });
+        stepPump(ctx, t0 + (countIn + total + 2) * spb);
+        const clicks = ctx.clickStarts.slice().sort((a, b) => a.time - b.time);
+        const label = `${meter} à ${BPM}`;
+        expect(clicks.length === (countIn + total) * 3,
+          `${label} — ${clicks.length} clic(s), attendu ${(countIn + total) * 3} (temps et croches, décompte compris)`);
+        let maxErr = 0;
+        clicks.forEach((c, i) => {
+          const step = Math.floor(i / 3);
+          const k = i % 3;
+          maxErr = Math.max(maxErr, Math.abs(c.time - (t0 + (step + k / 3) * spb)));
+          const inGrid = step >= countIn;
+          const wantFreq = k > 0 ? F_SUB
+            : (inGrid ? ((step - countIn) % bpb === 0 ? F_ACCENT : F_BEAT) : (step === 0 ? F_ACCENT : F_BEAT));
+          expect(c.freq === wantFreq, `${label} — clic ${i} (temps ${step}, croche ${k}) : ${c.freq} Hz, attendu ${wantFreq}`);
+          if (k === 0) expect(close(tr.positionAt(c.time).step, step), `${label} — positionAt(temps ${step}) faux`);
+        });
+        expect(maxErr <= 1e-9, `${label} — dérive ${maxErr} s sur les temps et les croches`);
+        // Trois niveaux : 1 accentué > autres temps > croches faibles.
+        const peakOf = (freq) => Math.max(...clicks.filter((c) => c.freq === freq).map((c) => peakAtOutput(ctx, c)));
+        const pa = peakOf(F_ACCENT), pb = peakOf(F_BEAT), ps = peakOf(F_SUB);
+        expect(pa > pb && pb > ps && ps > 0, `${label} — niveaux ${pa.toFixed(3)} / ${pb.toFixed(3)} / ${ps.toFixed(3)}, attendu décroissants`);
+        // Les pastilles ne suivent que les temps.
+        expect(tr.takeDueVisuals(Infinity).length === countIn + total, `${label} — un visuel par temps`);
+      }
+      // Subdivision coupée : les temps seuls, décompte compris.
+      const ctx = createMockCtx();
+      const t0 = ctx.currentTime + START_DELAY_S;
+      createTransport({
+        ctx, bpm: 60, beatsPerBar: bpb, totalBeats: total, subdivisions: beatSubdivisions(meter, false),
+        noteEvents: [], notesEnabled: false, getNoteVoice: () => null,
+      });
+      stepPump(ctx, t0 + (countIn + total + 2));
+      expect(ctx.clickStarts.length === countIn + total && ctx.clickStarts.every((c) => c.freq !== F_SUB),
+        `${meter} sans subdivision — ${ctx.clickStarts.length} clic(s), attendu ${countIn + total} sans croches`);
+    }
+    // Coupure et reprise en vol : plus de croche au-delà de l'horizon, puis retour.
+    {
+      const ctx = createMockCtx();
+      const t0 = ctx.currentTime + START_DELAY_S;
+      const tr = createTransport({
+        ctx, bpm: 60, beatsPerBar: 2, totalBeats: 12, subdivisions: 3,
+        noteEvents: [], notesEnabled: false, getNoteVoice: () => null,
+      });
+      stepPump(ctx, t0 + 4.5);
+      const offAt = ctx.currentTime;
+      tr.setSubdivisions(1);
+      stepPump(ctx, t0 + 9.5);
+      const onAt = ctx.currentTime;
+      tr.setSubdivisions(3);
+      stepPump(ctx, t0 + 16);
+      const subs = ctx.clickStarts.filter((c) => c.freq === F_SUB);
+      expect(subs.length > 0 && subs.every((c) => c.time < offAt + 0.12 || c.time >= onAt),
+        "subdivision coupée en vol — croches entendues pendant la coupure");
+      expect(subs.some((c) => c.time >= onAt), "subdivision rétablie en vol — aucune croche après la reprise");
+      expect(ctx.clickStarts.filter((c) => c.freq !== F_SUB).length === 14, "subdivision en vol — les temps continuent");
+    }
+    // Mesures simples : jamais de croche de subdivision.
+    for (const meter of ["4/4", "7/8", "3/2"]) {
+      const bpb = meterBeats(meter);
+      const ctx = createMockCtx();
+      const t0 = ctx.currentTime + START_DELAY_S;
+      createTransport({
+        ctx, bpm: 60, beatsPerBar: bpb, totalBeats: bpb, subdivisions: beatSubdivisions(meter, true),
+        noteEvents: [], notesEnabled: false, getNoteVoice: () => null,
+      });
+      stepPump(ctx, t0 + 2 * bpb + 2);
+      expect(ctx.clickStarts.length === 2 * bpb, `${meter} — ${ctx.clickStarts.length} clic(s), attendu ${2 * bpb} (temps seuls)`);
+    }
+  }
+
+  /* ================ (12) groove en mesure composée, 5/4 et 7/4 ================ */
+  {
+    const runGroove = (bpb, subdivisions) => {
+      const ctx = createMockCtx();
+      const t0 = ctx.currentTime + START_DELAY_S;
+      createTransport({
+        ctx, bpm: 60, beatsPerBar: bpb, totalBeats: 2 * bpb, pulsationVoice: "groove", subdivisions,
+        noteEvents: [], notesEnabled: false, getNoteVoice: () => null,
+      });
+      stepPump(ctx, t0 + 3 * bpb + 2);
+      return { ctx, gridStart: t0 + bpb };
+    };
+    /* Grosse caisse = triangle (synthStarts) ; caisse claire = bruit filtré
+       passe-haut à 1500 Hz ; charley = bruit filtré à 7000 Hz. */
+    const hitsByFilter = (ctx, hz) => ctx.noteStarts.filter((r) => r.node.outputs[0] && r.node.outputs[0].frequency &&
+      r.node.outputs[0].frequency.value === hz);
+    for (const [meter, bpb] of [["6/8", 2], ["9/8", 3], ["12/8", 4]]) {
+      for (const subdivide of [true, false]) {
+        const { ctx, gridStart } = runGroove(bpb, beatSubdivisions(meter, subdivide));
+        const rel = (r) => Math.round((r.time - gridStart) * 3) / 3;
+        const kicks = ctx.synthStarts.map(rel);
+        const snares = hitsByFilter(ctx, 1500).map(rel);
+        const hats = hitsByFilter(ctx, 7000);
+        const label = `groove ${meter}${subdivide ? "" : " sans subdivision"}`;
+        const beatsOf = (pred) => Array.from({ length: 2 * bpb }, (_, g) => g).filter((g) => pred((g % bpb) + 1));
+        expect(kicks.join(",") === beatsOf((b) => b % 2 === 1).join(","),
+          `${label} — grosse caisse aux temps ${kicks.join(",")}`);
+        expect(snares.join(",") === beatsOf((b) => b % 2 === 0).join(","),
+          `${label} — caisse claire aux temps ${snares.join(",")}`);
+        const wantHats = subdivide ? 2 * bpb * 3 : 2 * bpb;
+        expect(hats.length === wantHats, `${label} — ${hats.length} coup(s) de charley, attendu ${wantHats}`);
+        if (subdivide) {
+          const onBeat = hats.filter((r) => Number.isInteger(Math.round((r.time - gridStart) * 1e6) / 1e6));
+          const offBeat = hats.filter((r) => !onBeat.includes(r));
+          const peaks = (list) => list.map((r) => peakAtOutput(ctx, r));
+          expect(onBeat.length === 2 * bpb && Math.min(...peaks(onBeat)) > Math.max(...peaks(offBeat)),
+            `${label} — charley non accentué sur les temps`);
+          let maxErr = 0;
+          hats.forEach((r) => { maxErr = Math.max(maxErr, Math.abs((r.time - gridStart) * 3 - Math.round((r.time - gridStart) * 3))); });
+          expect(maxErr < 1e-9, `${label} — charley hors des croches (écart ${maxErr})`);
+        }
+        // Le décompte reste au clic, subdivisé comme le clic.
+        expect(ctx.clickStarts.length === bpb * (subdivide ? 3 : 1), `${label} — décompte de ${ctx.clickStarts.length} clic(s)`);
+      }
+    }
+    for (const [meter, bpb] of [["5/4", 5], ["7/4", 7]]) {
+      const { ctx, gridStart } = runGroove(bpb, beatSubdivisions(meter, true));
+      const rel = (r) => Math.round(r.time - gridStart);
+      const beatsOf = (pred) => Array.from({ length: 2 * bpb }, (_, g) => g).filter((g) => pred((g % bpb) + 1));
+      expect(ctx.synthStarts.map(rel).join(",") === beatsOf((b) => b % 2 === 1).join(","), `groove ${meter} — grosse caisse`);
+      expect(hitsByFilter(ctx, 1500).map(rel).join(",") === beatsOf((b) => b % 2 === 0).join(","), `groove ${meter} — caisse claire`);
+      expect(hitsByFilter(ctx, 7000).length === 2 * bpb, `groove ${meter} — charley sur chaque temps`);
+    }
+  }
+
+  /* ================ (13) grille composée réelle en 6/8 : notes et clics synchrones ================ */
+  {
+    let ex = null;
+    for (let seed = 1; seed <= 80 && !ex; seed++) {
+      const cand = generateExercise({
+        figures: ["noire", "croche", "double"], procedes: ["rests", "dots", "ties"],
+        meter: "6/8", measures: 4, rng: mulberry32(seed),
+      });
+      const evs = noteSoundEvents(cand.notes);
+      const thirds = evs.filter((e) => Math.abs(e.startBeats * 3 - Math.round(e.startBeats * 3)) < 1e-9 && !Number.isInteger(e.startBeats));
+      if (evs.some((e) => Number.isInteger(e.startBeats)) && thirds.length &&
+          evs.some((e) => Math.abs(e.startBeats * 3 - Math.round(e.startBeats * 3)) > 1e-6)) ex = cand;
+    }
+    expect(!!ex, "6/8 — aucune graine ne donne des attaques sur les temps, les croches et entre les croches");
+    if (ex) {
+      const events = noteSoundEvents(ex.notes);
+      for (const BPM of [50, 117]) {
+        const spb = 60 / BPM;
+        const ctx = createMockCtx({ outputLatency: 0.03 });
+        const t0 = ctx.currentTime + START_DELAY_S;
+        const ref = createBeatClock({ startTime: t0, bpm: BPM });
+        const tr = createTransport({
+          ctx, bpm: BPM, beatsPerBar: 2, totalBeats: 8, subdivisions: 3,
+          noteEvents: events, notesEnabled: true, getNoteVoice: () => ({ buffer: BUFFER }),
+        });
+        stepPump(ctx, t0 + 12 * spb);
+        const clicks = ctx.clickStarts.slice().sort((a, b) => a.time - b.time);
+        expect(clicks.length === 30, `6/8 à ${BPM} — ${clicks.length} clic(s), attendu 30`);
+        expect(ctx.noteStarts.length === events.length, `6/8 à ${BPM} — ${ctx.noteStarts.length} attaque(s) pour ${events.length}`);
+        events.forEach((ev, j) => {
+          const t = ctx.noteStarts[j] && ctx.noteStarts[j].time;
+          if (t === undefined) return;
+          const step = 2 + ev.startBeats;
+          const third = Math.round(step * 3);
+          if (Number.isInteger(ev.startBeats)) {
+            expect(t === clicks[3 * step].time, `6/8 à ${BPM} — attaque au temps ${ev.startBeats} !== clic du temps (égalité stricte)`);
+          } else if (Math.abs(step * 3 - third) < 1e-9) {
+            expect(close(t, clicks[third].time), `6/8 à ${BPM} — attaque à la croche ${ev.startBeats} hors du clic de subdivision`);
+          } else {
+            expect(close(t, ref.timeAt(step)), `6/8 à ${BPM} — attaque ${ev.startBeats} hors de timeAt`);
+          }
+          // Guidage visuel : à l'instant où l'attaque s'entend, la note est allumée.
+          ctx.currentTime = t + 0.03 + 1e-9;
+          const pos = tr.positionAt(tr.visualNow()).gridBeat;
+          const lit = litIndicesAt(ex.notes, pos);
+          const idx = ex.notes.findIndex((n) => Math.abs(n.startBeats - ev.startBeats) < 1e-9);
+          expect(lit.includes(idx), `6/8 à ${BPM} — note ${ev.startBeats} éteinte quand elle s'entend (position ${pos})`);
+        });
+      }
     }
   }
 
