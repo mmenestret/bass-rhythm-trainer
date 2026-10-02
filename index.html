@@ -1536,6 +1536,15 @@
     line-height: 1;
     color: var(--ink);
   }
+  /* case vide d'un triolet ouvert, sur la portée de Composer */
+  .score .triplet-slot {
+    opacity: 0.28;
+  }
+  .palette-item.mod .mod-triplet {
+    font-size: 18px;
+    font-style: italic;
+    font-weight: 600;
+  }
   .palette-item.mod.on {
     border-color: var(--accent);
     background: var(--accent-soft);
@@ -2035,7 +2044,7 @@
       <label class="pill"><input type="checkbox" name="procede" value="dots"><span data-i18n="procede.dots">Points</span><span class="pill-hint"></span></label>
       <label class="pill"><input type="checkbox" name="procede" value="ties"><span data-i18n="procede.ties">Liaisons</span><span class="pill-hint"></span></label>
       <label class="pill"><input type="checkbox" name="procede" value="syncopes"><span data-i18n="procede.syncopes">Syncopes</span><span class="pill-hint"></span></label>
-      <label class="pill disabled"><input type="checkbox" name="procede" value="triplets" disabled><span data-i18n="procede.triplets">Triolets</span><span class="pill-hint" data-i18n="procede.soon">bientôt</span></label>
+      <label class="pill"><input type="checkbox" name="procede" value="triplets"><span data-i18n="procede.triplets">Triolets</span><span class="pill-hint"></span></label>
     </div>
   </div>
 
@@ -3307,11 +3316,11 @@
   bindPills("procede-pills");
 
   /* ---------- procédés : pastilles à cocher ----------
-     Un procédé inapplicable avec les figures cochées et la signature, ou pas
-     encore livré, est grisé et décoché, avec une aide courte : ce qui lui
-     manque (« nécessite la croche ») ou « bientôt ». Le générateur dit ce qui
-     manque (procedeNeeds) ; la page n'en fait que le texte. */
-  const SOON_PROCEDES = ["triplets"];
+     Un procédé inapplicable avec les figures cochées et la signature est
+     grisé et décoché, avec une aide courte : ce qui lui manque (« nécessite
+     la croche »), ou, pour les triolets, la signature qui les exclut (« pas
+     en mesure composée »). Le générateur dit ce qui manque (procedeNeeds,
+     tripletFigure) ; la page n'en fait que le texte. */
   const FIGURE_DEFINITE = {
     ronde: "figureDefinite.whole", blanche: "figureDefinite.half", noire: "figureDefinite.quarter",
     croche: "figureDefinite.eighth", double: "figureDefinite.sixteenth",
@@ -3337,11 +3346,14 @@
   /* Les autres procédés cochés comptent : en 5/8, la noire pointée de
      Points peut seule ouvrir la place d'un soupir. */
   function procedeHelp(procede, figures){
-    if (SOON_PROCEDES.indexOf(procede) !== -1) return t("procede.soon");
     if (!figures.length) return "";
+    const G = window.BassRhythmGenerator;
     const others = checkedProcedes().filter(function(p){ return p !== procede; });
-    const needs = window.BassRhythmGenerator.procedeNeeds({ figures: figures, meter: signature, procedes: others }, procede);
+    const needs = G.procedeNeeds({ figures: figures, meter: signature, procedes: others }, procede);
     if (!needs) return "";
+    if (procede === "triplets" && !G.tripletFigure(signature)){
+      return t(Meter.analyzeMeter(signature).compound ? "procede.notCompound" : "procede.notEighth");
+    }
     if (!needs.length) return t("procede.needsMore");
     return t("procede.needs", {
       figures: joinList(needs.map(function(fig){ return t(FIGURE_DEFINITE[fig]); }))
@@ -3892,15 +3904,17 @@
   });
 
   /* État du Composer. measures : chaque mesure est une liste d'événements
-     « riches » { fig, rest, dot, tie } ; la DERNIÈRE mesure est toujours la
-     mesure ouverte (partielle ou vide). L'invariant — toute mesure pleine vaut
-     exactement la signature — est rétabli après chaque mutation par
-     normalizeComposer(). La composition persiste pendant la session (rouvrir
-     le tiroir ne l'efface pas). */
+     « riches » { fig, rest, dot, tie, triplet } ; la DERNIÈRE mesure est
+     toujours la mesure ouverte (partielle ou vide). L'invariant — toute
+     mesure pleine vaut exactement la signature — est rétabli après chaque
+     mutation par normalizeComposer(). openTriplet : un triolet est ouvert au
+     curseur, ses cases se remplissent aux touches suivantes. La composition
+     persiste pendant la session (rouvrir le tiroir ne l'efface pas). */
   var composer = {
     active: false,
     meter: "4/4",
     measures: [[]],
+    openTriplet: false,
     families: { silences: false, modif: false },
     selection: null
   };
@@ -3913,7 +3927,7 @@
   function figBeats(fig, dot){
     return window.BassRhythmGenerator.figureBeats(fig, composer.meter, dot);
   }
-  function eventDur(ev){ return figBeats(ev.fig, ev.dot); }
+  function eventDur(ev){ return window.BassRhythmGenerator.eventBeats(ev, composer.meter); }
   function measSum(m){
     var s = 0;
     for (var i = 0; i < m.length; i++) s += eventDur(m[i]);
@@ -3960,15 +3974,41 @@
   }
 
   /* ---------- pose et modificateurs ---------- */
+  /* Dans un triolet ouvert, seules passent les figures que permet le
+     générateur (tripletFigures : croche ou demi-soupir en /4, noire ou
+     soupir en /2), jamais pointées. */
+  function tripletAllows(fig, isRest, dot){
+    if (dot) return false;
+    return window.BassRhythmGenerator.tripletFigures(composer).some(function(f){
+      return f.fig === fig && f.rest === !!isRest;
+    });
+  }
+  function inTriplet(){ return window.BassRhythmGenerator.tripletFilled(composer) !== null; }
   function placeFigure(fig, isRest, dot){
-    if (isRest && pendingTie()) return; // on ne lie pas vers un silence
-    if (!fitsFigure(fig, dot)) return;  // ne rentre pas dans la place restante
-    openMeasure().push({ fig: fig, rest: !!isRest, dot: !isRest && !!dot, tie: false });
+    if (inTriplet()){
+      if (!tripletAllows(fig, isRest, dot)) return;
+      openMeasure().push({ fig: fig, rest: !!isRest, dot: false, tie: false, triplet: true });
+      // troisième case remplie : le triolet se ferme seul
+      if (window.BassRhythmGenerator.tripletFilled(composer) === 0) composer.openTriplet = false;
+    } else {
+      if (isRest && pendingTie()) return; // on ne lie pas vers un silence
+      if (!fitsFigure(fig, dot)) return;  // ne rentre pas dans la place restante
+      openMeasure().push({ fig: fig, rest: !!isRest, dot: !isRest && !!dot, tie: false, triplet: false });
+    }
     composer.selection = null;
     normalizeComposer();
     refreshComposer();
   }
+  /* Effacer : retire le dernier événement. Sur un triolet ouvert encore vide,
+     referme le triolet ; retirer une note d'un triolet complet le rouvre
+     (ses cases restantes attendent les touches suivantes). */
   function backspaceComposer(){
+    if (window.BassRhythmGenerator.tripletFilled(composer) === 0){
+      composer.openTriplet = false;
+      composer.selection = null;
+      refreshComposer();
+      return;
+    }
     var ms = composer.measures;
     var open = ms[ms.length - 1];
     if (!open.length){
@@ -3976,13 +4016,15 @@
       ms.pop();
       open = ms[ms.length - 1];
     }
-    open.pop();
+    const removed = open.pop();
+    if (removed.triplet) composer.openTriplet = true;
     composer.selection = null;
     normalizeComposer();
     refreshComposer();
   }
   function clearComposer(){
     composer.measures = [[]];
+    composer.openTriplet = false;
     composer.selection = null;
     refreshComposer();
   }
@@ -3995,6 +4037,7 @@
     }
     composer.meter = v;
     composer.measures = [[]];
+    composer.openTriplet = false;
     composer.selection = null;
     refreshComposer();
     return true;
@@ -4030,10 +4073,30 @@
     last.tie = !last.tie;
     refreshComposer();
   }
+  /* Triolet : ouvre, en début de temps, un groupe de trois cases ; un
+     triolet ouvert encore vide se referme au second appui. Pendant le
+     triolet, le bouton reste enfoncé et les autres blocs sont grisés. */
+  function tripletState(){
+    const G = window.BassRhythmGenerator;
+    const filled = G.tripletFilled(composer);
+    return {
+      on: filled !== null,
+      disabled: filled === null ? !G.canOpenTriplet(composer) : filled > 0
+    };
+  }
+  function toggleTriplet(){
+    const G = window.BassRhythmGenerator;
+    const filled = G.tripletFilled(composer);
+    if (filled === 0) composer.openTriplet = false;
+    else if (filled === null && G.canOpenTriplet(composer)) composer.openTriplet = true;
+    else return;
+    composer.selection = null;
+    refreshComposer();
+  }
 
   /* ---------- duplication de plage (sélection sur la portée) ---------- */
   function cloneMeasure(m){
-    return m.map(function(e){ return { fig: e.fig, rest: e.rest, dot: e.dot, tie: e.tie }; });
+    return m.map(function(e){ return { fig: e.fig, rest: e.rest, dot: e.dot, tie: e.tie, triplet: !!e.triplet }; });
   }
   function selectComposerRange(a, b){
     composer.selection = { start: Math.min(a, b), end: Math.max(a, b) };
@@ -4073,7 +4136,7 @@
   /* ---------- gravure en direct (mêmes options que la vue de jeu) ---------- */
   function toDModel(measures){
     return measures.map(function(m){
-      return m.map(function(ev){ return { d: eventDur(ev), rest: ev.rest, tie: ev.tie }; });
+      return m.map(function(ev){ return { d: eventDur(ev), rest: ev.rest, tie: ev.tie, triplet: !!ev.triplet }; });
     });
   }
   function sumD(m){
@@ -4081,12 +4144,27 @@
     for (var i = 0; i < m.length; i++) s += m[i].d;
     return s;
   }
+  /* Cases encore vides du triolet ouvert (0 sans triolet ouvert). */
+  function openTripletSlots(){
+    const filled = window.BassRhythmGenerator.tripletFilled(composer);
+    return filled === null ? 0 : 3 - filled;
+  }
   function composerAbc(){
     var G = window.BassRhythmGenerator;
     var beats = composerBeats();
     const beat64 = Meter.analyzeMeter(composer.meter).beat64;
     var noteTok = noteByLetter(noteChoice).abc;
     var dModel = toDModel(composer.measures);
+    // triolet ouvert : ses cases vides sont gravées en silences du triolet
+    // (estompés après la gravure), pour que le chiffre 3 et le crochet
+    // s'affichent dès l'ouverture
+    const slots = openTripletSlots();
+    if (slots){
+      const slot = { fig: G.tripletFigure(composer.meter), dot: false, triplet: true };
+      for (let k = 0; k < slots; k++){
+        dModel[dModel.length - 1].push({ d: eventDur(slot), rest: true, tie: false, triplet: true });
+      }
+    }
     var unit = G.chooseUnit(dModel, composer.meter);
     var lden = 64 / unit;
     var bars = dModel.map(function(m, mi){
@@ -4116,6 +4194,13 @@
       return;
     }
     ABCJS.renderAbc(el, composerAbc(), { add_classes: true, responsive: "resize" });
+    // cases vides du triolet ouvert : les derniers silences gravés (le reste
+    // de la mesure ouverte est invisible et ne produit aucun élément)
+    const slots = openTripletSlots();
+    const events = el.querySelectorAll(".abcjs-note, .abcjs-rest");
+    for (let k = Math.max(0, events.length - slots); k < events.length; k++){
+      events[k].classList.add("triplet-slot");
+    }
     // la ligne en travail reste centrée et s'écarte depuis le centre au fur et
     // à mesure du remplissage (même helper que la vue de jeu)
     centerStaffSvg(el.querySelector("svg"));
@@ -4245,7 +4330,9 @@
     return svg;
   }
   function composerItemHTML(fig, isRest, dot){
-    var ok = fitsFigure(fig, dot) && !(isRest && pendingTie());
+    var ok = inTriplet()
+      ? tripletAllows(fig, isRest, dot)
+      : fitsFigure(fig, dot) && !(isRest && pendingTie());
     var image = '<img class="palette-glyph" src="' + (FIG_SRC[fig] || "") + '" alt="">';
     var glyph = isRest
       ? '<span class="palette-glyph palette-rest">' + restGlyphSvg(fig) + '</span>'
@@ -4279,7 +4366,7 @@
       html += '</div></div>';
     }
     if (composer.families.modif){
-      var pt = pointState(), ti = tieState();
+      var pt = pointState(), ti = tieState(), tr = tripletState();
       html += '<div class="palette-group"><div class="palette-family">' + t("family.modifiers") + '</div><div class="palette-items">' +
         '<button type="button" class="palette-item mod' + (pt.on ? " on" : "") + '" data-cmod="dot"' +
           (pt.disabled ? " disabled" : "") + ' aria-pressed="' + pt.on + '">' +
@@ -4287,6 +4374,9 @@
         '<button type="button" class="palette-item mod' + (ti.on ? " on" : "") + '" data-cmod="tie"' +
           (ti.disabled ? " disabled" : "") + ' aria-pressed="' + ti.on + '">' +
           '<span class="mod-glyph">⌢</span><span class="palette-label">' + t("modifier.tieNext") + '</span></button>' +
+        '<button type="button" class="palette-item mod' + (tr.on ? " on" : "") + '" data-cmod="triplet"' +
+          (tr.disabled ? " disabled" : "") + ' aria-pressed="' + tr.on + '">' +
+          '<span class="mod-glyph mod-triplet">3</span><span class="palette-label">' + t("modifier.triplet") + '</span></button>' +
         '</div></div>';
     }
     return html;
@@ -4316,6 +4406,8 @@
     var total = composerBeats();
     var rem = formatBeats(composerRemaining());
     var extra = pendingTie() ? t("composer.tiePending") : "";
+    const filled = window.BassRhythmGenerator.tripletFilled(composer);
+    if (filled !== null) extra += t("composer.tripletOpen", { filled: filled });
     return t("composer.readout", {
       placed: placed,
       total: total,
@@ -4432,10 +4524,11 @@
     setPill("note-pills", state.note);
     composer.meter = state.meter;
     var full = state.measures.map(function(bar){
-      return bar.map(function(e){ return { fig: e.fig, rest: !!e.rest, dot: !!e.dot, tie: !!e.tie }; });
+      return bar.map(function(e){ return { fig: e.fig, rest: !!e.rest, dot: !!e.dot, tie: !!e.tie, triplet: !!e.triplet }; });
     });
     composer.measures = full.map(cloneMeasure);
     composer.measures.push([]); // mesure ouverte
+    composer.openTriplet = false;
     composer.selection = null;
     var artifact = window.BassRhythmGenerator.assembleComposed(toDModel(full), {
       meter: composer.meter, note: noteByLetter(noteChoice).abc
@@ -4463,6 +4556,7 @@
     if ((el = e.target.closest("[data-cmod]"))){
       if (el.disabled) return;
       if (el.dataset.cmod === "dot") togglePoint();
+      else if (el.dataset.cmod === "triplet") toggleTriplet();
       else toggleTie();
       return;
     }

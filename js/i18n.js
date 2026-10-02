@@ -83,7 +83,8 @@
       "procede.ties": "Liaisons",
       "procede.syncopes": "Syncopes",
       "procede.triplets": "Triolets",
-      "procede.soon": "bientôt",
+      "procede.notCompound": "pas en mesure composée",
+      "procede.notEighth": "pas en /8",
       "procede.needs": "nécessite {figures}",
       "procede.needsMore": "nécessite d'autres figures",
       "figureDefinite.whole": "la ronde",
@@ -160,7 +161,9 @@
       "family.modifiers": "Modificateurs",
       "modifier.dotted": "Note<br>pointée",
       "modifier.tieNext": "Lier à<br>la suivante",
+      "modifier.triplet": "Triolet",
       "composer.tiePending": " · <b>liaison en attente</b>",
+      "composer.tripletOpen": " · <b>triolet {filled} / 3</b>",
       "composer.readout": "Mesure en cours : <b>{placed} / {total}</b> temps · reste <b>{remaining}</b>{extra}"
     },
     en: {
@@ -222,7 +225,8 @@
       "procede.ties": "Ties",
       "procede.syncopes": "Syncopation",
       "procede.triplets": "Triplets",
-      "procede.soon": "coming soon",
+      "procede.notCompound": "not in compound time",
+      "procede.notEighth": "not in /8 time",
       "procede.needs": "needs {figures}",
       "procede.needsMore": "needs other note values",
       "figureDefinite.whole": "whole notes",
@@ -299,7 +303,9 @@
       "family.modifiers": "Modifiers",
       "modifier.dotted": "Dotted<br>note",
       "modifier.tieNext": "Tie to<br>next note",
+      "modifier.triplet": "Triplet",
       "composer.tiePending": " · <b>tie pending</b>",
+      "composer.tripletOpen": " · <b>triplet {filled} / 3</b>",
       "composer.readout": "Current measure: <b>{placed} / {total}</b> beats · <b>{remaining}</b> remaining{extra}"
     }
   };

@@ -121,7 +121,7 @@ for (const text of [
   "Bowed double bass",
   "Techniques",
   "Syncopation",
-  "coming soon",
+  "Triplets",
   "Sixteenth note",
   "Time signature",
   "Generate",
@@ -139,7 +139,7 @@ for (const frenchPattern of [
   />Procédés</,
   />Silences</,
   />Liaisons</,
-  />bientôt</,
+  />Triolets</,
   />Mesures</,
   />Générer</,
   />Ronde</,
@@ -166,13 +166,19 @@ for (const dynamicText of [
   "Tempo unit: {figure}",
   "dotted quarter note",
   "Dotted half note",
+  "Triplet",
+  "not in compound time",
+  "not in /8 time",
+  "triplet {filled} / 3",
 ]) {
   expect(enBuild.includes(dynamicText), `build EN — traduction dynamique absente : ${dynamicText}`);
 }
 
 expect(frMarkup.includes("Jouer"), "build FR — interface française altérée");
 expect(frMarkup.includes("Figures de notes"), "build FR — réglages français altérés");
-expect(frMarkup.includes("Procédés") && frMarkup.includes("bientôt"), "build FR — pastilles des procédés absentes");
+expect(frMarkup.includes("Procédés") && frMarkup.includes("Triolets"), "build FR — pastilles des procédés absentes");
+expect(!/bientôt|coming soon/.test(frBuild + enBuild), "builds — étiquette « bientôt » restante");
+expect(!/value="triplets" disabled/.test(source), "Triolets — pastille encore désactivée dans la page");
 
 if (failures.length) {
   console.error(`\nÉCHEC — ${failures.length} problème(s) sur ${checks} vérifications :`);

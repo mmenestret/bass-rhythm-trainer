@@ -822,12 +822,11 @@
    * valeurs plus courtes sont ligaturées par temps (regroupées tant qu'elles
    * partagent le même temps — les croches par trois en mesure composée).
    * meter = signature (elle fixe la durée du temps), noteTok = jeton de la
-   * note (les silences s'écrivent "z", un événement hidden "x", silence
-   * invisible), le suffixe "-" marque une liaison vers l'événement suivant.
-   * Une note de triolet s'écrit à sa valeur écrite ; celle qui ouvre un
-   * triolet, sur un début de temps, porte le préfixe « (3 ». Fonction pure,
-   * réutilisée par l'assemblage et la scène de composition (mesure ouverte
-   * gravée en direct, cases vides d'un triolet ouvert comprises).
+   * note (les silences s'écrivent "z"), le suffixe "-" marque une liaison
+   * vers l'événement suivant. Une note de triolet s'écrit à sa valeur
+   * écrite ; celle qui ouvre un triolet, sur un début de temps, porte le
+   * préfixe « (3 ». Fonction pure, réutilisée par l'assemblage et la scène
+   * de composition (mesure ouverte gravée en direct).
    */
   function barText(events, unit, meter, noteTok) {
     const beat64 = parseMeter(meter).beat64;
@@ -840,8 +839,8 @@
       const d64 = beatsTo64(writtenBeats(e), beat64);
       var mult = d64 / unit;
       const opensTriplet = !!e.triplet && posTicks % beatTicks === 0;
-      const symbol = e.hidden ? "x" : (e.rest ? "z" : noteTok);
-      var tok = (opensTriplet ? "(" + TRIPLET_SIZE : "") + symbol + (mult === 1 ? "" : mult) + (e.tie ? "-" : "");
+      var tok = (opensTriplet ? "(" + TRIPLET_SIZE : "") + (e.rest ? "z" : noteTok) +
+        (mult === 1 ? "" : mult) + (e.tie ? "-" : "");
       if (d64 >= beat64) {
         groups.push(tok);
         current = null;
