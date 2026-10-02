@@ -340,12 +340,6 @@
 
   /* ---------- utilitaires ---------- */
 
-  /* Analyse de signature (js/meter.js) : { beats, beat64, compound… } ;
-     lève une erreur pour une signature non permise. */
-  function parseMeter(meter) {
-    return Meter.analyzeMeter(meter);
-  }
-
   /* Convertit une durée en temps vers une durée en 64e de ronde, le temps
      valant beat64 64e (16 en x/4, 24 en mesure composée). */
   function beatsTo64(d, beat64) {
@@ -370,12 +364,9 @@
      mesure composée (le temps s'y divise déjà en trois) et /8 simple (ce
      serait un triolet de doubles, hors du programme). */
   function tripletFigure(meter) {
-    const m = parseMeter(meter);
+    const m = Meter.analyzeMeter(meter);
     if (m.compound || m.denominator === 8) return null;
-    for (let i = 0; i < FIGURE_ORDER.length; i++) {
-      if (FIGURE_64[FIGURE_ORDER[i]] * 2 === m.beat64) return FIGURE_ORDER[i];
-    }
-    return null;
+    return FIGURE_ORDER.find(function (fig) { return FIGURE_64[fig] * 2 === m.beat64; }) || null;
   }
 
   /* Durée en temps d'une figure sous une signature, éventuellement pointée
@@ -384,7 +375,7 @@
      Partagée par la composition manuelle (pose, invariant, codec) et ses
      tests. */
   function figureBeats(fig, meter, dot) {
-    return FIGURE_64[fig] * (dot ? 1.5 : 1) / parseMeter(meter).beat64;
+    return FIGURE_64[fig] * (dot ? 1.5 : 1) / Meter.analyzeMeter(meter).beat64;
   }
 
   /* Durée réelle en temps d'un événement de composition { fig, dot, triplet } :
@@ -409,7 +400,7 @@
      place restante dans cette mesure (null si la grille est vide). */
   function lastPlacement(composition) {
     const meter = composition.meter;
-    const parsed = parseMeter(meter);
+    const beats = Meter.analyzeMeter(meter).beats;
     const measures = composition.measures || [];
     for (let i = measures.length - 1; i >= 0; i--) {
       const bar = measures[i];
@@ -422,10 +413,9 @@
       const duration = eventBeats(event, meter);
       return {
         event: event,
-        meter: meter,
         start: start,
         duration: duration,
-        remaining: parsed.beats - start - duration
+        remaining: beats - start - duration
       };
     }
     return null;
@@ -451,7 +441,7 @@
     if (composition.openTriplet) return false;
     const last = lastPlacement(composition);
     if (!last || last.event.rest || last.event.triplet) return false;
-    const toggled = figureBeats(last.event.fig, last.meter, !last.event.dot);
+    const toggled = figureBeats(last.event.fig, composition.meter, !last.event.dot);
     if (toggled - last.duration > last.remaining + BEAT_EPSILON) return false;
     if (last.event.tie && !endsOnBeat(last.start, toggled)) return false;
     return true;
@@ -494,7 +484,6 @@
   function tripletFigures(composition) {
     if (tripletFilled(composition) === null) return [];
     const fig = tripletFigure(composition.meter);
-    if (!fig) return [];
     const last = lastPlacement(composition);
     const pendingTie = !!(last && last.event.tie && !last.event.rest);
     const out = [{ fig: fig, rest: false }];
@@ -525,10 +514,7 @@
   }
 
   function hasSpecialTechnique(config) {
-    for (let i = 0; i < SPECIAL_TECHNIQUES.length; i++) {
-      if (hasTechnique(config, SPECIAL_TECHNIQUES[i])) return true;
-    }
-    return false;
+    return SPECIAL_TECHNIQUES.some(function (technique) { return hasTechnique(config, technique); });
   }
 
   /*
@@ -543,7 +529,7 @@
    * triolet n'existe que là où tripletFigure le permet.
    */
   function availableCells(config) {
-    var m = parseMeter(config.meter);
+    const m = Meter.analyzeMeter(config.meter);
     const catalog = m.compound ? COMPOUND_CELLS : SIMPLE_CELLS;
     const tripletsAllowed = tripletFigure(config.meter) !== null;
     var fig64 = {};
@@ -636,10 +622,11 @@
     for (let i = 0; i < usable.length; i++) {
       const elems = usable[i].cell.elems;
       const last = elems[elems.length - 1];
-      if (usable[i].pos + usable[i].cell.lenInt === beats && !last.tie && crossBarTieFits(last, last)) {
+      const first = elems[0];
+      if (usable[i].pos + usable[i].cell.lenInt === beats && !last.tie && !last.rest && last.d <= 1) {
         canEnd = true;
       }
-      if (usable[i].pos === 0 && crossBarTieFits(elems[0], elems[0])) canStart = true;
+      if (usable[i].pos === 0 && !first.rest && first.d <= 2) canStart = true;
     }
     return canEnd && canStart;
   }
@@ -649,7 +636,7 @@
      (config.techniques, facultatif) : en 5/8, la noire pointée d'un procédé
      Points peut seule ouvrir la place d'un soupir. */
   function techniqueApplicable(config, technique) {
-    const beats = parseMeter(config.meter).beats;
+    const beats = Meter.analyzeMeter(config.meter).beats;
     const usable = placements(availableCells({
       figures: config.figures,
       meter: config.meter,
@@ -807,7 +794,7 @@
    * aléatoire et la composition manuelle — même choix d'unité des deux côtés.
    */
   function chooseUnit(measures, meter) {
-    const beat64 = parseMeter(meter).beat64;
+    const beat64 = Meter.analyzeMeter(meter).beat64;
     var g = 0;
     for (var i = 0; i < measures.length; i++) {
       for (var j = 0; j < measures[i].length; j++) {
@@ -829,7 +816,7 @@
    * de composition (mesure ouverte gravée en direct).
    */
   function barText(events, unit, meter, noteTok) {
-    const beat64 = parseMeter(meter).beat64;
+    const beat64 = Meter.analyzeMeter(meter).beat64;
     const beatTicks = beat64 * TICKS_PER_64;
     var groups = [];   /* chaînes (tokens isolés) ou { beat, toks } (ligature par temps) */
     var current = null;
@@ -927,7 +914,7 @@
     if (!config || typeof config !== "object") {
       throw new Error("Configuration manquante.");
     }
-    var m = parseMeter(config.meter);
+    const m = Meter.analyzeMeter(config.meter);
     var cleaned = [];
     var order = [];
     var i, j;
@@ -1011,6 +998,9 @@
     return Meter.isMeter(meter) ? meter : null;
   }
   const TECHNIQUE_CODE = { rests: "r", dots: "d", ties: "t", syncopations: "s", triplets: "3" };
+  /* Clé « p » d'un lien : rien d'autre que ces lettres, dans n'importe quel
+     ordre, éventuellement répétées. */
+  const TECHNIQUE_CODES_PATTERN = /^[rdts3]*$/;
 
   function encodeShare(state) {
     var figs = "";
@@ -1018,10 +1008,12 @@
       var code = FIG_CODE[state.figures[i]];
       if (code) figs += code;
     }
-    let techniques = "";
-    for (let p = 0; p < TECHNIQUES.length; p++) {
-      if ((state.techniques || []).indexOf(TECHNIQUES[p]) !== -1) techniques += TECHNIQUE_CODE[TECHNIQUES[p]];
-    }
+    const checked = state.techniques || [];
+    const techniques = TECHNIQUES.filter(function (technique) {
+      return checked.indexOf(technique) !== -1;
+    }).map(function (technique) {
+      return TECHNIQUE_CODE[technique];
+    }).join("");
     var meas = state.measures === "inf" ? "i" : String(state.measures);
     return "s=" + ((state.seed >>> 0).toString(36)) +
       "&f=" + figs +
@@ -1057,17 +1049,10 @@
     }
     if (!figures.length) return null;
 
-    const techniques = [];
-    for (let c = 0; c < map.p.length; c++) {
-      let known = false;
-      for (let p = 0; p < TECHNIQUES.length; p++) {
-        if (TECHNIQUE_CODE[TECHNIQUES[p]] === map.p.charAt(c)) known = true;
-      }
-      if (!known) return null;
-    }
-    for (let p = 0; p < TECHNIQUES.length; p++) {
-      if (map.p.indexOf(TECHNIQUE_CODE[TECHNIQUES[p]]) !== -1) techniques.push(TECHNIQUES[p]);
-    }
+    if (!TECHNIQUE_CODES_PATTERN.test(map.p)) return null;
+    const techniques = TECHNIQUES.filter(function (technique) {
+      return map.p.indexOf(TECHNIQUE_CODE[technique]) !== -1;
+    });
 
     const meter = decodeMeter(map.m);
     if (!meter) return null;
@@ -1148,7 +1133,7 @@
     if (!meter) return null;
     if (!/^[A-G]$/.test(map.n)) return null;
 
-    const beats = parseMeter(meter).beats;
+    const beats = Meter.analyzeMeter(meter).beats;
     const tripletFig = tripletFigure(meter);
 
     var events = [];
@@ -1245,7 +1230,7 @@
     if (config.note !== undefined && !/^[A-G],{0,2}$/.test(config.note)) {
       throw new Error("Note d'entraînement invalide : " + config.note);
     }
-    var m = parseMeter(config.meter);
+    const m = Meter.analyzeMeter(config.meter);
     var count = config.measures;
     if (typeof count !== "number" || !isFinite(count) || Math.floor(count) !== count || count < 1) {
       throw new Error("Nombre de mesures invalide : " + count);

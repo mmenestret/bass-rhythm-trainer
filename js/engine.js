@@ -278,9 +278,8 @@
    * croches de niveau "sub", aux décalages k / subdivisions du temps.
    */
   function pulsesOfBeat(d, subdivisions) {
-    const n = subdivisions > 1 ? Math.round(subdivisions) : 1;
     const pulses = [{ offset: 0, level: d.accent ? "accent" : "beat" }];
-    for (let k = 1; k < n; k++) pulses.push({ offset: k / n, level: "sub" });
+    for (let k = 1; k < subdivisions; k++) pulses.push({ offset: k / subdivisions, level: "sub" });
     return pulses;
   }
 
@@ -737,7 +736,7 @@
     /* Subdivision : croches par temps (1 = le temps seul). Les croches d'un
        temps programmé attendent dans pendingSubs que leur instant entre dans
        l'horizon ; elles lisent la voix et le métronome à ce moment-là. */
-    let subdivisions = opts.subdivisions > 1 ? Math.round(opts.subdivisions) : 1;
+    let subdivisions = opts.subdivisions || 1;
     let pendingSubs = [];
 
     /* Son des notes : événements { startBeats, holdBeats } triés, fournis par
@@ -801,21 +800,19 @@
        au-dessus, plus fort, un peu plus long), autres temps, croches de
        subdivision (plus graves, faibles et brèves). */
     function scheduleClick(time, level) {
-      const voice = CLICK_VOICES[level] || CLICK_VOICES.beat;
+      const voice = CLICK_VOICES[level];
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
       osc.type = "sine";
       osc.frequency.value = voice.freq;
-      const peak = voice.peak;
-      const decay = voice.decay;
       gain.gain.setValueAtTime(0.0001, time);
-      gain.gain.linearRampToValueAtTime(peak, time + 0.0025);
-      gain.gain.exponentialRampToValueAtTime(0.0001, time + decay);
-      gain.gain.linearRampToValueAtTime(0, time + decay + 0.01);
+      gain.gain.linearRampToValueAtTime(voice.peak, time + 0.0025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + voice.decay);
+      gain.gain.linearRampToValueAtTime(0, time + voice.decay + 0.01);
       osc.connect(gain);
       gain.connect(pulseBus);
       osc.start(time);
-      osc.stop(time + decay + 0.03);
+      osc.stop(time + voice.decay + 0.03);
       trackPulsation({ srcs: [osc], gain: gain });
     }
 
@@ -969,7 +966,7 @@
          valeur en PULSATION_VOLUME_RAMP_S, ce qui est déjà programmé compris ;
          l'autre voix mémorise la sienne. */
       setPulsationVolume: function (voice, value) {
-        if (!Object.prototype.hasOwnProperty.call(pulsationVolumes, voice)) return;
+        if (!(voice in pulsationVolumes)) return;
         pulsationVolumes[voice] = clampPulsationVolume(value);
         if (voice === pulsationVoice) glidePulseBus();
       },
@@ -977,7 +974,7 @@
          nouvelle voix, à son propre volume (le déjà programmé, sur moins
          d'un horizon, garde l'ancienne). */
       setPulsationVoice: function (voice) {
-        if (!Object.prototype.hasOwnProperty.call(pulsationVolumes, voice)) return;
+        if (!(voice in pulsationVolumes)) return;
         if (voice === pulsationVoice) return;
         pulsationVoice = voice;
         glidePulseBus();
@@ -990,8 +987,8 @@
          programmées sont abandonnées (le déjà programmé, sur moins d'un
          horizon, sonne encore). */
       setSubdivisions: function (n) {
-        subdivisions = n > 1 ? Math.round(n) : 1;
-        if (subdivisions === 1) pendingSubs = [];
+        subdivisions = n;
+        if (n === 1) pendingSubs = [];
       },
       /* Position continue à l'instant t : { step, countIn, gridBeat }. */
       positionAt: function (t) {
@@ -1118,14 +1115,7 @@
     START_DELAY_S: START_DELAY_S,
     NOTE_RELEASE_S: NOTE_RELEASE_S,
     PULSATION_VOLUME_MAX: PULSATION_VOLUME_MAX,
-    TEMPO_MIN: TEMPO_MIN,
-    TEMPO_MAX: TEMPO_MAX,
-    TEMPO_MAX_COMPOUND: TEMPO_MAX_COMPOUND,
-    CLICK_FREQUENCIES: {
-      accent: CLICK_VOICES.accent.freq,
-      beat: CLICK_VOICES.beat.freq,
-      sub: CLICK_VOICES.sub.freq
-    },
+    CLICK_VOICES: CLICK_VOICES,
     tempoRange: tempoRange,
     clampTempo: clampTempo,
     beatSubdivisions: beatSubdivisions,

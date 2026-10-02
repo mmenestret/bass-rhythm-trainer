@@ -108,11 +108,8 @@
 
   return {
     STORAGE_KEY: STORAGE_KEY,
-    PULSATION_VOICES: PULSATION_VOICES,
-    PULSATION_VOLUME_MIN: PULSATION_VOLUME_MIN,
     PULSATION_VOLUME_MAX: PULSATION_VOLUME_MAX,
     defaultPreferences: defaultPreferences,
-    normalizePreferences: normalizePreferences,
     readPreferences: readPreferences,
     writePreferences: writePreferences
   };

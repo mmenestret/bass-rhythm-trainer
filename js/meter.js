@@ -49,29 +49,17 @@
     const numerator = parseInt(match[1], 10);
     const denominator = parseInt(match[2], 10);
     const compound = denominator === 8 && numerator >= 6 && numerator % 3 === 0;
-    if (compound) {
-      return {
-        meter: meter,
-        numerator: numerator,
-        denominator: denominator,
-        compound: true,
-        beats: numerator / COMPOUND_SUBDIVISION,
-        beat64: COMPOUND_SUBDIVISION * 64 / denominator,
-        beatFigure: "noire",
-        beatDotted: true,
-        subdivision: COMPOUND_SUBDIVISION
-      };
-    }
+    const subdivision = compound ? COMPOUND_SUBDIVISION : 1;
     return {
       meter: meter,
       numerator: numerator,
       denominator: denominator,
-      compound: false,
-      beats: numerator,
-      beat64: 64 / denominator,
-      beatFigure: BEAT_FIGURES[denominator],
-      beatDotted: false,
-      subdivision: 1
+      compound: compound,
+      beats: numerator / subdivision,
+      beat64: subdivision * 64 / denominator,
+      beatFigure: compound ? "noire" : BEAT_FIGURES[denominator],
+      beatDotted: compound,
+      subdivision: subdivision
     };
   }
 

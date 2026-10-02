@@ -72,7 +72,7 @@ const {
   playNotePreview,
   playGroovePreview,
   PULSATION_VOLUME_MAX,
-  CLICK_FREQUENCIES,
+  CLICK_VOICES,
   beatSubdivisions,
 } = require(path.join(ROOT, "js", "engine.js"));
 const { generateExercise } = require(path.join(ROOT, "js", "generator.js"));
@@ -876,7 +876,7 @@ try {
 
   /* ================ (11) mesures composées : temps, croches, trois niveaux ================ */
   {
-    const { accent: F_ACCENT, beat: F_BEAT, sub: F_SUB } = CLICK_FREQUENCIES;
+    const { accent: { freq: F_ACCENT }, beat: { freq: F_BEAT }, sub: { freq: F_SUB } } = CLICK_VOICES;
     expect(F_ACCENT === ACCENT_FREQ && new Set([F_ACCENT, F_BEAT, F_SUB]).size === 3,
       "composée — trois fréquences de clic distinctes attendues");
     for (const [meter, bars] of [["6/8", 3], ["9/8", 2], ["12/8", 2]]) {
