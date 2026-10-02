@@ -42,6 +42,7 @@
     --halo-fade: rgba(126,147,168,0);
     --blush: rgba(183,163,166,0.35);
     --glass: rgba(255,255,255,0.34);
+    --glass-strong: rgba(255,255,255,0.6);
     --ease-drift: cubic-bezier(0.22,0.9,0.24,1);
   }
 
@@ -919,8 +920,9 @@
     background: var(--accent);
   }
 
-  /* volume de pulsation : la voix active et son pourcentage, puis un curseur
-     à filet fin (rempli d'accent jusqu'au pouce, --fill posé par le script) */
+  /* volume de pulsation : le nom de la voix active, sans chiffre, puis un
+     curseur à filet fin (rempli d'accent jusqu'au pouce, --fill posé par le
+     script) */
   .pulse-volume {
     display: flex;
     flex-direction: column;
@@ -940,7 +942,7 @@
     color: var(--ink-soft);
   }
   .pulse-volume-range {
-    --fill: 33%;
+    --fill: calc(100% / 3);
     -webkit-appearance: none;
     appearance: none;
     width: 100%;
@@ -1281,7 +1283,7 @@
     font-size: 17px;
     font-weight: 500;
     color: var(--ink);
-    background: rgba(255,255,255,0.6);
+    background: var(--glass-strong);
     border: 1px solid var(--accent);
     border-radius: 999px;
     padding: 4px 12px;
@@ -2109,7 +2111,7 @@ Wikimedia Commons and are in the public domain.
           <label class="pulse-volume-head" for="pulse-volume">
             <span id="pulse-volume-voice" data-i18n="beat.click">Clic</span>
           </label>
-          <input type="range" id="pulse-volume" class="pulse-volume-range" min="0" max="100" step="1" value="33" aria-label="Volume du clic" data-i18n-aria-label="volume.click">
+          <input type="range" id="pulse-volume" class="pulse-volume-range" min="0" max="300" step="5" value="100" aria-label="Volume du clic" data-i18n-aria-label="volume.click">
         </div>
       </div>
     </div>
@@ -2204,13 +2206,13 @@ Wikimedia Commons and are in the public domain.
   </div>
 
   <div class="field">
-    <h3 data-i18n="field.procedes">Procédés</h3>
-    <div class="pills" id="procede-pills" role="group" aria-label="Procédés" data-i18n-aria-label="field.procedes">
-      <label class="pill"><input type="checkbox" name="procede" value="rests"><span data-i18n="procede.rests">Silences</span><span class="pill-hint"></span></label>
-      <label class="pill"><input type="checkbox" name="procede" value="dots"><span data-i18n="procede.dots">Points</span><span class="pill-hint"></span></label>
-      <label class="pill"><input type="checkbox" name="procede" value="ties"><span data-i18n="procede.ties">Liaisons</span><span class="pill-hint"></span></label>
-      <label class="pill"><input type="checkbox" name="procede" value="syncopes"><span data-i18n="procede.syncopes">Syncopes</span><span class="pill-hint"></span></label>
-      <label class="pill"><input type="checkbox" name="procede" value="triplets"><span data-i18n="procede.triplets">Triolets</span><span class="pill-hint"></span></label>
+    <h3 data-i18n="field.techniques">Procédés</h3>
+    <div class="pills" id="technique-pills" role="group" aria-label="Procédés" data-i18n-aria-label="field.techniques">
+      <label class="pill"><input type="checkbox" name="technique" value="rests"><span data-i18n="technique.rests">Silences</span><span class="pill-hint"></span></label>
+      <label class="pill"><input type="checkbox" name="technique" value="dots"><span data-i18n="technique.dots">Points</span><span class="pill-hint"></span></label>
+      <label class="pill"><input type="checkbox" name="technique" value="ties"><span data-i18n="technique.ties">Liaisons</span><span class="pill-hint"></span></label>
+      <label class="pill"><input type="checkbox" name="technique" value="syncopations"><span data-i18n="technique.syncopations">Syncopes</span><span class="pill-hint"></span></label>
+      <label class="pill"><input type="checkbox" name="technique" value="triplets"><span data-i18n="technique.triplets">Triolets</span><span class="pill-hint"></span></label>
     </div>
   </div>
 
@@ -2354,29 +2356,17 @@ window.BRT_EMBEDDED_SAMPLES = {
     const numerator = parseInt(match[1], 10);
     const denominator = parseInt(match[2], 10);
     const compound = denominator === 8 && numerator >= 6 && numerator % 3 === 0;
-    if (compound) {
-      return {
-        meter: meter,
-        numerator: numerator,
-        denominator: denominator,
-        compound: true,
-        beats: numerator / COMPOUND_SUBDIVISION,
-        beat64: COMPOUND_SUBDIVISION * 64 / denominator,
-        beatFigure: "noire",
-        beatDotted: true,
-        subdivision: COMPOUND_SUBDIVISION
-      };
-    }
+    const subdivision = compound ? COMPOUND_SUBDIVISION : 1;
     return {
       meter: meter,
       numerator: numerator,
       denominator: denominator,
-      compound: false,
-      beats: numerator,
-      beat64: 64 / denominator,
-      beatFigure: BEAT_FIGURES[denominator],
-      beatDotted: false,
-      subdivision: 1
+      compound: compound,
+      beats: numerator / subdivision,
+      beat64: subdivision * 64 / denominator,
+      beatFigure: compound ? "noire" : BEAT_FIGURES[denominator],
+      beatDotted: compound,
+      subdivision: subdivision
     };
   }
 
@@ -2408,7 +2398,7 @@ window.BRT_EMBEDDED_SAMPLES = {
  * Fonction pure, sans DOM : generateExercise(config) -> { abc, notes, bars, header }
  *   config = {
  *     figures:  ["ronde"|"blanche"|"noire"|"croche"|"double"|"triple"|"quadruple", ...],
- *     procedes: ["rests"|"dots"|"ties"|"syncopes"|"triplets", ...] — procédés
+ *     techniques: ["rests"|"dots"|"ties"|"syncopations"|"triplets", ...] — procédés
  *               cochés, indépendants (défaut [] : notes seules),
  *     meter:    signature n/d permise (n de 1 à 12, d parmi 2, 4 et 8), analysée
  *               par js/meter.js — "4/4", "7/4", "3/2", "5/8", "6/8", "12/8"…
@@ -2439,7 +2429,7 @@ window.BRT_EMBEDDED_SAMPLES = {
  * coché), jamais en mesure composée ni en /8. Un silence exige toujours
  * Silences. La densité découle des procédés cochés :
  * silences dosés à part, procédés spéciaux sous un budget commun par mesure.
- * procedeNeeds(config, procede) dit ce qui manque pour qu'un procédé soit
+ * techniqueNeeds(config, technique) dit ce qui manque pour qu'un procédé soit
  * applicable avec les figures cochées (null s'il l'est). En mesure simple,
  * les cellules sont écrites en temps et se transposent d'elles-mêmes : en x/2
  * le temps vaut une blanche (la noire y joue le rôle de la croche), en /8
@@ -2548,7 +2538,7 @@ window.BRT_EMBEDDED_SAMPLES = {
 
   function cell(id, kind, weight, elems) {
     var len = 0;
-    for (var i = 0; i < elems.length; i++) {
+    for (let i = 0; i < elems.length; i++) {
       /* Règle de liaison : le catalogue ne lie jamais au milieu d'un temps. */
       if (elems[i].tie && !endsOnBeat(len, elems[i].d)) {
         throw new Error("Liaison au milieu d'un temps : " + id);
@@ -2570,7 +2560,7 @@ window.BRT_EMBEDDED_SAMPLES = {
    *        "rests"    : silences équivalents aux figures cochées ;
    *        "dots"     : cellules pointées ;
    *        "ties"     : cellules liées (toujours sur un début de temps) ;
-   *        "syncopes" : syncopes écrites sans liaison ;
+   *        "syncopations" : syncopes écrites sans liaison ;
    *        "triplets" : triolet d'un temps (sa figure écrite vaut un
    *                     demi-temps : croche en /4, noire en /2), avec un
    *                     silence interne seulement si Silences est coché.
@@ -2634,9 +2624,9 @@ window.BRT_EMBEDDED_SAMPLES = {
 
     /* --- Syncopes écrites sans liaison (palier D) --- */
     /* croche – noire – croche */
-    cell("syncope-half-beat-half", "syncopes", 5, [note(0.5), note(1), note(0.5)]),
+    cell("syncope-half-beat-half", "syncopations", 5, [note(0.5), note(1), note(0.5)]),
     /* croche – noire – noire – croche */
-    cell("syncope-long", "syncopes", 2, [note(0.5), note(1), note(1), note(0.5)]),
+    cell("syncope-long", "syncopations", 2, [note(0.5), note(1), note(1), note(0.5)]),
 
     /* --- Triolets : trois notes égales dans un temps (étape 11) --- */
     cell("triplet", "triplets", 8, repeatElems([tripletNote()], 3)),
@@ -2658,7 +2648,7 @@ window.BRT_EMBEDDED_SAMPLES = {
    *                pointée plus fine que le temps ;
    *   "ties"     : liaisons d'un temps à l'autre (noire pointée liée, croche
    *                liée par-dessus le temps, doubles liées) ;
-   *   "syncopes" : l'hémiole (trois noires sur deux temps), la syncope écrite
+   *   "syncopations" : l'hémiole (trois noires sur deux temps), la syncope écrite
    *                sans liaison propre à la mesure composée : la noire du
    *                milieu enjambe le temps.
    * Les liaisons par-dessus la barre relèvent toujours de "ties".
@@ -2733,22 +2723,16 @@ window.BRT_EMBEDDED_SAMPLES = {
         note(SIXTEENTH), note(SIXTEENTH), note(EIGHTH), note(EIGHTH)]),
 
     /* --- Syncopes écrites sans liaison : l'hémiole --- */
-    cell("c-hemiola", "syncopes", 4, [note(2 * EIGHTH), note(2 * EIGHTH), note(2 * EIGHTH)])
+    cell("c-hemiola", "syncopations", 4, [note(2 * EIGHTH), note(2 * EIGHTH), note(2 * EIGHTH)])
   ];
 
   /* Procédés reconnus, dans l'ordre d'affichage. */
-  var PROCEDES = ["rests", "dots", "ties", "syncopes", "triplets"];
+  const TECHNIQUES = ["rests", "dots", "ties", "syncopations", "triplets"];
   /* Procédés tirés comme cellules « spéciales » : ils se partagent un même
      budget par mesure, pour qu'une mesure reste lisible quand on les cumule. */
-  var SPECIAL_PROCEDES = ["dots", "ties", "syncopes", "triplets"];
+  const SPECIAL_TECHNIQUES = ["dots", "ties", "syncopations", "triplets"];
 
   /* ---------- utilitaires ---------- */
-
-  /* Analyse de signature (js/meter.js) : { beats, beat64, compound… } ;
-     lève une erreur pour une signature non permise. */
-  function parseMeter(meter) {
-    return Meter.analyzeMeter(meter);
-  }
 
   /* Convertit une durée en temps vers une durée en 64e de ronde, le temps
      valant beat64 64e (16 en x/4, 24 en mesure composée). */
@@ -2774,12 +2758,9 @@ window.BRT_EMBEDDED_SAMPLES = {
      mesure composée (le temps s'y divise déjà en trois) et /8 simple (ce
      serait un triolet de doubles, hors du programme). */
   function tripletFigure(meter) {
-    const m = parseMeter(meter);
+    const m = Meter.analyzeMeter(meter);
     if (m.compound || m.denominator === 8) return null;
-    for (let i = 0; i < FIGURE_ORDER.length; i++) {
-      if (FIGURE_64[FIGURE_ORDER[i]] * 2 === m.beat64) return FIGURE_ORDER[i];
-    }
-    return null;
+    return FIGURE_ORDER.find(function (fig) { return FIGURE_64[fig] * 2 === m.beat64; }) || null;
   }
 
   /* Durée en temps d'une figure sous une signature, éventuellement pointée
@@ -2788,7 +2769,7 @@ window.BRT_EMBEDDED_SAMPLES = {
      Partagée par la composition manuelle (pose, invariant, codec) et ses
      tests. */
   function figureBeats(fig, meter, dot) {
-    return FIGURE_64[fig] * (dot ? 1.5 : 1) / parseMeter(meter).beat64;
+    return FIGURE_64[fig] * (dot ? 1.5 : 1) / Meter.analyzeMeter(meter).beat64;
   }
 
   /* Durée réelle en temps d'un événement de composition { fig, dot, triplet } :
@@ -2813,7 +2794,7 @@ window.BRT_EMBEDDED_SAMPLES = {
      place restante dans cette mesure (null si la grille est vide). */
   function lastPlacement(composition) {
     const meter = composition.meter;
-    const parsed = parseMeter(meter);
+    const beats = Meter.analyzeMeter(meter).beats;
     const measures = composition.measures || [];
     for (let i = measures.length - 1; i >= 0; i--) {
       const bar = measures[i];
@@ -2826,10 +2807,9 @@ window.BRT_EMBEDDED_SAMPLES = {
       const duration = eventBeats(event, meter);
       return {
         event: event,
-        meter: meter,
         start: start,
         duration: duration,
-        remaining: parsed.beats - start - duration
+        remaining: beats - start - duration
       };
     }
     return null;
@@ -2855,7 +2835,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     if (composition.openTriplet) return false;
     const last = lastPlacement(composition);
     if (!last || last.event.rest || last.event.triplet) return false;
-    const toggled = figureBeats(last.event.fig, last.meter, !last.event.dot);
+    const toggled = figureBeats(last.event.fig, composition.meter, !last.event.dot);
     if (toggled - last.duration > last.remaining + BEAT_EPSILON) return false;
     if (last.event.tie && !endsOnBeat(last.start, toggled)) return false;
     return true;
@@ -2898,7 +2878,6 @@ window.BRT_EMBEDDED_SAMPLES = {
   function tripletFigures(composition) {
     if (tripletFilled(composition) === null) return [];
     const fig = tripletFigure(composition.meter);
-    if (!fig) return [];
     const last = lastPlacement(composition);
     const pendingTie = !!(last && last.event.tie && !last.event.rest);
     const out = [{ fig: fig, rest: false }];
@@ -2924,15 +2903,12 @@ window.BRT_EMBEDDED_SAMPLES = {
 
   /* ---------- disponibilité des cellules ---------- */
 
-  function hasProcede(config, procede) {
-    return (config.procedes || []).indexOf(procede) !== -1;
+  function hasTechnique(config, technique) {
+    return (config.techniques || []).indexOf(technique) !== -1;
   }
 
-  function hasSpecialProcede(config) {
-    for (let i = 0; i < SPECIAL_PROCEDES.length; i++) {
-      if (hasProcede(config, SPECIAL_PROCEDES[i])) return true;
-    }
-    return false;
+  function hasSpecialTechnique(config) {
+    return SPECIAL_TECHNIQUES.some(function (technique) { return hasTechnique(config, technique); });
   }
 
   /*
@@ -2947,7 +2923,7 @@ window.BRT_EMBEDDED_SAMPLES = {
    * triolet n'existe que là où tripletFigure le permet.
    */
   function availableCells(config) {
-    var m = parseMeter(config.meter);
+    const m = Meter.analyzeMeter(config.meter);
     const catalog = m.compound ? COMPOUND_CELLS : SIMPLE_CELLS;
     const tripletsAllowed = tripletFigure(config.meter) !== null;
     var fig64 = {};
@@ -2955,17 +2931,17 @@ window.BRT_EMBEDDED_SAMPLES = {
       fig64[FIGURE_64[config.figures[i]]] = true;
     }
     var out = [];
-    for (var c = 0; c < catalog.length; c++) {
-      var cc = catalog[c];
-      if (cc.kind !== "base" && !hasProcede(config, cc.kind)) continue;
-      if (cc.hasRest && !hasProcede(config, "rests")) continue;
+    for (let c = 0; c < catalog.length; c++) {
+      const cc = catalog[c];
+      if (cc.kind !== "base" && !hasTechnique(config, cc.kind)) continue;
+      if (cc.hasRest && !hasTechnique(config, "rests")) continue;
       if (cc.kind === "triplets" && !tripletsAllowed) continue;
       if (cc.lenInt > m.beats) continue;
       var ok = true;
       for (var e = 0; e < cc.elems.length; e++) {
         var el = cc.elems[e];
         const written = writtenBeats(el);
-        var v = beatsTo64(written, m.beat64);
+        const v = beatsTo64(written, m.beat64);
         /* Valeur plus fine que la quadruple croche une fois transposée (en
            /8 simple) : cellule inutilisable. */
         if (Math.abs(written * m.beat64 - v) > BEAT_EPSILON) {
@@ -3040,41 +3016,42 @@ window.BRT_EMBEDDED_SAMPLES = {
     for (let i = 0; i < usable.length; i++) {
       const elems = usable[i].cell.elems;
       const last = elems[elems.length - 1];
-      if (usable[i].pos + usable[i].cell.lenInt === beats && !last.tie && crossBarTieFits(last, last)) {
+      const first = elems[0];
+      if (usable[i].pos + usable[i].cell.lenInt === beats && !last.tie && !last.rest && last.d <= 1) {
         canEnd = true;
       }
-      if (usable[i].pos === 0 && crossBarTieFits(elems[0], elems[0])) canStart = true;
+      if (usable[i].pos === 0 && !first.rest && first.d <= 2) canStart = true;
     }
     return canEnd && canStart;
   }
 
   /* Un procédé est applicable si les figures cochées, sous la signature,
      permettent de le tirer au moins une fois, avec les autres procédés cochés
-     (config.procedes, facultatif) : en 5/8, la noire pointée d'un procédé
+     (config.techniques, facultatif) : en 5/8, la noire pointée d'un procédé
      Points peut seule ouvrir la place d'un soupir. */
-  function procedeApplicable(config, procede) {
-    const beats = parseMeter(config.meter).beats;
+  function techniqueApplicable(config, technique) {
+    const beats = Meter.analyzeMeter(config.meter).beats;
     const usable = placements(availableCells({
       figures: config.figures,
       meter: config.meter,
-      procedes: [procede].concat(config.procedes || [])
+      techniques: [technique].concat(config.techniques || [])
     }), beats);
     for (let i = 0; i < usable.length; i++) {
-      if (usable[i].cell.kind === procede) return true;
+      if (usable[i].cell.kind === technique) return true;
     }
-    return procede === "ties" && crossBarTiePossible(usable, beats);
+    return technique === "ties" && crossBarTiePossible(usable, beats);
   }
 
   /*
    * Ce qui manque à un procédé : null s'il est applicable avec les figures
-   * cochées ({ figures, meter, procedes? } — les autres procédés cochés
+   * cochées ({ figures, meter, techniques? } — les autres procédés cochés
    * comptent) ; sinon les figures à cocher en plus pour le
    * rendre applicable (une, ou deux à défaut, de la plus longue à la plus
    * courte), ou [] si aucune ne suffit. On propose d'abord les figures voisines
    * de celles déjà cochées, la plus courte d'abord à égale distance.
    */
-  function procedeNeeds(config, procede) {
-    if (procedeApplicable(config, procede)) return null;
+  function techniqueNeeds(config, technique) {
+    if (techniqueApplicable(config, technique)) return null;
     const checked = config.figures;
     const distance = function (fig) {
       let best = FIGURE_ORDER.length;
@@ -3089,11 +3066,11 @@ window.BRT_EMBEDDED_SAMPLES = {
       return distance(a) - distance(b) || FIGURE_ORDER.indexOf(b) - FIGURE_ORDER.indexOf(a);
     });
     const tryFigures = function (extra) {
-      return procedeApplicable({
+      return techniqueApplicable({
         figures: checked.concat(extra),
         meter: config.meter,
-        procedes: config.procedes
-      }, procede);
+        techniques: config.techniques
+      }, technique);
     };
     for (let i = 0; i < candidates.length; i++) {
       if (tryFigures([candidates[i]])) return [candidates[i]];
@@ -3125,8 +3102,8 @@ window.BRT_EMBEDDED_SAMPLES = {
    * cellules par mesure, quel que soit le nombre de procédés cochés.
    */
   function restTargetFor(config, rng) {
-    if (!hasProcede(config, "rests")) return 0;
-    if (!hasSpecialProcede(config)) {
+    if (!hasTechnique(config, "rests")) return 0;
+    if (!hasSpecialTechnique(config)) {
       const x = rng();
       return x < 0.25 ? 0 : (x < 0.8 ? 1 : 2);
     }
@@ -3134,7 +3111,7 @@ window.BRT_EMBEDDED_SAMPLES = {
   }
 
   function specialTargetFor(config, rng) {
-    if (!hasSpecialProcede(config)) return 0;
+    if (!hasSpecialTechnique(config)) return 0;
     return rng() < 0.55 ? 1 : 2;
   }
 
@@ -3148,8 +3125,8 @@ window.BRT_EMBEDDED_SAMPLES = {
       var plainOnly = attempt === 39; /* dernier recours : notes seules */
       events = [];
       var pos = 0;
-      var restLeft = plainOnly ? 0 : restTargetFor(config, rng);
-      var specialLeft = plainOnly ? 0 : specialTargetFor(config, rng);
+      let restLeft = plainOnly ? 0 : restTargetFor(config, rng);
+      let specialLeft = plainOnly ? 0 : specialTargetFor(config, rng);
       var dead = false;
       while (pos < beats) {
         var candidates = [], specials = [], rests = [], bases = [];
@@ -3159,7 +3136,7 @@ window.BRT_EMBEDDED_SAMPLES = {
           if (!startAllowed(cc.lenInt, pos, beats)) continue;
           if (!reach[pos + cc.lenInt]) continue;
           candidates.push(cc);
-          if (SPECIAL_PROCEDES.indexOf(cc.kind) !== -1) specials.push(cc);
+          if (SPECIAL_TECHNIQUES.indexOf(cc.kind) !== -1) specials.push(cc);
           else if (cc.kind === "rests") rests.push(cc);
           else bases.push(cc);
         }
@@ -3211,7 +3188,7 @@ window.BRT_EMBEDDED_SAMPLES = {
    * aléatoire et la composition manuelle — même choix d'unité des deux côtés.
    */
   function chooseUnit(measures, meter) {
-    const beat64 = parseMeter(meter).beat64;
+    const beat64 = Meter.analyzeMeter(meter).beat64;
     var g = 0;
     for (var i = 0; i < measures.length; i++) {
       for (var j = 0; j < measures[i].length; j++) {
@@ -3233,7 +3210,7 @@ window.BRT_EMBEDDED_SAMPLES = {
    * de composition (mesure ouverte gravée en direct).
    */
   function barText(events, unit, meter, noteTok) {
-    const beat64 = parseMeter(meter).beat64;
+    const beat64 = Meter.analyzeMeter(meter).beat64;
     const beatTicks = beat64 * TICKS_PER_64;
     var groups = [];   /* chaînes (tokens isolés) ou { beat, toks } (ligature par temps) */
     var current = null;
@@ -3241,9 +3218,9 @@ window.BRT_EMBEDDED_SAMPLES = {
     for (var j = 0; j < events.length; j++) {
       var e = events[j];
       const d64 = beatsTo64(writtenBeats(e), beat64);
-      var mult = d64 / unit;
+      const mult = d64 / unit;
       const opensTriplet = !!e.triplet && posTicks % beatTicks === 0;
-      var tok = (opensTriplet ? "(" + TRIPLET_SIZE : "") + (e.rest ? "z" : noteTok) +
+      const tok = (opensTriplet ? "(" + TRIPLET_SIZE : "") + (e.rest ? "z" : noteTok) +
         (mult === 1 ? "" : mult) + (e.tie ? "-" : "");
       if (d64 >= beat64) {
         groups.push(tok);
@@ -3278,7 +3255,7 @@ window.BRT_EMBEDDED_SAMPLES = {
      flottant le plus proche, sans dérive d'accumulation. */
   function assemble(measures, config, m) {
     var noteTok = config.note || "D,";
-    var unit = chooseUnit(measures, config.meter);
+    const unit = chooseUnit(measures, config.meter);
     var lden = 64 / unit;
     const beatTicks = m.beat64 * TICKS_PER_64;
 
@@ -3331,7 +3308,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     if (!config || typeof config !== "object") {
       throw new Error("Configuration manquante.");
     }
-    var m = parseMeter(config.meter);
+    const m = Meter.analyzeMeter(config.meter);
     var cleaned = [];
     var order = [];
     var i, j;
@@ -3339,7 +3316,7 @@ window.BRT_EMBEDDED_SAMPLES = {
       var bar = [];
       for (j = 0; j < measures[i].length; j++) {
         var e = measures[i][j];
-        var copy = { d: e.d, rest: !!e.rest, tie: !!e.tie, triplet: !!e.triplet };
+        const copy = { d: e.d, rest: !!e.rest, tie: !!e.tie, triplet: !!e.triplet };
         bar.push(copy);
         order.push(copy);
       }
@@ -3414,7 +3391,10 @@ window.BRT_EMBEDDED_SAMPLES = {
     const meter = match[1] + "/" + match[2];
     return Meter.isMeter(meter) ? meter : null;
   }
-  const PROCEDE_CODE = { rests: "r", dots: "d", ties: "t", syncopes: "s", triplets: "3" };
+  const TECHNIQUE_CODE = { rests: "r", dots: "d", ties: "t", syncopations: "s", triplets: "3" };
+  /* Clé « p » d'un lien : rien d'autre que ces lettres, dans n'importe quel
+     ordre, éventuellement répétées. */
+  const TECHNIQUE_CODES_PATTERN = /^[rdts3]*$/;
 
   function encodeShare(state) {
     var figs = "";
@@ -3422,14 +3402,16 @@ window.BRT_EMBEDDED_SAMPLES = {
       var code = FIG_CODE[state.figures[i]];
       if (code) figs += code;
     }
-    let procedes = "";
-    for (let p = 0; p < PROCEDES.length; p++) {
-      if ((state.procedes || []).indexOf(PROCEDES[p]) !== -1) procedes += PROCEDE_CODE[PROCEDES[p]];
-    }
+    const checked = state.techniques || [];
+    const techniques = TECHNIQUES.filter(function (technique) {
+      return checked.indexOf(technique) !== -1;
+    }).map(function (technique) {
+      return TECHNIQUE_CODE[technique];
+    }).join("");
     var meas = state.measures === "inf" ? "i" : String(state.measures);
     return "s=" + ((state.seed >>> 0).toString(36)) +
       "&f=" + figs +
-      "&p=" + procedes +
+      "&p=" + techniques +
       "&m=" + encodeMeter(state.meter) +
       "&n=" + state.note +
       "&x=" + meas;
@@ -3461,19 +3443,12 @@ window.BRT_EMBEDDED_SAMPLES = {
     }
     if (!figures.length) return null;
 
-    const procedes = [];
-    for (let c = 0; c < map.p.length; c++) {
-      let known = false;
-      for (let p = 0; p < PROCEDES.length; p++) {
-        if (PROCEDE_CODE[PROCEDES[p]] === map.p.charAt(c)) known = true;
-      }
-      if (!known) return null;
-    }
-    for (let p = 0; p < PROCEDES.length; p++) {
-      if (map.p.indexOf(PROCEDE_CODE[PROCEDES[p]]) !== -1) procedes.push(PROCEDES[p]);
-    }
+    if (!TECHNIQUE_CODES_PATTERN.test(map.p)) return null;
+    const techniques = TECHNIQUES.filter(function (technique) {
+      return map.p.indexOf(TECHNIQUE_CODE[technique]) !== -1;
+    });
 
-    var meter = decodeMeter(map.m);
+    const meter = decodeMeter(map.m);
     if (!meter) return null;
 
     if (!/^[A-G]$/.test(map.n)) return null;
@@ -3484,7 +3459,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     return {
       seed: seed,
       figures: figures,
-      procedes: procedes,
+      techniques: techniques,
       meter: meter,
       note: map.n,
       measures: measures
@@ -3545,13 +3520,14 @@ window.BRT_EMBEDDED_SAMPLES = {
       if (kv.length === 2 && kv[0]) map[kv[0]] = kv[1];
     }
     if (!("c" in map && "m" in map && "n" in map && "e" in map)) return null;
-    if (map.c !== COMPOSED_VERSION) return null; /* version inconnue ou ancienne : rejet */
+    /* version inconnue ou ancienne : rejet */
+    if (map.c !== COMPOSED_VERSION) return null;
 
-    var meter = decodeMeter(map.m);
+    const meter = decodeMeter(map.m);
     if (!meter) return null;
     if (!/^[A-G]$/.test(map.n)) return null;
 
-    var beats = parseMeter(meter).beats;
+    const beats = Meter.analyzeMeter(meter).beats;
     const tripletFig = tripletFigure(meter);
 
     var events = [];
@@ -3598,7 +3574,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     let tripletRun = 0;
     for (i = 0; i < events.length; i++) {
       var e = events[i];
-      var d = eventBeats(e, meter);
+      const d = eventBeats(e, meter);
       if (sum + d > beats + 1e-9) return null;
       if (e.triplet) {
         if (tripletRun % TRIPLET_SIZE === 0 && !endsOnBeat(0, sum)) return null;
@@ -3636,19 +3612,19 @@ window.BRT_EMBEDDED_SAMPLES = {
         throw new Error("Figure inconnue : " + figures[i]);
       }
     }
-    var procedes = config.procedes === undefined ? [] : config.procedes;
-    if (Object.prototype.toString.call(procedes) !== "[object Array]") {
-      throw new Error("Procédés invalides : " + procedes);
+    const techniques = config.techniques === undefined ? [] : config.techniques;
+    if (!Array.isArray(techniques)) {
+      throw new Error("Procédés invalides : " + techniques);
     }
-    for (var p = 0; p < procedes.length; p++) {
-      if (PROCEDES.indexOf(procedes[p]) === -1) {
-        throw new Error("Procédé inconnu : " + procedes[p]);
+    for (let p = 0; p < techniques.length; p++) {
+      if (TECHNIQUES.indexOf(techniques[p]) === -1) {
+        throw new Error("Procédé inconnu : " + techniques[p]);
       }
     }
     if (config.note !== undefined && !/^[A-G],{0,2}$/.test(config.note)) {
       throw new Error("Note d'entraînement invalide : " + config.note);
     }
-    var m = parseMeter(config.meter);
+    const m = Meter.analyzeMeter(config.meter);
     var count = config.measures;
     if (typeof count !== "number" || !isFinite(count) || Math.floor(count) !== count || count < 1) {
       throw new Error("Nombre de mesures invalide : " + count);
@@ -3665,7 +3641,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     for (var k = 0; k < count; k++) {
       measures.push(buildMeasure(cells, reach, m.beats, config, rng));
     }
-    if (hasProcede(config, "ties")) addCrossBarTies(measures, m.beats, rng);
+    if (hasTechnique(config, "ties")) addCrossBarTies(measures, m.beats, rng);
 
     return assemble(measures, config, m);
   }
@@ -3687,14 +3663,14 @@ window.BRT_EMBEDDED_SAMPLES = {
     abcHeader: abcHeader,
     joinBars: joinBars,
     availableCells: availableCells,
-    procedeNeeds: procedeNeeds,
+    techniqueNeeds: techniqueNeeds,
     makeRng: makeRng,
     encodeShare: encodeShare,
     decodeShare: decodeShare,
     encodeComposed: encodeComposed,
     decodeComposed: decodeComposed,
     FIGURE_64: FIGURE_64,
-    PROCEDES: PROCEDES
+    TECHNIQUES: TECHNIQUES
   };
 }));
 
@@ -3840,7 +3816,8 @@ window.BRT_EMBEDDED_SAMPLES = {
   var GROOVE_KICK_LEVEL = 0.32;
   var GROOVE_SNARE_LEVEL = 0.16;
   var GROOVE_HAT_LEVEL = 0.08;
-  const GROOVE_HAT_SUB_LEVEL = 0.045; // charley des croches de subdivision, sous celui des temps
+  // charley des croches de subdivision, sous celui des temps
+  const GROOVE_HAT_SUB_LEVEL = 0.045;
   var GROOVE_NOISE_S = 0.3;      // durée du buffer de bruit (caisse claire, charley)
 
   /* Clic à trois niveaux : le 1 (aigu, fort), les autres temps, puis les
@@ -3863,7 +3840,8 @@ window.BRT_EMBEDDED_SAMPLES = {
      par défaut ci-dessus, de 0 (silence) à 3. Au-delà de 100 %, la somme
      peut dépasser la pleine échelle : le limiteur de sortie la contient. */
   const PULSATION_VOLUME_MAX = 3;
-  const PULSATION_VOLUME_RAMP_S = 0.02; // glissé du réglage en vol (pas de zip)
+  // glissé du réglage en vol (pas de zip)
+  const PULSATION_VOLUME_RAMP_S = 0.02;
 
   /* Limiteur de sortie : compresseur natif à seuil haut, ratio fort et
      attaque courte. Sous le seuil, le son passe (au gain de rattrapage près,
@@ -3979,9 +3957,8 @@ window.BRT_EMBEDDED_SAMPLES = {
    * croches de niveau "sub", aux décalages k / subdivisions du temps.
    */
   function pulsesOfBeat(d, subdivisions) {
-    const n = subdivisions > 1 ? Math.round(subdivisions) : 1;
     const pulses = [{ offset: 0, level: d.accent ? "accent" : "beat" }];
-    for (let k = 1; k < n; k++) pulses.push({ offset: k / n, level: "sub" });
+    for (let k = 1; k < subdivisions; k++) pulses.push({ offset: k / subdivisions, level: "sub" });
     return pulses;
   }
 
@@ -4292,7 +4269,7 @@ window.BRT_EMBEDDED_SAMPLES = {
   function playNotePreview(ctx, v, seconds) {
     var dur = seconds > 0 ? seconds : 1.5;
     const output = buildOutput(ctx);
-    var voice = buildNoteVoice(ctx, output.master, ctx.currentTime + 0.02, dur, v);
+    const voice = buildNoteVoice(ctx, output.master, ctx.currentTime + 0.02, dur, v);
     var done = false;
     voice.src.onended = function () {
       done = true;
@@ -4438,7 +4415,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     /* Subdivision : croches par temps (1 = le temps seul). Les croches d'un
        temps programmé attendent dans pendingSubs que leur instant entre dans
        l'horizon ; elles lisent la voix et le métronome à ce moment-là. */
-    let subdivisions = opts.subdivisions > 1 ? Math.round(opts.subdivisions) : 1;
+    let subdivisions = opts.subdivisions || 1;
     let pendingSubs = [];
 
     /* Son des notes : événements { startBeats, holdBeats } triés, fournis par
@@ -4450,7 +4427,8 @@ window.BRT_EMBEDDED_SAMPLES = {
     var notesOn = !!opts.notesEnabled;
     var clicksOn = opts.clicksEnabled !== false;
     var pulsationVoice = opts.pulsationVoice === "groove" ? "groove" : "clic";
-    var noise = null;        // buffer de bruit du groove, créé à son premier battement
+    // buffer de bruit du groove, créé à son premier battement
+    let noise = null;
     var getNoteVoice = opts.getNoteVoice || function () { return null; };
     var noteIdx = 0;
     var cycleBase = 0;       // décalage en temps des cycles de boucle déjà recyclés
@@ -4458,7 +4436,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     var liveNotes = [];      // voix actives { src, cut, start } pour coupure/annulation
 
     const output = buildOutput(ctx);
-    var master = output.master;
+    const master = output.master;
 
     /* Volume de pulsation par voix. Toutes les voix de pulsation (clic,
        groove, décompte) passent par pulseBus, dont le gain est le volume de
@@ -4501,21 +4479,19 @@ window.BRT_EMBEDDED_SAMPLES = {
        au-dessus, plus fort, un peu plus long), autres temps, croches de
        subdivision (plus graves, faibles et brèves). */
     function scheduleClick(time, level) {
-      const voice = CLICK_VOICES[level] || CLICK_VOICES.beat;
+      const voice = CLICK_VOICES[level];
       var osc = ctx.createOscillator();
       var gain = ctx.createGain();
       osc.type = "sine";
       osc.frequency.value = voice.freq;
-      var peak = voice.peak;
-      var decay = voice.decay;
       gain.gain.setValueAtTime(0.0001, time);
-      gain.gain.linearRampToValueAtTime(peak, time + 0.0025);
-      gain.gain.exponentialRampToValueAtTime(0.0001, time + decay);
-      gain.gain.linearRampToValueAtTime(0, time + decay + 0.01);
+      gain.gain.linearRampToValueAtTime(voice.peak, time + 0.0025);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + voice.decay);
+      gain.gain.linearRampToValueAtTime(0, time + voice.decay + 0.01);
       osc.connect(gain);
       gain.connect(pulseBus);
       osc.start(time);
-      osc.stop(time + decay + 0.03);
+      osc.stop(time + voice.decay + 0.03);
       trackPulsation({ srcs: [osc], gain: gain });
     }
 
@@ -4669,7 +4645,7 @@ window.BRT_EMBEDDED_SAMPLES = {
          valeur en PULSATION_VOLUME_RAMP_S, ce qui est déjà programmé compris ;
          l'autre voix mémorise la sienne. */
       setPulsationVolume: function (voice, value) {
-        if (!Object.prototype.hasOwnProperty.call(pulsationVolumes, voice)) return;
+        if (!(voice in pulsationVolumes)) return;
         pulsationVolumes[voice] = clampPulsationVolume(value);
         if (voice === pulsationVoice) glidePulseBus();
       },
@@ -4677,7 +4653,7 @@ window.BRT_EMBEDDED_SAMPLES = {
          nouvelle voix, à son propre volume (le déjà programmé, sur moins
          d'un horizon, garde l'ancienne). */
       setPulsationVoice: function (voice) {
-        if (!Object.prototype.hasOwnProperty.call(pulsationVolumes, voice)) return;
+        if (!(voice in pulsationVolumes)) return;
         if (voice === pulsationVoice) return;
         pulsationVoice = voice;
         glidePulseBus();
@@ -4690,8 +4666,8 @@ window.BRT_EMBEDDED_SAMPLES = {
          programmées sont abandonnées (le déjà programmé, sur moins d'un
          horizon, sonne encore). */
       setSubdivisions: function (n) {
-        subdivisions = n > 1 ? Math.round(n) : 1;
-        if (subdivisions === 1) pendingSubs = [];
+        subdivisions = n;
+        if (n === 1) pendingSubs = [];
       },
       /* Position continue à l'instant t : { step, countIn, gridBeat }. */
       positionAt: function (t) {
@@ -4818,14 +4794,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     START_DELAY_S: START_DELAY_S,
     NOTE_RELEASE_S: NOTE_RELEASE_S,
     PULSATION_VOLUME_MAX: PULSATION_VOLUME_MAX,
-    TEMPO_MIN: TEMPO_MIN,
-    TEMPO_MAX: TEMPO_MAX,
-    TEMPO_MAX_COMPOUND: TEMPO_MAX_COMPOUND,
-    CLICK_FREQUENCIES: {
-      accent: CLICK_VOICES.accent.freq,
-      beat: CLICK_VOICES.beat.freq,
-      sub: CLICK_VOICES.sub.freq
-    },
+    CLICK_VOICES: CLICK_VOICES,
     tempoRange: tempoRange,
     clampTempo: clampTempo,
     beatSubdivisions: beatSubdivisions,
@@ -4889,9 +4858,6 @@ window.BRT_EMBEDDED_SAMPLES = {
       "tempo.help": "Cliquer pour saisir · glisser verticalement ou utiliser la molette pour ajuster",
       "tempo.increase": "Augmenter le tempo de 5 BPM",
       "tempo.unit": "Unité du tempo : {figure}",
-      "tempoUnit.half": "blanche",
-      "tempoUnit.eighth": "croche",
-      "tempoUnit.dottedQuarter": "noire pointée",
       "aids.title": "Aides de lecture",
       "aids.description": "Aides de lecture — métronome, guide visuel, son, volume de pulsation",
       "metronome.title": "Métronome — clics des temps",
@@ -4932,16 +4898,16 @@ window.BRT_EMBEDDED_SAMPLES = {
       "beat.click": "Clic",
       "beat.groove": "Groove",
       "beat.previewGroove": "Écouter le groove",
-      "field.procedes": "Procédés",
-      "procede.rests": "Silences",
-      "procede.dots": "Points",
-      "procede.ties": "Liaisons",
-      "procede.syncopes": "Syncopes",
-      "procede.triplets": "Triolets",
-      "procede.notCompound": "pas en mesure composée",
-      "procede.notEighth": "pas en /8",
-      "procede.needs": "nécessite {figures}",
-      "procede.needsMore": "nécessite d'autres figures",
+      "field.techniques": "Procédés",
+      "technique.rests": "Silences",
+      "technique.dots": "Points",
+      "technique.ties": "Liaisons",
+      "technique.syncopations": "Syncopes",
+      "technique.triplets": "Triolets",
+      "technique.notCompound": "pas en mesure composée",
+      "technique.notEighth": "pas en /8",
+      "technique.needs": "nécessite {figures}",
+      "technique.needsMore": "nécessite d'autres figures",
       "figureDefinite.whole": "la ronde",
       "figureDefinite.half": "la blanche",
       "figureDefinite.quarter": "la noire",
@@ -4949,7 +4915,6 @@ window.BRT_EMBEDDED_SAMPLES = {
       "figureDefinite.sixteenth": "la double croche",
       "figureDefinite.thirtySecond": "la triple croche",
       "figureDefinite.sixtyFourth": "la quadruple croche",
-      "list.and": "et",
       "field.noteValues": "Figures de notes",
       "figure.whole": "Ronde",
       "figure.half": "Blanche",
@@ -4986,11 +4951,11 @@ window.BRT_EMBEDDED_SAMPLES = {
       "lesson.thirtySecond.rests": "la triple croche et son huitième de soupir",
       "lesson.sixtyFourth": "la quadruple croche",
       "lesson.sixtyFourth.rests": "la quadruple croche et son seizième de soupir",
-      "lesson.procede.dots": "pointées",
-      "lesson.procede.ties": "liaisons",
-      "lesson.procede.syncopes": "syncopes",
-      "lesson.procede.triplets": "triolets",
-      "lesson.withProcedes": "{lesson}, avec {procedes}",
+      "lesson.technique.dots": "pointées",
+      "lesson.technique.ties": "liaisons",
+      "lesson.technique.syncopations": "syncopes",
+      "lesson.technique.triplets": "triolets",
+      "lesson.withTechniques": "{lesson}, avec {techniques}",
       "score.unavailableOffline": "La partition n'a pas pu se charger (abcjs indisponible hors ligne).",
       "score.unavailable": "La partition n'a pas pu se charger.",
       "warning.guidance": "Guidage visuel désactivé : {svgCount} élément(s) SVG (notes/silences) pour {eventCount} événement(s) de timeline — mapping impossible.",
@@ -5031,9 +4996,6 @@ window.BRT_EMBEDDED_SAMPLES = {
       "tempo.help": "Click to type · drag vertically or use the mouse wheel to adjust",
       "tempo.increase": "Increase tempo by 5 BPM",
       "tempo.unit": "Tempo unit: {figure}",
-      "tempoUnit.half": "half note",
-      "tempoUnit.eighth": "eighth note",
-      "tempoUnit.dottedQuarter": "dotted quarter note",
       "aids.title": "Reading aids",
       "aids.description": "Reading aids — metronome, visual guide, note sound, beat volume",
       "metronome.title": "Metronome — beat clicks",
@@ -5074,16 +5036,16 @@ window.BRT_EMBEDDED_SAMPLES = {
       "beat.click": "Click",
       "beat.groove": "Groove",
       "beat.previewGroove": "Listen to the groove",
-      "field.procedes": "Techniques",
-      "procede.rests": "Rests",
-      "procede.dots": "Dots",
-      "procede.ties": "Ties",
-      "procede.syncopes": "Syncopation",
-      "procede.triplets": "Triplets",
-      "procede.notCompound": "not in compound time",
-      "procede.notEighth": "not in /8 time",
-      "procede.needs": "needs {figures}",
-      "procede.needsMore": "needs other note values",
+      "field.techniques": "Techniques",
+      "technique.rests": "Rests",
+      "technique.dots": "Dots",
+      "technique.ties": "Ties",
+      "technique.syncopations": "Syncopation",
+      "technique.triplets": "Triplets",
+      "technique.notCompound": "not in compound time",
+      "technique.notEighth": "not in /8 time",
+      "technique.needs": "needs {figures}",
+      "technique.needsMore": "needs other note values",
       "figureDefinite.whole": "whole notes",
       "figureDefinite.half": "half notes",
       "figureDefinite.quarter": "quarter notes",
@@ -5091,7 +5053,6 @@ window.BRT_EMBEDDED_SAMPLES = {
       "figureDefinite.sixteenth": "sixteenth notes",
       "figureDefinite.thirtySecond": "thirty-second notes",
       "figureDefinite.sixtyFourth": "sixty-fourth notes",
-      "list.and": "and",
       "field.noteValues": "Note values",
       "figure.whole": "Whole note",
       "figure.half": "Half note",
@@ -5128,11 +5089,11 @@ window.BRT_EMBEDDED_SAMPLES = {
       "lesson.thirtySecond.rests": "thirty-second notes and thirty-second rests",
       "lesson.sixtyFourth": "sixty-fourth notes",
       "lesson.sixtyFourth.rests": "sixty-fourth notes and sixty-fourth rests",
-      "lesson.procede.dots": "dotted notes",
-      "lesson.procede.ties": "ties",
-      "lesson.procede.syncopes": "syncopation",
-      "lesson.procede.triplets": "triplets",
-      "lesson.withProcedes": "{lesson}, with {procedes}",
+      "lesson.technique.dots": "dotted notes",
+      "lesson.technique.ties": "ties",
+      "lesson.technique.syncopations": "syncopation",
+      "lesson.technique.triplets": "triplets",
+      "lesson.withTechniques": "{lesson}, with {techniques}",
       "score.unavailableOffline": "The score could not load (abcjs is unavailable offline).",
       "score.unavailable": "The score could not load.",
       "warning.guidance": "Visual guidance disabled: {svgCount} SVG note/rest element(s) for {eventCount} timeline event(s); mapping is not possible.",
@@ -5349,11 +5310,8 @@ window.BRT_EMBEDDED_SAMPLES = {
 
   return {
     STORAGE_KEY: STORAGE_KEY,
-    PULSATION_VOICES: PULSATION_VOICES,
-    PULSATION_VOLUME_MIN: PULSATION_VOLUME_MIN,
     PULSATION_VOLUME_MAX: PULSATION_VOLUME_MAX,
     defaultPreferences: defaultPreferences,
-    normalizePreferences: normalizePreferences,
     readPreferences: readPreferences,
     writePreferences: writePreferences
   };
@@ -5417,8 +5375,10 @@ window.BRT_EMBEDDED_SAMPLES = {
   var lines = [];
   var cursorAnchors = null; // [{ beat, x, line }] — une ancre par événement de currentNotes (curseur asservi aux notes)
   var lineEndXs = [];       // abscisse de fin de chaque ligne (repère glissière)
-  var perLine = 4;          // mesures par système au dernier rendu (2 sur écran étroit, moins pour une mesure longue)
-  var renderedNarrow = false; // dernier rendu gravé à la largeur native de la scène (écran étroit)
+  // mesures par système au dernier rendu (2 sur écran étroit, moins pour une mesure longue)
+  let perLine = 4;
+  // dernier rendu gravé à la largeur native de la scène (écran étroit)
+  let renderedNarrow = false;
   var followedLine = -99;   // cran haut de la fenêtre téléprompteur (-1 = 1re ligne centrée, -99 = à recadrer)
   var repeatOn = false;     // bouclage de l'exercice (bouton repeat)
   var infiniteOn = false;   // mesures ∞ : grille générée en flux
@@ -5435,8 +5395,10 @@ window.BRT_EMBEDDED_SAMPLES = {
   var shiftAt = 0;          // instant (performance.now) du recalage différé de la fenêtre de rendu (∞)
   var CHUNK_BARS = 8;       // taille de génération du flux ∞
   var RENDER_LINES = 8;     // systèmes rendus à la fois en flux ∞ (marge sous la ligne jouée)
-  var signature = "4/4";         // signature choisie dans le tiroir Jouer (prochain tirage)
-  var gridMeter = "4/4";         // signature de la grille affichée : lecture, pastilles, tempo
+  // signature choisie dans le tiroir Jouer (prochain tirage)
+  let signature = "4/4";
+  // signature de la grille affichée : lecture, pastilles, tempo
+  let gridMeter = "4/4";
   var measuresChoice = "8";
   var beatEls = [];
   var noteEls = [];   // éléments SVG notes/silences, alignés 1:1 sur currentNotes
@@ -5464,9 +5426,9 @@ window.BRT_EMBEDDED_SAMPLES = {
      notes + curseur ; son = rythmique jouée avec le son choisi. Chacune
      s'applique en vol sans interrompre la lecture. État initial : les
      préférences mémorisées. */
-  var clickOn = playbackPrefs.aids.click;
-  var visualOn = playbackPrefs.aids.visual;
-  var soundOn = playbackPrefs.aids.sound;
+  let clickOn = playbackPrefs.aids.click;
+  let visualOn = playbackPrefs.aids.visual;
+  let soundOn = playbackPrefs.aids.sound;
   /* Subdivision (mesure composée) : croches entendues entre les temps, au
      clic comme au charley — préférence mémorisée, active par défaut. */
   let subdivideOn = playbackPrefs.subdivide;
@@ -5491,37 +5453,32 @@ window.BRT_EMBEDDED_SAMPLES = {
     triple:     ["lesson.thirtySecond", "lesson.thirtySecond.rests"],
     quadruple:  ["lesson.sixtyFourth", "lesson.sixtyFourth.rests"]
   };
-  const LESSON_PROCEDES = [
-    ["dots", "lesson.procede.dots"],
-    ["ties", "lesson.procede.ties"],
-    ["syncopes", "lesson.procede.syncopes"],
-    ["triplets", "lesson.procede.triplets"]
-  ];
+  /* Procédés nommés après la leçon, chacun sous la clé lesson.technique.<procédé>. */
+  const LESSON_TECHNIQUES = ["dots", "ties", "syncopations", "triplets"];
+  const LESSON_TECHNIQUE_KEY = "lesson.technique.";
 
-  /* Liste lisible : « a, b et c » / « a, b and c ». */
-  function joinList(items){
-    if (items.length < 2) return items.join("");
-    return items.slice(0, -1).join(", ") + " " + t("list.and") + " " + items[items.length - 1];
-  }
+  /* Liste lisible dans la langue de la page : « a, b et c » / « a, b, and c ». */
+  const listFormat = new Intl.ListFormat(i18n.language, { type: "conjunction" });
 
-  function lessonName(figures, procedes){
+  function lessonName(figures, techniques){
     var finest = null;
     for (var i = 0; i < FINEST_ORDER.length; i++){
       if (figures.indexOf(FINEST_ORDER[i]) !== -1){ finest = FINEST_ORDER[i]; break; }
     }
     if (!finest) return "";
     const names = LESSONS[LESSON_KEY[finest] || finest];
-    const lesson = t(procedes.indexOf("rests") !== -1 ? names[1] : names[0]);
-    const extras = [];
-    LESSON_PROCEDES.forEach(function(entry){
-      if (procedes.indexOf(entry[0]) !== -1) extras.push(t(entry[1]));
+    const lesson = t(techniques.indexOf("rests") !== -1 ? names[1] : names[0]);
+    const extras = LESSON_TECHNIQUES.filter(function(technique){
+      return techniques.indexOf(technique) !== -1;
+    }).map(function(technique){
+      return t(LESSON_TECHNIQUE_KEY + technique);
     });
     if (!extras.length) return lesson;
-    return t("lesson.withProcedes", { lesson: lesson, procedes: joinList(extras) });
+    return t("lesson.withTechniques", { lesson: lesson, techniques: listFormat.format(extras) });
   }
 
   function updateExerciseTitle(cfg, animate){
-    exTitle.textContent = lessonName(cfg.figures, cfg.procedes);
+    exTitle.textContent = lessonName(cfg.figures, cfg.techniques);
     if (animate){
       exTitle.classList.remove("regen");
       void exTitle.offsetWidth;
@@ -5547,10 +5504,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     const barQuarters = info.numerator * 4 / info.denominator;
     const budget = narrow ? 9 : 18;
     const choices = narrow ? [2, 1] : [4, 2, 1];
-    for (let i = 0; i < choices.length; i++){
-      if (choices[i] * barQuarters <= budget) return choices[i];
-    }
-    return 1;
+    return choices.find(function(count){ return count * barQuarters <= budget; }) || 1;
   }
   function measuresPerLine(){
     return measuresPerLineFor(gridMeter, isNarrowStage());
@@ -5703,7 +5657,7 @@ window.BRT_EMBEDDED_SAMPLES = {
        enfants se translatent avec elle — la géométrie est invariante quelle
        que soit la position courante du téléprompteur. */
     var baseRect = scoreSlide.getBoundingClientRect();
-    for (var i = 0; ; i++){
+    for (let i = 0; ; i++){
       var sel = ".abcjs-l" + i + ".abcjs-note, .abcjs-l" + i + ".abcjs-rest, .abcjs-l" + i + ".abcjs-bar";
       var els = svg.querySelectorAll(sel);
       if (!els.length) break;
@@ -5902,19 +5856,14 @@ window.BRT_EMBEDDED_SAMPLES = {
      blanche en /2, croche dans les /8 simples, noire pointée en mesure
      composée. Glyphe SVG embarqué (tête, hampe, crochet, point). */
   const tempoUnit = document.getElementById("tempo-unit");
-  const TEMPO_UNIT_LABELS = {
-    blanche: "tempoUnit.half",
-    croche: "tempoUnit.eighth",
-    noirePointee: "tempoUnit.dottedQuarter"
-  };
   function noteGlyphSvg(figure, dotted){
     const hollow = figure === "blanche";
-    const head = '<ellipse cx="5" cy="19.5" rx="3.7" ry="2.6" transform="rotate(-20 5 19.5)"' +
-      (hollow ? ' fill="none" stroke-width="1.3"' : ' stroke="none"') + '/>';
-    const stem = '<path d="M8.4 18.6V3" fill="none" stroke-width="1.2"/>';
-    const flag = figure === "croche" ? '<path d="M8.4 3c3 1.4 5.3 3.4 4.2 8.2" fill="none" stroke-width="1.2"/>' : "";
-    const dot = dotted ? '<circle cx="13.3" cy="19.5" r="1.4" stroke="none"/>' : "";
-    return '<svg viewBox="0 0 16 24" aria-hidden="true">' + head + stem + flag + dot + '</svg>';
+    const head = "<ellipse cx=\"5\" cy=\"19.5\" rx=\"3.7\" ry=\"2.6\" transform=\"rotate(-20 5 19.5)\"" +
+      (hollow ? " fill=\"none\" stroke-width=\"1.3\"" : " stroke=\"none\"") + "/>";
+    const stem = "<path d=\"M8.4 18.6V3\" fill=\"none\" stroke-width=\"1.2\"/>";
+    const flag = figure === "croche" ? "<path d=\"M8.4 3c3 1.4 5.3 3.4 4.2 8.2\" fill=\"none\" stroke-width=\"1.2\"/>" : "";
+    const dot = dotted ? "<circle cx=\"13.3\" cy=\"19.5\" r=\"1.4\" stroke=\"none\"/>" : "";
+    return "<svg viewBox=\"0 0 16 24\" aria-hidden=\"true\">" + head + stem + flag + dot + "</svg>";
   }
   function updateTempoUnit(){
     const info = Meter.analyzeMeter(gridMeter);
@@ -5922,7 +5871,9 @@ window.BRT_EMBEDDED_SAMPLES = {
     tempoUnit.hidden = plainQuarter;
     if (plainQuarter) return;
     tempoUnit.innerHTML = noteGlyphSvg(info.beatFigure, info.beatDotted);
-    const figure = t(TEMPO_UNIT_LABELS[info.beatDotted ? "noirePointee" : info.beatFigure]);
+    // nom de la figure (Composer), en minuscules au milieu de la phrase
+    const names = info.beatDotted ? DOTTED_NAMES : FIG_NAMES;
+    const figure = t(names[info.beatFigure]).toLocaleLowerCase(i18n.language);
     const label = t("tempo.unit", { figure: figure });
     tempoUnit.setAttribute("aria-label", label);
     tempoUnit.title = label;
@@ -5984,7 +5935,8 @@ window.BRT_EMBEDDED_SAMPLES = {
   ];
   var noteChoice = "D";
   var soundChoice = "growl";
-  var pulsationVoice = playbackPrefs.pulsationVoice; // voix de l'aide de pulsation (clic|groove) — préférence locale, hors lien de partage
+  // voix de l'aide de pulsation (clic|groove) — préférence locale, hors lien de partage
+  let pulsationVoice = playbackPrefs.pulsationVoice;
 
   var sampleStore = {}; // url -> { data: Promise<ArrayBuffer>, buffer, decoding, failed }
 
@@ -6301,46 +6253,41 @@ window.BRT_EMBEDDED_SAMPLES = {
      Effet immédiat, y compris en cours de lecture : la rAF lit visualOn à
      chaque image ; métronome et son basculent dans le moteur sans toucher la
      lecture (coupure nette du programmé non joué, reprise dans l'horizon).
-     Chaque bascule part de la préférence mémorisée et la met à jour. */
-  function bindToggle(id, initialOn, fn){
+     Chaque bascule part de la préférence mémorisée prefs[key] et la met à
+     jour elle-même. */
+  function bindToggle(id, prefs, key, fn){
     var btn = document.getElementById(id);
-    btn.classList.toggle("active", initialOn);
-    btn.setAttribute("aria-pressed", String(initialOn));
+    btn.classList.toggle("active", prefs[key]);
+    btn.setAttribute("aria-pressed", String(prefs[key]));
     btn.addEventListener("click", function(){
       var on = !btn.classList.contains("active");
       btn.classList.toggle("active", on);
       btn.setAttribute("aria-pressed", String(on));
+      prefs[key] = on;
+      savePlaybackPrefs();
       fn(on);
     });
   }
-  bindToggle("tgl-click", clickOn, function(on){
+  bindToggle("tgl-click", playbackPrefs.aids, "click", function(on){
     clickOn = on;
-    playbackPrefs.aids.click = on;
-    savePlaybackPrefs();
     if (playing && transport) transport.setClicksEnabled(on);
   });
-  bindToggle("tgl-visual", visualOn, function(on){
+  bindToggle("tgl-visual", playbackPrefs.aids, "visual", function(on){
     visualOn = on;
-    playbackPrefs.aids.visual = on;
-    savePlaybackPrefs();
     if (!on){
       clearLit();
       cursor.classList.remove("live");
     }
   });
-  bindToggle("tgl-sound", soundOn, function(on){
+  bindToggle("tgl-sound", playbackPrefs.aids, "sound", function(on){
     soundOn = on;
-    playbackPrefs.aids.sound = on;
-    savePlaybackPrefs();
     if (playing && transport) transport.setNotesEnabled(on);
   });
   /* Subdiviser : n'apparaît qu'en mesure composée (refreshGridMeter) ;
      s'applique en vol aux temps suivants. */
   const subdivideBtn = document.getElementById("tgl-subdivide");
-  bindToggle("tgl-subdivide", subdivideOn, function(on){
+  bindToggle("tgl-subdivide", playbackPrefs, "subdivide", function(on){
     subdivideOn = on;
-    playbackPrefs.subdivide = on;
-    savePlaybackPrefs();
     if (playing && transport){
       transport.setSubdivisions(window.BassRhythmEngine.beatSubdivisions(gridMeter, on));
     }
@@ -6348,22 +6295,23 @@ window.BRT_EMBEDDED_SAMPLES = {
 
   /* Volume de pulsation : le curseur du panneau des aides règle la voix
      active (clic ou groove), du silence à PULSATION_VOLUME_MAX fois son
-     niveau par défaut, en vol. Aucun chiffre affiché : la position du curseur
-     (0–100) suffit. Chaque voix garde sa valeur : changer de voix restaure la
-     sienne. La préférence est écrite au relâchement (change), pas à chaque pas. */
+     niveau par défaut, en vol. Valeur du curseur de 0 à 300 par pas de 5,
+     volume = valeur / 100 : le niveau par défaut tombe pile sur 100. Aucun
+     chiffre affiché : la position du curseur suffit. Chaque voix garde sa
+     valeur : changer de voix restaure la sienne. La préférence est écrite au
+     relâchement (change), pas à chaque pas. */
   const pulseVolumeInput = document.getElementById("pulse-volume");
   const pulseVolumeVoice = document.getElementById("pulse-volume-voice");
 
   function refreshPulseVolume(){
     const isGroove = pulsationVoice === "groove";
-    const position = Math.round(playbackPrefs.pulsationVolumes[pulsationVoice] / Preferences.PULSATION_VOLUME_MAX * 100);
-    pulseVolumeInput.value = String(position);
+    pulseVolumeInput.value = String(Math.round(playbackPrefs.pulsationVolumes[pulsationVoice] * 100));
     pulseVolumeInput.setAttribute("aria-label", t(isGroove ? "volume.groove" : "volume.click"));
-    pulseVolumeInput.style.setProperty("--fill", position + "%");
+    pulseVolumeInput.style.setProperty("--fill", Number(pulseVolumeInput.value) / 3 + "%");
     pulseVolumeVoice.textContent = t(isGroove ? "beat.groove" : "beat.click");
   }
   pulseVolumeInput.addEventListener("input", function(){
-    const volume = Number(pulseVolumeInput.value) / 100 * Preferences.PULSATION_VOLUME_MAX;
+    const volume = Number(pulseVolumeInput.value) / 100;
     playbackPrefs.pulsationVolumes[pulsationVoice] = volume;
     if (playing && transport) transport.setPulsationVolume(pulsationVoice, volume);
     refreshPulseVolume();
@@ -6476,26 +6424,25 @@ window.BRT_EMBEDDED_SAMPLES = {
     let value = initial;
     let customOpen = COMMON_METERS.indexOf(initial) === -1;
     const optionsHtml = function(values){
-      return values.map(function(v){ return '<option value="' + v + '">' + v + '</option>'; }).join("");
+      return values.map(function(v){ return "<option value=\"" + v + "\">" + v + "</option>"; }).join("");
     };
-    const numerators = [];
-    for (let n = 1; n <= Meter.METER_NUMERATOR_MAX; n++) numerators.push(n);
+    const numerators = Array.from({ length: Meter.METER_NUMERATOR_MAX }, function(_, i){ return i + 1; });
     host.innerHTML =
-      '<div class="pills" role="group" aria-label="' + t("field.timeSignature") + '">' +
+      "<div class=\"pills\" role=\"group\" aria-label=\"" + t("field.timeSignature") + "\">" +
       COMMON_METERS.map(function(m){
-        return '<button type="button" class="pill" data-meter="' + m + '"><span class="frac">' + m + '</span></button>';
+        return "<button type=\"button\" class=\"pill\" data-meter=\"" + m + "\"><span class=\"frac\">" + m + "</span></button>";
       }).join("") +
-      '<button type="button" class="pill" data-meter-other aria-expanded="false">' + t("meter.other") + '</button>' +
-      '</div>' +
-      '<div class="meter-custom" hidden>' +
-      '<select class="meter-select" data-meter-part="numerator" aria-label="' + t("meter.numerator") + '">' + optionsHtml(numerators) + '</select>' +
-      '<span class="meter-slash" aria-hidden="true">/</span>' +
-      '<select class="meter-select" data-meter-part="denominator" aria-label="' + t("meter.denominator") + '">' + optionsHtml(Meter.METER_DENOMINATORS) + '</select>' +
-      '</div>';
+      "<button type=\"button\" class=\"pill\" data-meter-other aria-expanded=\"false\">" + t("meter.other") + "</button>" +
+      "</div>" +
+      "<div class=\"meter-custom\" hidden>" +
+      "<select class=\"meter-select\" data-meter-part=\"numerator\" aria-label=\"" + t("meter.numerator") + "\">" + optionsHtml(numerators) + "</select>" +
+      "<span class=\"meter-slash\" aria-hidden=\"true\">/</span>" +
+      "<select class=\"meter-select\" data-meter-part=\"denominator\" aria-label=\"" + t("meter.denominator") + "\">" + optionsHtml(Meter.METER_DENOMINATORS) + "</select>" +
+      "</div>";
     const other = host.querySelector("[data-meter-other]");
     const custom = host.querySelector(".meter-custom");
-    const numerator = host.querySelector('[data-meter-part="numerator"]');
-    const denominator = host.querySelector('[data-meter-part="denominator"]');
+    const numerator = host.querySelector("[data-meter-part='numerator']");
+    const denominator = host.querySelector("[data-meter-part='denominator']");
 
     function render(){
       host.querySelectorAll("[data-meter]").forEach(function(pill){
@@ -6552,61 +6499,50 @@ window.BRT_EMBEDDED_SAMPLES = {
      grille affichée garde la sienne jusque-là. */
   const sigPicker = createMeterPicker(document.getElementById("sig-picker"), signature, function(v){
     signature = v;
-    updateProcedeAvailability();
+    updateTechniqueAvailability();
   });
-  bindPills("procede-pills");
 
   /* ---------- procédés : pastilles à cocher ----------
      Un procédé inapplicable avec les figures cochées et la signature est
      grisé et décoché, avec une aide courte : ce qui lui manque (« nécessite
      la croche »), ou, pour les triolets, la signature qui les exclut (« pas
-     en mesure composée »). Le générateur dit ce qui manque (procedeNeeds,
+     en mesure composée »). Le générateur dit ce qui manque (techniqueNeeds,
      tripletFigure) ; la page n'en fait que le texte. */
-  const FIGURE_DEFINITE = {
-    ronde: "figureDefinite.whole", blanche: "figureDefinite.half", noire: "figureDefinite.quarter",
-    croche: "figureDefinite.eighth", double: "figureDefinite.sixteenth",
-    triple: "figureDefinite.thirtySecond", quadruple: "figureDefinite.sixtyFourth"
-  };
-
-  function checkedFigures(){
-    const figures = [];
-    document.querySelectorAll('input[name="fig"]:checked').forEach(function(inp){
-      figures.push(inp.value);
-    });
-    return figures;
+  /* Figure avec son article (« la croche ») : clé figureDefinite.*, dérivée
+     de celle du nom de la figure (FIG_NAMES). */
+  function figureDefinite(fig){
+    return t(FIG_NAMES[fig].replace("figure.", "figureDefinite."));
   }
 
-  function checkedProcedes(){
-    const procedes = [];
-    document.querySelectorAll('input[name="procede"]:checked').forEach(function(inp){
-      procedes.push(inp.value);
+  /* Valeurs des cases cochées d'un groupe (figures, procédés). */
+  function checkedValues(name){
+    return Array.from(document.querySelectorAll("input[name='" + name + "']:checked"), function(inp){
+      return inp.value;
     });
-    return procedes;
   }
 
   /* Les autres procédés cochés comptent : en 5/8, la noire pointée de
      Points peut seule ouvrir la place d'un soupir. */
-  function procedeHelp(procede, figures){
+  function techniqueHelp(technique, figures){
     if (!figures.length) return "";
     const G = window.BassRhythmGenerator;
-    const others = checkedProcedes().filter(function(p){ return p !== procede; });
-    const needs = G.procedeNeeds({ figures: figures, meter: signature, procedes: others }, procede);
+    const others = checkedValues("technique").filter(function(p){ return p !== technique; });
+    const needs = G.techniqueNeeds({ figures: figures, meter: signature, techniques: others }, technique);
     if (!needs) return "";
-    if (procede === "triplets" && !G.tripletFigure(signature)){
-      return t(Meter.analyzeMeter(signature).compound ? "procede.notCompound" : "procede.notEighth");
+    if (technique === "triplets" && !G.tripletFigure(signature)){
+      return t(Meter.analyzeMeter(signature).compound ? "technique.notCompound" : "technique.notEighth");
     }
-    if (!needs.length) return t("procede.needsMore");
-    return t("procede.needs", {
-      figures: joinList(needs.map(function(fig){ return t(FIGURE_DEFINITE[fig]); }))
+    if (!needs.length) return t("technique.needsMore");
+    return t("technique.needs", {
+      figures: listFormat.format(needs.map(figureDefinite))
     });
   }
 
-  function updateProcedeAvailability(){
-    if (!window.BassRhythmGenerator) return;
-    const figures = checkedFigures();
-    document.querySelectorAll("#procede-pills .pill").forEach(function(pill){
+  function updateTechniqueAvailability(){
+    const figures = checkedValues("fig");
+    document.querySelectorAll("#technique-pills .pill").forEach(function(pill){
       const input = pill.querySelector("input");
-      const help = procedeHelp(input.value, figures);
+      const help = techniqueHelp(input.value, figures);
       input.disabled = help !== "";
       if (input.disabled) input.checked = false;
       pill.classList.toggle("disabled", input.disabled);
@@ -6616,11 +6552,11 @@ window.BRT_EMBEDDED_SAMPLES = {
       else pill.removeAttribute("title");
     });
   }
-  document.querySelectorAll('input[name="fig"]').forEach(function(inp){
-    inp.addEventListener("change", updateProcedeAvailability);
+  document.querySelectorAll("input[name='fig']").forEach(function(inp){
+    inp.addEventListener("change", updateTechniqueAvailability);
   });
-  document.querySelectorAll('input[name="procede"]').forEach(function(inp){
-    inp.addEventListener("change", updateProcedeAvailability);
+  document.querySelectorAll("input[name='technique']").forEach(function(inp){
+    inp.addEventListener("change", updateTechniqueAvailability);
   });
   bindPills("mes-pills", function(v){
     measuresChoice = v;
@@ -6706,11 +6642,11 @@ window.BRT_EMBEDDED_SAMPLES = {
 
   /* ---------- génération de la grille ---------- */
   function readConfig(){
-    const procedes = checkedProcedes();
+    const techniques = checkedValues("technique");
     var inf = measuresChoice === "inf";
     return {
-      figures: checkedFigures(),
-      procedes: procedes,
+      figures: checkedValues("fig"),
+      techniques: techniques,
       meter: signature,
       // ∞ : le flux est généré par chunks de CHUNK_BARS avec ces réglages
       measures: inf ? CHUNK_BARS : parseInt(measuresChoice, 10),
@@ -6771,7 +6707,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     return {
       seed: currentSeed,
       figures: cfg.figures,
-      procedes: cfg.procedes,
+      techniques: cfg.techniques,
       meter: cfg.meter,
       note: noteChoice,       // lettre A–G ; la note ne change que la hauteur affichée, pas le rythme
       measures: measuresChoice // "4" | "8" | "16" | "inf"
@@ -6855,7 +6791,8 @@ window.BRT_EMBEDDED_SAMPLES = {
     // anti-doublon. Sinon graine tirée au sort à chaque génération.
     var fixed = (typeof seed === "number");
     const previousMeter = gridMeter;
-    gridMeter = cfg.meter; // le flux et la durée de la grille comptent ses temps
+    // le flux et la durée de la grille comptent ses temps
+    gridMeter = cfg.meter;
     try {
       clearShift();
       infiniteOn = !!cfg.infinite;
@@ -6919,7 +6856,8 @@ window.BRT_EMBEDDED_SAMPLES = {
       refreshGridMeter();
       return true;
     } catch (err) {
-      gridMeter = previousMeter; // figures incapables de remplir la signature : la grille reste
+      // figures incapables de remplir la signature : la grille reste
+      gridMeter = previousMeter;
       return false;
     }
   }
@@ -7093,10 +7031,10 @@ window.BRT_EMBEDDED_SAMPLES = {
     setPill("note-pills", st.note);    noteChoice = st.note;
     setPill("mes-pills", st.measures); measuresChoice = st.measures;
     // procédés : cases à cocher, puis grisage selon figures et signature
-    document.querySelectorAll('input[name="procede"]').forEach(function(inp){
-      inp.checked = st.procedes.indexOf(inp.value) !== -1;
+    document.querySelectorAll("input[name='technique']").forEach(function(inp){
+      inp.checked = st.techniques.indexOf(inp.value) !== -1;
     });
-    updateProcedeAvailability();
+    updateTechniqueAvailability();
   }
 
   /* Le hash peut porter DEUX formats : contenu complet (grille composée) ou
@@ -7232,8 +7170,10 @@ window.BRT_EMBEDDED_SAMPLES = {
       // troisième case remplie : le triolet se ferme seul
       if (window.BassRhythmGenerator.tripletFilled(composer) === 0) composer.openTriplet = false;
     } else {
-      if (isRest && pendingTie()) return; // on ne lie pas vers un silence
-      if (!fitsFigure(fig, dot)) return;  // ne rentre pas dans la place restante
+      // on ne lie pas vers un silence
+      if (isRest && pendingTie()) return;
+      // ne rentre pas dans la place restante
+      if (!fitsFigure(fig, dot)) return;
       openMeasure().push({ fig: fig, rest: !!isRest, dot: !isRest && !!dot, tie: false, triplet: false });
     }
     composer.selection = null;
@@ -7392,7 +7332,7 @@ window.BRT_EMBEDDED_SAMPLES = {
   }
   function composerAbc(){
     var G = window.BassRhythmGenerator;
-    var beats = composerBeats();
+    const beats = composerBeats();
     const beat64 = Meter.analyzeMeter(composer.meter).beat64;
     var noteTok = noteByLetter(noteChoice).abc;
     var dModel = toDModel(composer.measures);
@@ -7406,15 +7346,15 @@ window.BRT_EMBEDDED_SAMPLES = {
         dModel[dModel.length - 1].push({ d: eventDur(slot), rest: true, tie: false, triplet: true });
       }
     }
-    var unit = G.chooseUnit(dModel, composer.meter);
+    const unit = G.chooseUnit(dModel, composer.meter);
     var lden = 64 / unit;
     var bars = dModel.map(function(m, mi){
-      var t = G.barText(m, unit, composer.meter, noteTok);
+      let t = G.barText(m, unit, composer.meter, noteTok);
       if (mi === dModel.length - 1){
         // mesure ouverte : la partie vide est comblée par un silence invisible
         var rem = beats - sumD(m);
         if (rem > COMPOSER_EPSILON){
-          var mu = Math.round(rem * beat64) / unit;
+          const mu = Math.round(rem * beat64) / unit;
           t = (t ? t + " " : "") + "x" + (mu === 1 ? "" : mu);
         } else if (!t){
           t = "x" + (Math.round(beats * beat64) / unit);
@@ -7457,8 +7397,9 @@ window.BRT_EMBEDDED_SAMPLES = {
   function composerMeasureEls(svg, i){
     var direct = svg.querySelectorAll(".abcjs-mm" + i);
     if (direct.length) return direct;
-    var per = composerPerLine();
-    var line = Math.floor(i / per), within = i % per;
+    const per = composerPerLine();
+    const line = Math.floor(i / per);
+    const within = i % per;
     return svg.querySelectorAll(".abcjs-l" + line + ".abcjs-m" + within);
   }
   function buildComposerOverlays(){
@@ -7544,7 +7485,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     if (restGlyphCache.hasOwnProperty(fig)) return restGlyphCache[fig];
     var svg = "";
     if (window.ABCJS && window.BassRhythmGenerator){
-      var n64 = window.BassRhythmGenerator.FIGURE_64[fig];
+      const n64 = window.BassRhythmGenerator.FIGURE_64[fig];
       var tmp = document.createElement("div");
       tmp.style.cssText = "position:absolute;left:-9999px;top:0";
       document.body.appendChild(tmp);
@@ -7571,16 +7512,16 @@ window.BRT_EMBEDDED_SAMPLES = {
     return svg;
   }
   function composerItemHTML(fig, isRest, dot){
-    var ok = inTriplet()
+    const ok = inTriplet()
       ? tripletAllows(fig, isRest, dot)
       : fitsFigure(fig, dot) && !(isRest && pendingTie());
-    var image = '<img class="palette-glyph" src="' + (FIG_SRC[fig] || "") + '" alt="">';
+    const image = "<img class=\"palette-glyph\" src=\"" + (FIG_SRC[fig] || "") + "\" alt=\"\">";
     var glyph = isRest
       ? '<span class="palette-glyph palette-rest">' + restGlyphSvg(fig) + '</span>'
-      : (dot ? '<span class="palette-dotted">' + image + '<span class="palette-dot"></span></span>' : image);
-    var label = t(isRest ? REST_NAMES[fig] : (dot ? DOTTED_NAMES[fig] : FIG_NAMES[fig]));
+      : (dot ? "<span class=\"palette-dotted\">" + image + "<span class=\"palette-dot\"></span></span>" : image);
+    const label = t(isRest ? REST_NAMES[fig] : (dot ? DOTTED_NAMES[fig] : FIG_NAMES[fig]));
     return '<button type="button" class="palette-item" data-cfig="' + fig + '" data-crest="' + isRest + '"' +
-      ' data-cdot="' + !!dot + '"' +
+      " data-cdot=\"" + !!dot + "\"" +
       (ok ? "" : " disabled") + '>' +
       glyph +
       '<span class="palette-label">' + label + '</span></button>';
@@ -7607,7 +7548,7 @@ window.BRT_EMBEDDED_SAMPLES = {
       html += '</div></div>';
     }
     if (composer.families.modif){
-      var pt = pointState(), ti = tieState(), tr = tripletState();
+      const pt = pointState(), ti = tieState(), tr = tripletState();
       html += '<div class="palette-group"><div class="palette-family">' + t("family.modifiers") + '</div><div class="palette-items">' +
         '<button type="button" class="palette-item mod' + (pt.on ? " on" : "") + '" data-cmod="dot"' +
           (pt.disabled ? " disabled" : "") + ' aria-pressed="' + pt.on + '">' +
@@ -7615,37 +7556,34 @@ window.BRT_EMBEDDED_SAMPLES = {
         '<button type="button" class="palette-item mod' + (ti.on ? " on" : "") + '" data-cmod="tie"' +
           (ti.disabled ? " disabled" : "") + ' aria-pressed="' + ti.on + '">' +
           '<span class="mod-glyph">⌢</span><span class="palette-label">' + t("modifier.tieNext") + '</span></button>' +
-        '<button type="button" class="palette-item mod' + (tr.on ? " on" : "") + '" data-cmod="triplet"' +
-          (tr.disabled ? " disabled" : "") + ' aria-pressed="' + tr.on + '">' +
-          '<span class="mod-glyph mod-triplet">3</span><span class="palette-label">' + t("modifier.triplet") + '</span></button>' +
+        "<button type=\"button\" class=\"palette-item mod" + (tr.on ? " on" : "") + "\" data-cmod=\"triplet\"" +
+          (tr.disabled ? " disabled" : "") + " aria-pressed=\"" + tr.on + "\">" +
+          "<span class=\"mod-glyph mod-triplet\">3</span><span class=\"palette-label\">" + t("modifier.triplet") + "</span></button>" +
         '</div></div>';
     }
     return html;
   }
   function round2(x){ return Math.round(x * 100) / 100; }
   /* Temps lisibles : décimales courtes (0,5 ; 1,25), sinon fraction pour les
-     tiers et sixièmes de la mesure composée (« 1 1/3 » plutôt que 1,33). */
+     tiers et sixièmes de la mesure composée (« 1 1/3 » plutôt que 1,33). Les
+     dénominateurs sont essayés du plus petit au plus grand : le premier qui
+     tombe juste donne la fraction réduite. */
   function formatBeats(x){
     if (Math.abs(x * 100 - Math.round(x * 100)) < COMPOSER_EPSILON) return String(round2(x));
-    const denominators = [3, 6, 12, 24];
+    const denominators = [3, 6, 8, 12, 24];
     for (let i = 0; i < denominators.length; i++){
       const d = denominators[i];
       const n = Math.round(x * d);
       if (Math.abs(x * d - n) > COMPOSER_EPSILON) continue;
       const whole = Math.floor(n / d);
-      let num = n - whole * d;
-      let den = d;
-      for (let g = num; g > 1; g--){
-        if (num % g === 0 && den % g === 0){ num /= g; den /= g; break; }
-      }
-      return (whole ? whole + " " : "") + num + "/" + den;
+      return (whole ? whole + " " : "") + (n - whole * d) + "/" + d;
     }
     return String(round2(x));
   }
   function composerReadoutHTML(){
-    var placed = formatBeats(measSum(openMeasure()));
+    const placed = formatBeats(measSum(openMeasure()));
     var total = composerBeats();
-    var rem = formatBeats(composerRemaining());
+    const rem = formatBeats(composerRemaining());
     var extra = pendingTie() ? t("composer.tiePending") : "";
     const filled = window.BassRhythmGenerator.tripletFilled(composer);
     if (filled !== null) extra += t("composer.tripletOpen", { filled: filled });
@@ -7860,7 +7798,7 @@ window.BRT_EMBEDDED_SAMPLES = {
 
   /* ---------- init ---------- */
   // aides des procédés traduites, grisage initial
-  updateProcedeAvailability();
+  updateTechniqueAvailability();
   var restored = readShareFromHash(); // grille partagée dans l'URL -> réglages restaurés
   if (restored && restored.kind === "composed"){
     restoreComposedFromShare(restored.state); // grille composée : contenu complet restauré
