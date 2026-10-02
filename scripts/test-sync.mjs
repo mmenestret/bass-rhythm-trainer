@@ -317,7 +317,7 @@ try {
     for (let seed = 1; seed <= 50 && !notes; seed++) {
       const ex = generateExercise({
         figures: ["blanche", "noire", "croche", "double"],
-        procedes: ["rests", "dots", "ties", "syncopes"], meter: "4/4", measures: 4, rng: mulberry32(seed),
+        techniques: ["rests", "dots", "ties", "syncopations"], meter: "4/4", measures: 4, rng: mulberry32(seed),
       });
       const evs = noteSoundEvents(ex.notes);
       if (evs.some((e) => Number.isInteger(e.startBeats)) &&
@@ -1021,7 +1021,7 @@ try {
     let ex = null;
     for (let seed = 1; seed <= 80 && !ex; seed++) {
       const cand = generateExercise({
-        figures: ["noire", "croche", "double"], procedes: ["rests", "dots", "ties"],
+        figures: ["noire", "croche", "double"], techniques: ["rests", "dots", "ties"],
         meter: "6/8", measures: 4, rng: mulberry32(seed),
       });
       const evs = noteSoundEvents(cand.notes);
@@ -1073,7 +1073,7 @@ try {
     let ex = null;
     for (let seed = 1; seed <= 80 && !ex; seed++) {
       const cand = generateExercise({
-        figures, procedes: ["rests", "triplets"], meter, measures: 4, rng: mulberry32(seed),
+        figures, techniques: ["rests", "triplets"], meter, measures: 4, rng: mulberry32(seed),
       });
       const evs = noteSoundEvents(cand.notes);
       const onThird = (e) => [1, 2].includes(Math.round((e.startBeats % 1) * 3)) &&

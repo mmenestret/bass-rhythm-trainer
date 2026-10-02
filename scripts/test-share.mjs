@@ -69,7 +69,7 @@ function expect(cond, ctx, msg) {
 /* ---------- (b) reproductibilité de la grille ---------- */
 (function () {
   const ctx = "reproductibilité";
-  const cfg = { figures: ["noire", "croche", "double"], procedes: ["rests"], meter: "4/4", measures: 8, note: "D," };
+  const cfg = { figures: ["noire", "croche", "double"], techniques: ["rests"], meter: "4/4", measures: 8, note: "D," };
 
   const g1 = generateExercise(Object.assign({}, cfg, { rng: makeRng(2024) }));
   const g2 = generateExercise(Object.assign({}, cfg, { rng: makeRng(2024) }));
@@ -88,7 +88,7 @@ function expect(cond, ctx, msg) {
 /* ---------- (c) flux ∞ : une seule rng réutilisée ---------- */
 (function () {
   const ctx = "flux ∞";
-  const cfg = { figures: ["noire", "croche"], procedes: [], meter: "4/4", measures: 8, note: "D," };
+  const cfg = { figures: ["noire", "croche"], techniques: [], meter: "4/4", measures: 8, note: "D," };
   const CHUNKS = 4;
 
   // Approche appli : une rng, réutilisée -> l'état avance d'une tranche à l'autre.
@@ -124,17 +124,17 @@ function expect(cond, ctx, msg) {
   const NOTES = ["E", "F", "G", "A", "B", "C", "D"];
   const MEAS = ["4", "8", "16", "inf"];
   const SEEDS = [0, 1, 42, 65535, 2147483647, 4294967295];
-  const PROCEDE_SETS = [
+  const TECHNIQUE_SETS = [
     [],
     ["rests"],
-    ["dots", "syncopes"],
+    ["dots", "syncopations"],
     ["ties", "rests"],
-    ["rests", "dots", "ties", "syncopes", "triplets"],
+    ["rests", "dots", "ties", "syncopations", "triplets"],
   ];
 
   const eq = (a, b) =>
     a.seed === b.seed &&
-    a.procedes.slice().sort().join(",") === b.procedes.slice().sort().join(",") &&
+    a.techniques.slice().sort().join(",") === b.techniques.slice().sort().join(",") &&
     a.meter === b.meter &&
     a.note === b.note &&
     a.measures === b.measures &&
@@ -142,12 +142,12 @@ function expect(cond, ctx, msg) {
 
   let round = 0;
   for (const meter of METERS)
-    for (const procedes of PROCEDE_SETS)
+    for (const techniques of TECHNIQUE_SETS)
       for (const figs of FIGURE_SETS)
         for (const note of NOTES)
           for (const measures of MEAS)
             for (const seed of SEEDS) {
-              const st = { seed, figures: figs, procedes, meter, note, measures };
+              const st = { seed, figures: figs, techniques, meter, note, measures };
               const enc = encodeShare(st);
               expect(/^[0-9a-zA-Z=&]+$/.test(enc), ctx, `encodage sûr pour un fragment d'URL (${enc})`);
               const dec = decodeShare(enc);
@@ -161,13 +161,13 @@ function expect(cond, ctx, msg) {
 /* ---------- (e) rejet des chaînes invalides ---------- */
 (function () {
   const ctx = "decode invalide";
-  const good = encodeShare({ seed: 42, figures: ["noire", "croche"], procedes: ["rests"], meter: "4/4", note: "D", measures: "8" });
+  const good = encodeShare({ seed: 42, figures: ["noire", "croche"], techniques: ["rests"], meter: "4/4", note: "D", measures: "8" });
   expect(decodeShare(good) !== null, ctx, "témoin valide accepté");
   expect(good.indexOf("&p=r") !== -1, ctx, `procédés portés par le lien (${good})`);
-  const none = decodeShare(encodeShare({ seed: 42, figures: ["noire"], procedes: [], meter: "4/4", note: "D", measures: "8" }));
-  expect(none !== null && none.procedes.length === 0, ctx, "aucun procédé coché : lien valide, notes seules");
+  const none = decodeShare(encodeShare({ seed: 42, figures: ["noire"], techniques: [], meter: "4/4", note: "D", measures: "8" }));
+  expect(none !== null && none.techniques.length === 0, ctx, "aucun procédé coché : lien valide, notes seules");
   const shuffled = decodeShare("s=2a&f=nc&p=srr&m=44&n=D&x=8");
-  expect(shuffled !== null && shuffled.procedes.join(",") === "rests,syncopes", ctx,
+  expect(shuffled !== null && shuffled.techniques.join(",") === "rests,syncopations", ctx,
     "procédés dédoublonnés et remis dans l'ordre canonique");
 
   const bad = [
@@ -218,14 +218,14 @@ function expect(cond, ctx, msg) {
 
   // Grille bornée : un seul appel, comme l'appli en mode 4/8/16 mesures.
   const boundedAbc = (st) => generateExercise({
-    figures: st.figures, procedes: st.procedes, meter: st.meter,
+    figures: st.figures, techniques: st.techniques, meter: st.meter,
     measures: Number(st.measures), note: st.note, rng: makeRng(st.seed)
   }).abc;
 
   // Flux ∞ : une rng réutilisée sur plusieurs tranches, comme extendStream.
   const flowAbc = (st, chunks) => {
     const rng = makeRng(st.seed);
-    const cfg = { figures: st.figures, procedes: st.procedes, meter: st.meter, measures: 8, note: st.note };
+    const cfg = { figures: st.figures, techniques: st.techniques, meter: st.meter, measures: 8, note: st.note };
     const out = [];
     for (let i = 0; i < chunks; i++) out.push(generateExercise(Object.assign({}, cfg, { rng })).abc);
     return out.join("|");
@@ -235,14 +235,14 @@ function expect(cond, ctx, msg) {
   let infRounds = 0;
   const SEEDS = [3, 88, 100000, 4294967290];
 
-  const PROCEDE_SETS = [[], ["rests"], ["dots", "ties"], ["rests", "dots", "ties", "syncopes"]];
+  const TECHNIQUE_SETS = [[], ["rests"], ["dots", "ties"], ["rests", "dots", "ties", "syncopations"]];
   for (const meter of METERS)
-    for (const procedes of PROCEDE_SETS)
+    for (const techniques of TECHNIQUE_SETS)
       for (const figures of SAFE_FIGURES)
         for (const note of NOTES)
           for (const seed of SEEDS) {
             // -- bornée (8 mesures) --
-            const st = { seed, figures, procedes, meter, note, measures: "8" };
+            const st = { seed, figures, techniques, meter, note, measures: "8" };
             const original = boundedAbc(st);
             const restored = decodeShare(encodeShare(st));
             if (expect(restored !== null, ctx, `décodage du partage (${encodeShare(st)})`)) {
@@ -252,7 +252,7 @@ function expect(cond, ctx, msg) {
             }
 
             // -- flux ∞ (3 tranches) --
-            const stInf = { seed, figures, procedes, meter, note, measures: "inf" };
+            const stInf = { seed, figures, techniques, meter, note, measures: "inf" };
             const originalFlow = flowAbc(stInf, 3);
             const restoredInf = decodeShare(encodeShare(stInf));
             if (expect(restoredInf !== null && restoredInf.measures === "inf", ctx,
@@ -268,7 +268,7 @@ function expect(cond, ctx, msg) {
 
   // Sécurité : deux graines différentes NE doivent PAS donner la même grille
   // (sinon l'« invariant » serait trivialement vrai et sans valeur).
-  const base = { figures: ["noire", "croche", "double"], procedes: ["rests"], meter: "4/4", note: "D", measures: "8" };
+  const base = { figures: ["noire", "croche", "double"], techniques: ["rests"], meter: "4/4", note: "D", measures: "8" };
   const gA = boundedAbc(Object.assign({}, base, { seed: 1 }));
   const gB = boundedAbc(Object.assign({}, base, { seed: 2 }));
   expect(gA !== gB, ctx, "graines différentes -> grilles différentes (invariant non trivial)");
@@ -284,7 +284,7 @@ function expect(cond, ctx, msg) {
     subdivide: false,
   };
   const prefKeys = Object.keys(prefs);
-  const seedState = { seed: 42, figures: ["noire", "croche"], procedes: ["dots"], meter: "3/4", note: "A", measures: "8" };
+  const seedState = { seed: 42, figures: ["noire", "croche"], techniques: ["dots"], meter: "3/4", note: "A", measures: "8" };
   const seedLink = encodeShare(seedState);
   expect(encodeShare(Object.assign({}, seedState, prefs)) === seedLink, ctx,
     "graine — le lien change quand des préférences de lecture accompagnent l'état");
@@ -311,7 +311,7 @@ function expect(cond, ctx, msg) {
 (function () {
   const ctx = "signatures libres";
   for (const meter of METERS) {
-    const seedLink = encodeShare({ seed: 7, figures: ["noire"], procedes: [], meter, note: "E", measures: "4" });
+    const seedLink = encodeShare({ seed: 7, figures: ["noire"], techniques: [], meter, note: "E", measures: "4" });
     const back = decodeShare(seedLink);
     expect(back !== null && back.meter === meter, ctx, `graine — ${meter} relue ${back && back.meter} (${seedLink})`);
 
@@ -329,7 +329,7 @@ function expect(cond, ctx, msg) {
   }
   // Signatures à deux chiffres : 10/4, 11/8, 12/8, 12/2.
   for (const meter of ["10/4", "11/8", "12/8", "12/2"]) {
-    const link = encodeShare({ seed: 1, figures: ["croche"], procedes: [], meter, note: "D", measures: "8" });
+    const link = encodeShare({ seed: 1, figures: ["croche"], techniques: [], meter, note: "D", measures: "8" });
     expect(link.indexOf("&m=" + meter.replace("/", "") + "&") !== -1, ctx, `${meter} — clé m inattendue (${link})`);
   }
 })();
@@ -340,10 +340,10 @@ function expect(cond, ctx, msg) {
   // Graine : la grille relue depuis le lien reproduit ses triolets.
   let withTriplets = 0;
   for (let seed = 1; seed <= 40; seed++) {
-    const st = { seed, figures: ["noire", "croche"], procedes: ["rests", "triplets"], meter: "4/4", note: "D", measures: "8" };
+    const st = { seed, figures: ["noire", "croche"], techniques: ["rests", "triplets"], meter: "4/4", note: "D", measures: "8" };
     const back = decodeShare(encodeShare(st));
-    if (!expect(back !== null && back.procedes.includes("triplets"), ctx, `graine ${seed} : Triolets perdu`)) continue;
-    const cfg = (s) => ({ figures: s.figures, procedes: s.procedes, meter: s.meter, measures: 8, note: "D,", rng: makeRng(s.seed) });
+    if (!expect(back !== null && back.techniques.includes("triplets"), ctx, `graine ${seed} : Triolets perdu`)) continue;
+    const cfg = (s) => ({ figures: s.figures, techniques: s.techniques, meter: s.meter, measures: 8, note: "D,", rng: makeRng(s.seed) });
     const a = generateExercise(cfg(st));
     const b = generateExercise(cfg(back));
     expect(a.abc === b.abc && JSON.stringify(a.notes) === JSON.stringify(b.notes), ctx, `graine ${seed} : grille non reproduite`);

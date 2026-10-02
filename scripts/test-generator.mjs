@@ -26,7 +26,7 @@
  *      des instants exacts au tiers de temps.
  * Plus : structure ABC (en-tête, 4 mesures par ligne, « |] »), cohérence
  * ABC <-> timeline notes, densité des procédés, applicabilité d'un procédé
- * selon les figures cochées (procedeNeeds).
+ * selon les figures cochées (techniqueNeeds).
  *
  * Les durées lues dans l'ABC sont converties en ticks (192 par ronde) : la
  * valeur écrite d'une note de triolet compte pour ses deux tiers, ce qui
@@ -38,28 +38,28 @@ import path from "node:path";
 
 const require = createRequire(import.meta.url);
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
-const { generateExercise, availableCells, procedeNeeds, FIGURE_64 } = require(path.join(ROOT, "js", "generator.js"));
+const { generateExercise, availableCells, techniqueNeeds, FIGURE_64 } = require(path.join(ROOT, "js", "generator.js"));
 const { analyzeMeter, allMeters } = require(path.join(ROOT, "js", "meter.js"));
 
 const METERS = allMeters();
 const COMPOUND_METERS = ["6/8", "9/8", "12/8"];
 /* Figures qui remplissent toute signature permise. */
 const FILL_ALL_FIGURES = ["noire", "croche", "double"];
-const PROCEDE_SETS = [
+const TECHNIQUE_SETS = [
   [],
   ["rests"],
   ["dots"],
   ["ties"],
-  ["syncopes"],
+  ["syncopations"],
   ["triplets"],
   ["rests", "dots"],
-  ["ties", "syncopes"],
+  ["ties", "syncopations"],
   ["rests", "triplets"],
-  ["rests", "dots", "ties", "syncopes"],
-  ["rests", "dots", "ties", "syncopes", "triplets"],
+  ["rests", "dots", "ties", "syncopations"],
+  ["rests", "dots", "ties", "syncopations", "triplets"],
 ];
 /* Procédés repérables dans la grille gravée. */
-const DRAWN_PROCEDES = ["rests", "dots", "ties", "syncopes", "triplets"];
+const DRAWN_TECHNIQUES = ["rests", "dots", "ties", "syncopations", "triplets"];
 /* Ticks par 64e de ronde : 192 ticks par ronde, le tiers de temps y est entier. */
 const TICKS_PER_64 = 3;
 /* Figure du triolet sur un temps (valeur écrite en 64e) : croche en /4, noire
@@ -130,7 +130,7 @@ function verifyExercise(cfg, res, ctx) {
   const beat64 = meterInfo.beat64;
   const beatTicks = beat64 * TICKS_PER_64;
   const triplet64 = tripletWritten64(meterInfo);
-  const has = (procede) => cfg.procedes.includes(procede);
+  const has = (technique) => cfg.techniques.includes(technique);
 
   measures.forEach((mtext, mi) => {
     let sumTicks = 0;
@@ -221,7 +221,7 @@ function verifyExercise(cfg, res, ctx) {
           expect(endTicks % beatTicks === 0, ctx,
             `liaison au milieu d'un temps (mesure ${mi + 1}, fin à ${endTicks} ticks)`);
         }
-        if (syncope) expect(has("syncopes"), ctx, "syncope sans le procédé Syncopes");
+        if (syncope) expect(has("syncopations"), ctx, "syncope sans le procédé Syncopes");
         const token = { rest, dur64, durTicks, startTicks, written64, tie, dotted, syncope, triplet, tripletIndex };
         measureTokens.push(token);
         allTokens.push(token);
@@ -276,13 +276,13 @@ function verifyExercise(cfg, res, ctx) {
 }
 
 /* Procédés repérés dans une suite de jetons. */
-function procedesSeen(toks) {
+function techniquesSeen(toks) {
   const seen = new Set();
   for (const t of toks) {
     if (t.rest) seen.add("rests");
     if (t.dotted) seen.add("dots");
     if (t.tie) seen.add("ties");
-    if (t.syncope) seen.add("syncopes");
+    if (t.syncope) seen.add("syncopations");
     if (t.triplet) seen.add("triplets");
   }
   return seen;
@@ -291,7 +291,7 @@ function procedesSeen(toks) {
 /* Densité moyenne par mesure, procédés confondus (silences, pointées,
    liaisons, syncopes, triolets comptés une fois par groupe) — sert à
    vérifier qu'une mesure reste lisible. */
-function procedeCount(toks) {
+function techniqueCount(toks) {
   let n = 0;
   for (const t of toks) {
     if (t.rest) n++;
@@ -308,9 +308,9 @@ let impossibleCombos = 0;
 function runCombo(cfg, label) {
   const av = availableCells(cfg);
   const seen = new Set();
-  const procedes = new Set();
+  const techniques = new Set();
   let restTokens = 0;
-  let procedeTokens = 0;
+  let techniqueTokens = 0;
 
   for (let g = 0; g < GENS_PER_COMBO; g++) {
     let res;
@@ -332,9 +332,9 @@ function runCombo(cfg, label) {
     const toks = verifyExercise(cfg, res, `${label} · gén. ${g + 1}`);
     if (!toks) return;
     seen.add(res.abc);
-    for (const p of procedesSeen(toks)) procedes.add(p);
+    for (const p of techniquesSeen(toks)) techniques.add(p);
     restTokens += toks.filter((t) => t.rest).length;
-    procedeTokens += procedeCount(toks);
+    techniqueTokens += techniqueCount(toks);
   }
   combos++;
 
@@ -344,22 +344,22 @@ function runCombo(cfg, label) {
     expect(seen.size >= 2, label, `aucune variété sur ${GENS_PER_COMBO} générations`);
   }
   /* (c) un procédé coché et applicable finit par apparaître */
-  for (const procede of cfg.procedes) {
-    if (!DRAWN_PROCEDES.includes(procede)) continue;
-    if (procedeNeeds({ figures: cfg.figures, meter: cfg.meter, procedes: cfg.procedes }, procede) !== null) {
-      expect(!procedes.has(procede), label, `procédé ${procede} jugé inapplicable mais présent`);
+  for (const technique of cfg.techniques) {
+    if (!DRAWN_TECHNIQUES.includes(technique)) continue;
+    if (techniqueNeeds({ figures: cfg.figures, meter: cfg.meter, techniques: cfg.techniques }, technique) !== null) {
+      expect(!techniques.has(technique), label, `procédé ${technique} jugé inapplicable mais présent`);
       continue;
     }
-    expect(procedes.has(procede), label, `procédé ${procede} coché mais jamais apparu`);
+    expect(techniques.has(technique), label, `procédé ${technique} coché mais jamais apparu`);
   }
   const perMeasure = (n) => n / (GENS_PER_COMBO * cfg.measures);
-  if (cfg.procedes.length === 1 && cfg.procedes[0] === "rests" && procedeNeeds(cfg, "rests") === null) {
+  if (cfg.techniques.length === 1 && cfg.techniques[0] === "rests" && techniqueNeeds(cfg, "rests") === null) {
     const avg = perMeasure(restTokens);
     expect(avg > 0.15 && avg < 2.5, label,
       `densité de silences par mesure hors plage raisonnable : ${avg.toFixed(2)}`);
   }
   /* densité lisible : procédés confondus, quelques occurrences par mesure */
-  const avgAll = perMeasure(procedeTokens);
+  const avgAll = perMeasure(techniqueTokens);
   expect(avgAll < 3, label, `densité de procédés par mesure trop forte : ${avgAll.toFixed(2)}`);
 }
 
@@ -375,10 +375,10 @@ function expectThrows(cfg, label) {
 
 /* ---------- matrice principale : procédés × signatures × jeux de figures ---------- */
 for (const figures of FIGURE_SETS) {
-  for (const procedes of PROCEDE_SETS) {
+  for (const techniques of TECHNIQUE_SETS) {
     for (const meter of METERS) {
-      const cfg = { figures, procedes, meter, measures: 8 };
-      runCombo(cfg, `[${figures.join("+")}] · {${procedes.join("+")}} · ${meter} · 8 mes`);
+      const cfg = { figures, techniques, meter, measures: 8 };
+      runCombo(cfg, `[${figures.join("+")}] · {${techniques.join("+")}} · ${meter} · 8 mes`);
     }
   }
 }
@@ -386,11 +386,11 @@ for (const figures of FIGURE_SETS) {
 /* ---------- variantes de nombre de mesures ---------- */
 for (const measures of [4, 16]) {
   runCombo(
-    { figures: ["blanche", "noire", "croche"], procedes: ["rests", "dots", "ties", "syncopes"], meter: "4/4", measures },
+    { figures: ["blanche", "noire", "croche"], techniques: ["rests", "dots", "ties", "syncopations"], meter: "4/4", measures },
     `[blanche+noire+croche] · tous procédés · 4/4 · ${measures} mes`
   );
   runCombo(
-    { figures: ["noire", "croche", "double"], procedes: ["rests"], meter: "3/4", measures },
+    { figures: ["noire", "croche", "double"], techniques: ["rests"], meter: "3/4", measures },
     `[noire+croche+double] · {rests} · 3/4 · ${measures} mes`
   );
 }
@@ -402,12 +402,12 @@ for (const measures of [4, 16]) {
 {
   let sixteenthTies = 0;
   for (const meter of METERS) {
-    for (const procedes of [["ties"], ["ties", "dots", "syncopes", "rests"]]) {
-      const cfg = { figures: ["noire", "croche", "double", "triple"], procedes, meter, measures: 8 };
+    for (const techniques of [["ties"], ["ties", "dots", "syncopations", "rests"]]) {
+      const cfg = { figures: ["noire", "croche", "double", "triple"], techniques, meter, measures: 8 };
       for (let g = 0; g < 150; g++) {
         const res = generateExercise(cfg);
         generations++;
-        const toks = verifyExercise(cfg, res, `règle de liaison · ${meter} · {${procedes.join("+")}} · gén. ${g + 1}`);
+        const toks = verifyExercise(cfg, res, `règle de liaison · ${meter} · {${techniques.join("+")}} · gén. ${g + 1}`);
         if (!toks) continue;
         for (const t of toks) {
           if (t.tie && t.dur64 === 4) sixteenthTies++;
@@ -422,13 +422,13 @@ for (const measures of [4, 16]) {
 {
   for (const meter of COMPOUND_METERS) {
     const beat64 = analyzeMeter(meter).beat64;
-    const draw = (figures, procedes, n) => {
+    const draw = (figures, techniques, n) => {
       const toks = [];
       for (let g = 0; g < n; g++) {
-        const cfg = { figures, procedes, meter, measures: 8 };
+        const cfg = { figures, techniques, meter, measures: 8 };
         const res = generateExercise(cfg);
         generations++;
-        const got = verifyExercise(cfg, res, `composée · ${meter} · [${figures.join("+")}] · {${procedes.join("+")}}`);
+        const got = verifyExercise(cfg, res, `composée · ${meter} · [${figures.join("+")}] · {${techniques.join("+")}}`);
         if (got) toks.push(...got);
       }
       return toks;
@@ -445,11 +445,11 @@ for (const measures of [4, 16]) {
     expect(eighths.length === 50 * 8 * analyzeMeter(meter).numerator, meter, "croche seule : mesure non pleine de croches");
   }
   /* Croches ligaturées par trois, par temps (ABC brut) : 6/8 en croches seules. */
-  const res = generateExercise({ figures: ["croche"], procedes: [], meter: "6/8", measures: 4 });
+  const res = generateExercise({ figures: ["croche"], techniques: [], meter: "6/8", measures: 4 });
   expect(res.bars.every((bar) => bar === "D,D,D, D,D,D,"), "ligature 6/8", `croches non groupées par trois : ${res.bars.join(" | ")}`);
-  const nine = generateExercise({ figures: ["croche"], procedes: [], meter: "9/8", measures: 2 });
+  const nine = generateExercise({ figures: ["croche"], techniques: [], meter: "9/8", measures: 2 });
   expect(nine.bars.every((bar) => bar === "D,D,D, D,D,D, D,D,D,"), "ligature 9/8", `croches non groupées par trois : ${nine.bars.join(" | ")}`);
-  const ex = generateExercise({ figures: ["noire"], procedes: [], meter: "12/8", measures: 2 });
+  const ex = generateExercise({ figures: ["noire"], techniques: [], meter: "12/8", measures: 2 });
   expect(ex.header.indexOf("M:12/8") !== -1, "en-tête 12/8", `signature absente de l'en-tête : ${ex.header}`);
   expect(ex.notes.every((n) => Number.isInteger(n.startBeats) && n.durationBeats === 1), "12/8 · noire",
     "noire seule : une noire pointée par temps attendue");
@@ -465,12 +465,12 @@ for (const measures of [4, 16]) {
   for (const meter of SIMPLE_TRIPLET_METERS) {
     const halfBeat = analyzeMeter(meter).denominator === 2;
     const figures = halfBeat ? ["blanche", "noire"] : ["noire", "croche"];
-    for (const procedes of [["triplets"], ["rests", "triplets"], ["rests", "dots", "ties", "syncopes", "triplets"]]) {
-      const cfg = { figures, procedes, meter, measures: 8 };
+    for (const techniques of [["triplets"], ["rests", "triplets"], ["rests", "dots", "ties", "syncopations", "triplets"]]) {
+      const cfg = { figures, techniques, meter, measures: 8 };
       for (let g = 0; g < 200; g++) {
         const res = generateExercise(cfg);
         generations++;
-        const toks = verifyExercise(cfg, res, `${ctx} · ${meter} · {${procedes.join("+")}} · gén. ${g + 1}`);
+        const toks = verifyExercise(cfg, res, `${ctx} · ${meter} · {${techniques.join("+")}} · gén. ${g + 1}`);
         if (!toks) continue;
         expect(toks.some((t) => t.triplet) === res.abc.includes("(3"), ctx, "triolet gravé sans « (3 »");
         for (const t of toks) {
@@ -493,7 +493,7 @@ for (const measures of [4, 16]) {
     }
     /* En /2, le triolet est un triolet de noires, gravé en L:1/8 (D,2). */
     if (halfBeat) {
-      const half = generateExercise({ figures: ["blanche", "noire"], procedes: ["triplets"], meter, measures: 16 });
+      const half = generateExercise({ figures: ["blanche", "noire"], techniques: ["triplets"], meter, measures: 16 });
       generations++;
       expect(/\(3D,2D,2D,2/.test(half.abc) || !half.abc.includes("(3"), ctx, `${meter} : triolet de noires attendu (D,2) — ${half.abc}`);
       expect(half.abc.indexOf("L:1/8") !== -1, ctx, `${meter} : unité L:1/8 attendue avec des noires de triolet`);
@@ -507,7 +507,7 @@ for (const measures of [4, 16]) {
   for (const [figures, meter] of [[["blanche", "noire"], "4/4"], [["ronde", "blanche"], "2/2"],
     [["noire", "croche"], "6/8"], [["noire", "croche"], "12/8"], [["croche", "double"], "7/8"]]) {
     for (let g = 0; g < 50; g++) {
-      const res = generateExercise({ figures, procedes: ["triplets"], meter, measures: 8 });
+      const res = generateExercise({ figures, techniques: ["triplets"], meter, measures: 8 });
       generations++;
       expect(!res.abc.includes("(3"), ctx, `triolet tiré en ${meter} avec [${figures.join("+")}]`);
     }
@@ -517,8 +517,8 @@ for (const measures of [4, 16]) {
 /* ---------- toute signature permise se remplit ---------- */
 {
   for (const meter of METERS) {
-    for (const procedes of [[], ["rests", "dots", "ties", "syncopes", "triplets"]]) {
-      const cfg = { figures: FILL_ALL_FIGURES, procedes, meter, measures: 16 };
+    for (const techniques of [[], ["rests", "dots", "ties", "syncopations", "triplets"]]) {
+      const cfg = { figures: FILL_ALL_FIGURES, techniques, meter, measures: 16 };
       for (let g = 0; g < 60; g++) {
         let res = null;
         try {
@@ -528,7 +528,7 @@ for (const measures of [4, 16]) {
           break;
         }
         generations++;
-        verifyExercise(cfg, res, `remplissage · ${meter} · {${procedes.join("+")}} · gén. ${g + 1}`);
+        verifyExercise(cfg, res, `remplissage · ${meter} · {${techniques.join("+")}} · gén. ${g + 1}`);
       }
     }
   }
@@ -537,7 +537,7 @@ for (const measures of [4, 16]) {
 
 /* ---------- (e) deux clics successifs (config par défaut de la page) ---------- */
 {
-  const dcfg = { figures: ["blanche", "noire", "croche"], procedes: [], meter: "4/4", measures: 8 };
+  const dcfg = { figures: ["blanche", "noire", "croche"], techniques: [], meter: "4/4", measures: 8 };
   const a = generateExercise(dcfg);
   const b = generateExercise(dcfg);
   generations += 2;
@@ -546,13 +546,13 @@ for (const measures of [4, 16]) {
 
 /* ---------- applicabilité d'un procédé selon les figures cochées ---------- */
 {
-  const ctx = "procedeNeeds";
-  const needs = (figures, meter, procede) => procedeNeeds({ figures, meter }, procede);
+  const ctx = "techniqueNeeds";
+  const needs = (figures, meter, technique) => techniqueNeeds({ figures, meter }, technique);
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-  expect(needs(["noire", "croche"], "4/4", "syncopes") === null, ctx, "syncopes applicables avec noire + croche");
-  expect(same(needs(["blanche", "noire"], "4/4", "syncopes"), ["croche"]), ctx, "syncopes : nécessite la croche (4/4)");
-  expect(same(needs(["ronde", "blanche"], "2/2", "syncopes"), ["noire"]), ctx, "syncopes : nécessite la noire (2/2)");
-  expect(same(needs(["double"], "4/4", "syncopes"), ["noire", "croche"]), ctx, "syncopes : nécessite la noire et la croche");
+  expect(needs(["noire", "croche"], "4/4", "syncopations") === null, ctx, "syncopes applicables avec noire + croche");
+  expect(same(needs(["blanche", "noire"], "4/4", "syncopations"), ["croche"]), ctx, "syncopes : nécessite la croche (4/4)");
+  expect(same(needs(["ronde", "blanche"], "2/2", "syncopations"), ["noire"]), ctx, "syncopes : nécessite la noire (2/2)");
+  expect(same(needs(["double"], "4/4", "syncopations"), ["noire", "croche"]), ctx, "syncopes : nécessite la noire et la croche");
   expect(needs(["blanche", "noire"], "2/4", "ties") === null, ctx, "liaisons applicables par-dessus la barre");
   expect(same(needs(["ronde"], "4/4", "ties"), ["noire"]), ctx, "liaisons : nécessite la noire (ronde seule)");
   expect(needs(["noire", "croche"], "4/4", "dots") === null, ctx, "points applicables avec noire + croche");
@@ -572,27 +572,27 @@ for (const measures of [4, 16]) {
   // Mesures composées : Points ne gouverne que la sicilienne (croche pointée – double – croche).
   expect(same(needs(["noire", "croche"], "6/8", "dots"), ["double"]), ctx, "6/8 · points : nécessite la double croche");
   expect(needs(["croche", "double"], "6/8", "dots") === null, ctx, "6/8 · points applicables avec croche + double");
-  expect(needs(["noire", "croche"], "9/8", "syncopes") === null, ctx, "9/8 · syncopes (hémiole) applicables avec la noire");
-  expect(same(needs(["croche"], "6/8", "syncopes"), ["noire"]), ctx, "6/8 · syncopes : nécessite la noire");
+  expect(needs(["noire", "croche"], "9/8", "syncopations") === null, ctx, "9/8 · syncopes (hémiole) applicables avec la noire");
+  expect(same(needs(["croche"], "6/8", "syncopations"), ["noire"]), ctx, "6/8 · syncopes : nécessite la noire");
   expect(needs(["noire"], "12/8", "ties") === null, ctx, "12/8 · liaisons applicables avec la noire (pointée)");
   expect(needs(["noire"], "6/8", "rests") === null, ctx, "6/8 · silences applicables avec la noire (soupir pointé)");
   // Signatures simples nouvelles : le temps est la noire en 7/4, la croche en 7/8.
-  expect(needs(["noire", "croche"], "7/4", "syncopes") === null, ctx, "7/4 · syncopes applicables avec noire + croche");
-  expect(same(needs(["croche"], "7/8", "syncopes"), ["double"]), ctx, "7/8 · syncopes : nécessite la double croche");
+  expect(needs(["noire", "croche"], "7/4", "syncopations") === null, ctx, "7/4 · syncopes applicables avec noire + croche");
+  expect(same(needs(["croche"], "7/8", "syncopations"), ["double"]), ctx, "7/8 · syncopes : nécessite la double croche");
 }
 
 /* ---------- cas d'erreur attendus ---------- */
-expectThrows({ figures: [], procedes: [], meter: "4/4", measures: 8 }, "figures vides");
-expectThrows({ figures: ["swing"], procedes: [], meter: "4/4", measures: 8 }, "figure inconnue");
-expectThrows({ figures: ["noire"], procedes: ["swing"], meter: "4/4", measures: 8 }, "procédé inconnu");
-expectThrows({ figures: ["noire"], procedes: "rests", meter: "4/4", measures: 8 }, "procédés hors tableau");
-expectThrows({ figures: ["noire"], procedes: [], meter: "4/16", measures: 8 }, "signature non gérée (/16)");
-expectThrows({ figures: ["noire"], procedes: [], meter: "13/4", measures: 8 }, "signature non gérée (13 temps)");
-expectThrows({ figures: ["ronde"], procedes: [], meter: "6/8", measures: 8 }, "ronde seule en 6/8");
-expectThrows({ figures: ["blanche"], procedes: [], meter: "9/8", measures: 8 }, "blanche seule en 9/8");
-expectThrows({ figures: ["noire"], procedes: [], meter: "4/4", measures: 0 }, "mesures invalides");
-expectThrows({ figures: ["ronde"], procedes: [], meter: "3/4", measures: 8 }, "ronde seule en 3/4");
-expectThrows({ figures: ["blanche"], procedes: [], meter: "3/4", measures: 8 }, "blanche seule en 3/4");
+expectThrows({ figures: [], techniques: [], meter: "4/4", measures: 8 }, "figures vides");
+expectThrows({ figures: ["swing"], techniques: [], meter: "4/4", measures: 8 }, "figure inconnue");
+expectThrows({ figures: ["noire"], techniques: ["swing"], meter: "4/4", measures: 8 }, "procédé inconnu");
+expectThrows({ figures: ["noire"], techniques: "rests", meter: "4/4", measures: 8 }, "procédés hors tableau");
+expectThrows({ figures: ["noire"], techniques: [], meter: "4/16", measures: 8 }, "signature non gérée (/16)");
+expectThrows({ figures: ["noire"], techniques: [], meter: "13/4", measures: 8 }, "signature non gérée (13 temps)");
+expectThrows({ figures: ["ronde"], techniques: [], meter: "6/8", measures: 8 }, "ronde seule en 6/8");
+expectThrows({ figures: ["blanche"], techniques: [], meter: "9/8", measures: 8 }, "blanche seule en 9/8");
+expectThrows({ figures: ["noire"], techniques: [], meter: "4/4", measures: 0 }, "mesures invalides");
+expectThrows({ figures: ["ronde"], techniques: [], meter: "3/4", measures: 8 }, "ronde seule en 3/4");
+expectThrows({ figures: ["blanche"], techniques: [], meter: "3/4", measures: 8 }, "blanche seule en 3/4");
 
 /* ---------- résumé ---------- */
 console.log("Harnais du générateur de grilles");

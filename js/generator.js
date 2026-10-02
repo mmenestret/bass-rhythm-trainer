@@ -4,7 +4,7 @@
  * Fonction pure, sans DOM : generateExercise(config) -> { abc, notes, bars, header }
  *   config = {
  *     figures:  ["ronde"|"blanche"|"noire"|"croche"|"double"|"triple"|"quadruple", ...],
- *     procedes: ["rests"|"dots"|"ties"|"syncopes"|"triplets", ...] — procédés
+ *     techniques: ["rests"|"dots"|"ties"|"syncopations"|"triplets", ...] — procédés
  *               cochés, indépendants (défaut [] : notes seules),
  *     meter:    signature n/d permise (n de 1 à 12, d parmi 2, 4 et 8), analysée
  *               par js/meter.js — "4/4", "7/4", "3/2", "5/8", "6/8", "12/8"…
@@ -35,7 +35,7 @@
  * coché), jamais en mesure composée ni en /8. Un silence exige toujours
  * Silences. La densité découle des procédés cochés :
  * silences dosés à part, procédés spéciaux sous un budget commun par mesure.
- * procedeNeeds(config, procede) dit ce qui manque pour qu'un procédé soit
+ * techniqueNeeds(config, technique) dit ce qui manque pour qu'un procédé soit
  * applicable avec les figures cochées (null s'il l'est). En mesure simple,
  * les cellules sont écrites en temps et se transposent d'elles-mêmes : en x/2
  * le temps vaut une blanche (la noire y joue le rôle de la croche), en /8
@@ -166,7 +166,7 @@
    *        "rests"    : silences équivalents aux figures cochées ;
    *        "dots"     : cellules pointées ;
    *        "ties"     : cellules liées (toujours sur un début de temps) ;
-   *        "syncopes" : syncopes écrites sans liaison ;
+   *        "syncopations" : syncopes écrites sans liaison ;
    *        "triplets" : triolet d'un temps (sa figure écrite vaut un
    *                     demi-temps : croche en /4, noire en /2), avec un
    *                     silence interne seulement si Silences est coché.
@@ -230,9 +230,9 @@
 
     /* --- Syncopes écrites sans liaison (palier D) --- */
     /* croche – noire – croche */
-    cell("syncope-half-beat-half", "syncopes", 5, [note(0.5), note(1), note(0.5)]),
+    cell("syncope-half-beat-half", "syncopations", 5, [note(0.5), note(1), note(0.5)]),
     /* croche – noire – noire – croche */
-    cell("syncope-long", "syncopes", 2, [note(0.5), note(1), note(1), note(0.5)]),
+    cell("syncope-long", "syncopations", 2, [note(0.5), note(1), note(1), note(0.5)]),
 
     /* --- Triolets : trois notes égales dans un temps (étape 11) --- */
     cell("triplet", "triplets", 8, repeatElems([tripletNote()], 3)),
@@ -254,7 +254,7 @@
    *                pointée plus fine que le temps ;
    *   "ties"     : liaisons d'un temps à l'autre (noire pointée liée, croche
    *                liée par-dessus le temps, doubles liées) ;
-   *   "syncopes" : l'hémiole (trois noires sur deux temps), la syncope écrite
+   *   "syncopations" : l'hémiole (trois noires sur deux temps), la syncope écrite
    *                sans liaison propre à la mesure composée : la noire du
    *                milieu enjambe le temps.
    * Les liaisons par-dessus la barre relèvent toujours de "ties".
@@ -329,14 +329,14 @@
         note(SIXTEENTH), note(SIXTEENTH), note(EIGHTH), note(EIGHTH)]),
 
     /* --- Syncopes écrites sans liaison : l'hémiole --- */
-    cell("c-hemiola", "syncopes", 4, [note(2 * EIGHTH), note(2 * EIGHTH), note(2 * EIGHTH)])
+    cell("c-hemiola", "syncopations", 4, [note(2 * EIGHTH), note(2 * EIGHTH), note(2 * EIGHTH)])
   ];
 
   /* Procédés reconnus, dans l'ordre d'affichage. */
-  const PROCEDES = ["rests", "dots", "ties", "syncopes", "triplets"];
+  const TECHNIQUES = ["rests", "dots", "ties", "syncopations", "triplets"];
   /* Procédés tirés comme cellules « spéciales » : ils se partagent un même
      budget par mesure, pour qu'une mesure reste lisible quand on les cumule. */
-  const SPECIAL_PROCEDES = ["dots", "ties", "syncopes", "triplets"];
+  const SPECIAL_TECHNIQUES = ["dots", "ties", "syncopations", "triplets"];
 
   /* ---------- utilitaires ---------- */
 
@@ -520,13 +520,13 @@
 
   /* ---------- disponibilité des cellules ---------- */
 
-  function hasProcede(config, procede) {
-    return (config.procedes || []).indexOf(procede) !== -1;
+  function hasTechnique(config, technique) {
+    return (config.techniques || []).indexOf(technique) !== -1;
   }
 
-  function hasSpecialProcede(config) {
-    for (let i = 0; i < SPECIAL_PROCEDES.length; i++) {
-      if (hasProcede(config, SPECIAL_PROCEDES[i])) return true;
+  function hasSpecialTechnique(config) {
+    for (let i = 0; i < SPECIAL_TECHNIQUES.length; i++) {
+      if (hasTechnique(config, SPECIAL_TECHNIQUES[i])) return true;
     }
     return false;
   }
@@ -553,8 +553,8 @@
     var out = [];
     for (let c = 0; c < catalog.length; c++) {
       const cc = catalog[c];
-      if (cc.kind !== "base" && !hasProcede(config, cc.kind)) continue;
-      if (cc.hasRest && !hasProcede(config, "rests")) continue;
+      if (cc.kind !== "base" && !hasTechnique(config, cc.kind)) continue;
+      if (cc.hasRest && !hasTechnique(config, "rests")) continue;
       if (cc.kind === "triplets" && !tripletsAllowed) continue;
       if (cc.lenInt > m.beats) continue;
       var ok = true;
@@ -646,31 +646,31 @@
 
   /* Un procédé est applicable si les figures cochées, sous la signature,
      permettent de le tirer au moins une fois, avec les autres procédés cochés
-     (config.procedes, facultatif) : en 5/8, la noire pointée d'un procédé
+     (config.techniques, facultatif) : en 5/8, la noire pointée d'un procédé
      Points peut seule ouvrir la place d'un soupir. */
-  function procedeApplicable(config, procede) {
+  function techniqueApplicable(config, technique) {
     const beats = parseMeter(config.meter).beats;
     const usable = placements(availableCells({
       figures: config.figures,
       meter: config.meter,
-      procedes: [procede].concat(config.procedes || [])
+      techniques: [technique].concat(config.techniques || [])
     }), beats);
     for (let i = 0; i < usable.length; i++) {
-      if (usable[i].cell.kind === procede) return true;
+      if (usable[i].cell.kind === technique) return true;
     }
-    return procede === "ties" && crossBarTiePossible(usable, beats);
+    return technique === "ties" && crossBarTiePossible(usable, beats);
   }
 
   /*
    * Ce qui manque à un procédé : null s'il est applicable avec les figures
-   * cochées ({ figures, meter, procedes? } — les autres procédés cochés
+   * cochées ({ figures, meter, techniques? } — les autres procédés cochés
    * comptent) ; sinon les figures à cocher en plus pour le
    * rendre applicable (une, ou deux à défaut, de la plus longue à la plus
    * courte), ou [] si aucune ne suffit. On propose d'abord les figures voisines
    * de celles déjà cochées, la plus courte d'abord à égale distance.
    */
-  function procedeNeeds(config, procede) {
-    if (procedeApplicable(config, procede)) return null;
+  function techniqueNeeds(config, technique) {
+    if (techniqueApplicable(config, technique)) return null;
     const checked = config.figures;
     const distance = function (fig) {
       let best = FIGURE_ORDER.length;
@@ -685,11 +685,11 @@
       return distance(a) - distance(b) || FIGURE_ORDER.indexOf(b) - FIGURE_ORDER.indexOf(a);
     });
     const tryFigures = function (extra) {
-      return procedeApplicable({
+      return techniqueApplicable({
         figures: checked.concat(extra),
         meter: config.meter,
-        procedes: config.procedes
-      }, procede);
+        techniques: config.techniques
+      }, technique);
     };
     for (let i = 0; i < candidates.length; i++) {
       if (tryFigures([candidates[i]])) return [candidates[i]];
@@ -721,8 +721,8 @@
    * cellules par mesure, quel que soit le nombre de procédés cochés.
    */
   function restTargetFor(config, rng) {
-    if (!hasProcede(config, "rests")) return 0;
-    if (!hasSpecialProcede(config)) {
+    if (!hasTechnique(config, "rests")) return 0;
+    if (!hasSpecialTechnique(config)) {
       const x = rng();
       return x < 0.25 ? 0 : (x < 0.8 ? 1 : 2);
     }
@@ -730,7 +730,7 @@
   }
 
   function specialTargetFor(config, rng) {
-    if (!hasSpecialProcede(config)) return 0;
+    if (!hasSpecialTechnique(config)) return 0;
     return rng() < 0.55 ? 1 : 2;
   }
 
@@ -755,7 +755,7 @@
           if (!startAllowed(cc.lenInt, pos, beats)) continue;
           if (!reach[pos + cc.lenInt]) continue;
           candidates.push(cc);
-          if (SPECIAL_PROCEDES.indexOf(cc.kind) !== -1) specials.push(cc);
+          if (SPECIAL_TECHNIQUES.indexOf(cc.kind) !== -1) specials.push(cc);
           else if (cc.kind === "rests") rests.push(cc);
           else bases.push(cc);
         }
@@ -1010,7 +1010,7 @@
     const meter = match[1] + "/" + match[2];
     return Meter.isMeter(meter) ? meter : null;
   }
-  const PROCEDE_CODE = { rests: "r", dots: "d", ties: "t", syncopes: "s", triplets: "3" };
+  const TECHNIQUE_CODE = { rests: "r", dots: "d", ties: "t", syncopations: "s", triplets: "3" };
 
   function encodeShare(state) {
     var figs = "";
@@ -1018,14 +1018,14 @@
       var code = FIG_CODE[state.figures[i]];
       if (code) figs += code;
     }
-    let procedes = "";
-    for (let p = 0; p < PROCEDES.length; p++) {
-      if ((state.procedes || []).indexOf(PROCEDES[p]) !== -1) procedes += PROCEDE_CODE[PROCEDES[p]];
+    let techniques = "";
+    for (let p = 0; p < TECHNIQUES.length; p++) {
+      if ((state.techniques || []).indexOf(TECHNIQUES[p]) !== -1) techniques += TECHNIQUE_CODE[TECHNIQUES[p]];
     }
     var meas = state.measures === "inf" ? "i" : String(state.measures);
     return "s=" + ((state.seed >>> 0).toString(36)) +
       "&f=" + figs +
-      "&p=" + procedes +
+      "&p=" + techniques +
       "&m=" + encodeMeter(state.meter) +
       "&n=" + state.note +
       "&x=" + meas;
@@ -1057,16 +1057,16 @@
     }
     if (!figures.length) return null;
 
-    const procedes = [];
+    const techniques = [];
     for (let c = 0; c < map.p.length; c++) {
       let known = false;
-      for (let p = 0; p < PROCEDES.length; p++) {
-        if (PROCEDE_CODE[PROCEDES[p]] === map.p.charAt(c)) known = true;
+      for (let p = 0; p < TECHNIQUES.length; p++) {
+        if (TECHNIQUE_CODE[TECHNIQUES[p]] === map.p.charAt(c)) known = true;
       }
       if (!known) return null;
     }
-    for (let p = 0; p < PROCEDES.length; p++) {
-      if (map.p.indexOf(PROCEDE_CODE[PROCEDES[p]]) !== -1) procedes.push(PROCEDES[p]);
+    for (let p = 0; p < TECHNIQUES.length; p++) {
+      if (map.p.indexOf(TECHNIQUE_CODE[TECHNIQUES[p]]) !== -1) techniques.push(TECHNIQUES[p]);
     }
 
     const meter = decodeMeter(map.m);
@@ -1080,7 +1080,7 @@
     return {
       seed: seed,
       figures: figures,
-      procedes: procedes,
+      techniques: techniques,
       meter: meter,
       note: map.n,
       measures: measures
@@ -1233,13 +1233,13 @@
         throw new Error("Figure inconnue : " + figures[i]);
       }
     }
-    const procedes = config.procedes === undefined ? [] : config.procedes;
-    if (!Array.isArray(procedes)) {
-      throw new Error("Procédés invalides : " + procedes);
+    const techniques = config.techniques === undefined ? [] : config.techniques;
+    if (!Array.isArray(techniques)) {
+      throw new Error("Procédés invalides : " + techniques);
     }
-    for (let p = 0; p < procedes.length; p++) {
-      if (PROCEDES.indexOf(procedes[p]) === -1) {
-        throw new Error("Procédé inconnu : " + procedes[p]);
+    for (let p = 0; p < techniques.length; p++) {
+      if (TECHNIQUES.indexOf(techniques[p]) === -1) {
+        throw new Error("Procédé inconnu : " + techniques[p]);
       }
     }
     if (config.note !== undefined && !/^[A-G],{0,2}$/.test(config.note)) {
@@ -1262,7 +1262,7 @@
     for (var k = 0; k < count; k++) {
       measures.push(buildMeasure(cells, reach, m.beats, config, rng));
     }
-    if (hasProcede(config, "ties")) addCrossBarTies(measures, m.beats, rng);
+    if (hasTechnique(config, "ties")) addCrossBarTies(measures, m.beats, rng);
 
     return assemble(measures, config, m);
   }
@@ -1284,13 +1284,13 @@
     abcHeader: abcHeader,
     joinBars: joinBars,
     availableCells: availableCells,
-    procedeNeeds: procedeNeeds,
+    techniqueNeeds: techniqueNeeds,
     makeRng: makeRng,
     encodeShare: encodeShare,
     decodeShare: decodeShare,
     encodeComposed: encodeComposed,
     decodeComposed: decodeComposed,
     FIGURE_64: FIGURE_64,
-    PROCEDES: PROCEDES
+    TECHNIQUES: TECHNIQUES
   };
 }));

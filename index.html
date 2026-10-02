@@ -2039,13 +2039,13 @@
   </div>
 
   <div class="field">
-    <h3 data-i18n="field.procedes">Procédés</h3>
-    <div class="pills" id="procede-pills" role="group" aria-label="Procédés" data-i18n-aria-label="field.procedes">
-      <label class="pill"><input type="checkbox" name="procede" value="rests"><span data-i18n="procede.rests">Silences</span><span class="pill-hint"></span></label>
-      <label class="pill"><input type="checkbox" name="procede" value="dots"><span data-i18n="procede.dots">Points</span><span class="pill-hint"></span></label>
-      <label class="pill"><input type="checkbox" name="procede" value="ties"><span data-i18n="procede.ties">Liaisons</span><span class="pill-hint"></span></label>
-      <label class="pill"><input type="checkbox" name="procede" value="syncopes"><span data-i18n="procede.syncopes">Syncopes</span><span class="pill-hint"></span></label>
-      <label class="pill"><input type="checkbox" name="procede" value="triplets"><span data-i18n="procede.triplets">Triolets</span><span class="pill-hint"></span></label>
+    <h3 data-i18n="field.techniques">Procédés</h3>
+    <div class="pills" id="technique-pills" role="group" aria-label="Procédés" data-i18n-aria-label="field.techniques">
+      <label class="pill"><input type="checkbox" name="technique" value="rests"><span data-i18n="technique.rests">Silences</span><span class="pill-hint"></span></label>
+      <label class="pill"><input type="checkbox" name="technique" value="dots"><span data-i18n="technique.dots">Points</span><span class="pill-hint"></span></label>
+      <label class="pill"><input type="checkbox" name="technique" value="ties"><span data-i18n="technique.ties">Liaisons</span><span class="pill-hint"></span></label>
+      <label class="pill"><input type="checkbox" name="technique" value="syncopations"><span data-i18n="technique.syncopations">Syncopes</span><span class="pill-hint"></span></label>
+      <label class="pill"><input type="checkbox" name="technique" value="triplets"><span data-i18n="technique.triplets">Triolets</span><span class="pill-hint"></span></label>
     </div>
   </div>
 
@@ -2255,11 +2255,11 @@
     triple:     ["lesson.thirtySecond", "lesson.thirtySecond.rests"],
     quadruple:  ["lesson.sixtyFourth", "lesson.sixtyFourth.rests"]
   };
-  const LESSON_PROCEDES = [
-    ["dots", "lesson.procede.dots"],
-    ["ties", "lesson.procede.ties"],
-    ["syncopes", "lesson.procede.syncopes"],
-    ["triplets", "lesson.procede.triplets"]
+  const LESSON_TECHNIQUES = [
+    ["dots", "lesson.technique.dots"],
+    ["ties", "lesson.technique.ties"],
+    ["syncopations", "lesson.technique.syncopations"],
+    ["triplets", "lesson.technique.triplets"]
   ];
 
   /* Liste lisible : « a, b et c » / « a, b and c ». */
@@ -2268,24 +2268,24 @@
     return items.slice(0, -1).join(", ") + " " + t("list.and") + " " + items[items.length - 1];
   }
 
-  function lessonName(figures, procedes){
+  function lessonName(figures, techniques){
     var finest = null;
     for (var i = 0; i < FINEST_ORDER.length; i++){
       if (figures.indexOf(FINEST_ORDER[i]) !== -1){ finest = FINEST_ORDER[i]; break; }
     }
     if (!finest) return "";
     const names = LESSONS[LESSON_KEY[finest] || finest];
-    const lesson = t(procedes.indexOf("rests") !== -1 ? names[1] : names[0]);
+    const lesson = t(techniques.indexOf("rests") !== -1 ? names[1] : names[0]);
     const extras = [];
-    LESSON_PROCEDES.forEach(function(entry){
-      if (procedes.indexOf(entry[0]) !== -1) extras.push(t(entry[1]));
+    LESSON_TECHNIQUES.forEach(function(entry){
+      if (techniques.indexOf(entry[0]) !== -1) extras.push(t(entry[1]));
     });
     if (!extras.length) return lesson;
-    return t("lesson.withProcedes", { lesson: lesson, procedes: joinList(extras) });
+    return t("lesson.withTechniques", { lesson: lesson, techniques: joinList(extras) });
   }
 
   function updateExerciseTitle(cfg, animate){
-    exTitle.textContent = lessonName(cfg.figures, cfg.procedes);
+    exTitle.textContent = lessonName(cfg.figures, cfg.techniques);
     if (animate){
       exTitle.classList.remove("regen");
       void exTitle.offsetWidth;
@@ -3317,15 +3317,15 @@
      grille affichée garde la sienne jusque-là. */
   const sigPicker = createMeterPicker(document.getElementById("sig-picker"), signature, function(v){
     signature = v;
-    updateProcedeAvailability();
+    updateTechniqueAvailability();
   });
-  bindPills("procede-pills");
+  bindPills("technique-pills");
 
   /* ---------- procédés : pastilles à cocher ----------
      Un procédé inapplicable avec les figures cochées et la signature est
      grisé et décoché, avec une aide courte : ce qui lui manque (« nécessite
      la croche »), ou, pour les triolets, la signature qui les exclut (« pas
-     en mesure composée »). Le générateur dit ce qui manque (procedeNeeds,
+     en mesure composée »). Le générateur dit ce qui manque (techniqueNeeds,
      tripletFigure) ; la page n'en fait que le texte. */
   const FIGURE_DEFINITE = {
     ronde: "figureDefinite.whole", blanche: "figureDefinite.half", noire: "figureDefinite.quarter",
@@ -3341,37 +3341,37 @@
     return figures;
   }
 
-  function checkedProcedes(){
-    const procedes = [];
-    document.querySelectorAll("input[name='procede']:checked").forEach(function(inp){
-      procedes.push(inp.value);
+  function checkedTechniques(){
+    const techniques = [];
+    document.querySelectorAll("input[name='technique']:checked").forEach(function(inp){
+      techniques.push(inp.value);
     });
-    return procedes;
+    return techniques;
   }
 
   /* Les autres procédés cochés comptent : en 5/8, la noire pointée de
      Points peut seule ouvrir la place d'un soupir. */
-  function procedeHelp(procede, figures){
+  function techniqueHelp(technique, figures){
     if (!figures.length) return "";
     const G = window.BassRhythmGenerator;
-    const others = checkedProcedes().filter(function(p){ return p !== procede; });
-    const needs = G.procedeNeeds({ figures: figures, meter: signature, procedes: others }, procede);
+    const others = checkedTechniques().filter(function(p){ return p !== technique; });
+    const needs = G.techniqueNeeds({ figures: figures, meter: signature, techniques: others }, technique);
     if (!needs) return "";
-    if (procede === "triplets" && !G.tripletFigure(signature)){
-      return t(Meter.analyzeMeter(signature).compound ? "procede.notCompound" : "procede.notEighth");
+    if (technique === "triplets" && !G.tripletFigure(signature)){
+      return t(Meter.analyzeMeter(signature).compound ? "technique.notCompound" : "technique.notEighth");
     }
-    if (!needs.length) return t("procede.needsMore");
-    return t("procede.needs", {
+    if (!needs.length) return t("technique.needsMore");
+    return t("technique.needs", {
       figures: joinList(needs.map(function(fig){ return t(FIGURE_DEFINITE[fig]); }))
     });
   }
 
-  function updateProcedeAvailability(){
+  function updateTechniqueAvailability(){
     if (!window.BassRhythmGenerator) return;
     const figures = checkedFigures();
-    document.querySelectorAll("#procede-pills .pill").forEach(function(pill){
+    document.querySelectorAll("#technique-pills .pill").forEach(function(pill){
       const input = pill.querySelector("input");
-      const help = procedeHelp(input.value, figures);
+      const help = techniqueHelp(input.value, figures);
       input.disabled = help !== "";
       if (input.disabled) input.checked = false;
       pill.classList.toggle("disabled", input.disabled);
@@ -3382,10 +3382,10 @@
     });
   }
   document.querySelectorAll("input[name='fig']").forEach(function(inp){
-    inp.addEventListener("change", updateProcedeAvailability);
+    inp.addEventListener("change", updateTechniqueAvailability);
   });
-  document.querySelectorAll("input[name='procede']").forEach(function(inp){
-    inp.addEventListener("change", updateProcedeAvailability);
+  document.querySelectorAll("input[name='technique']").forEach(function(inp){
+    inp.addEventListener("change", updateTechniqueAvailability);
   });
   bindPills("mes-pills", function(v){
     measuresChoice = v;
@@ -3471,11 +3471,11 @@
 
   /* ---------- génération de la grille ---------- */
   function readConfig(){
-    const procedes = checkedProcedes();
+    const techniques = checkedTechniques();
     var inf = measuresChoice === "inf";
     return {
       figures: checkedFigures(),
-      procedes: procedes,
+      techniques: techniques,
       meter: signature,
       // ∞ : le flux est généré par chunks de CHUNK_BARS avec ces réglages
       measures: inf ? CHUNK_BARS : parseInt(measuresChoice, 10),
@@ -3536,7 +3536,7 @@
     return {
       seed: currentSeed,
       figures: cfg.figures,
-      procedes: cfg.procedes,
+      techniques: cfg.techniques,
       meter: cfg.meter,
       note: noteChoice,       // lettre A–G ; la note ne change que la hauteur affichée, pas le rythme
       measures: measuresChoice // "4" | "8" | "16" | "inf"
@@ -3860,10 +3860,10 @@
     setPill("note-pills", st.note);    noteChoice = st.note;
     setPill("mes-pills", st.measures); measuresChoice = st.measures;
     // procédés : cases à cocher, puis grisage selon figures et signature
-    document.querySelectorAll("input[name='procede']").forEach(function(inp){
-      inp.checked = st.procedes.indexOf(inp.value) !== -1;
+    document.querySelectorAll("input[name='technique']").forEach(function(inp){
+      inp.checked = st.techniques.indexOf(inp.value) !== -1;
     });
-    updateProcedeAvailability();
+    updateTechniqueAvailability();
   }
 
   /* Le hash peut porter DEUX formats : contenu complet (grille composée) ou
@@ -4630,7 +4630,7 @@
 
   /* ---------- init ---------- */
   // aides des procédés traduites, grisage initial
-  updateProcedeAvailability();
+  updateTechniqueAvailability();
   var restored = readShareFromHash(); // grille partagée dans l'URL -> réglages restaurés
   if (restored && restored.kind === "composed"){
     restoreComposedFromShare(restored.state); // grille composée : contenu complet restauré
