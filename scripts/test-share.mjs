@@ -15,7 +15,8 @@
  *      configurations, sortie sûre pour un fragment d'URL ;
  *  (e) decodeShare rejette (null) les chaînes corrompues ou hors domaine,
  *      dont les anciens liens à niveau (l=), qui retombent sur une grille neuve ;
- *  (f) aucune préférence de lecture (voix, volumes de pulsation, aides) ne
+ *  (f) aucune préférence de lecture (voix, volumes de pulsation, aides,
+ *      subdivision) ne
  *      passe dans un lien, graine comme contenu composé ;
  *  (g) toute signature permise (n de 1 à 12, d parmi 2, 4 et 8) fait
  *      l'aller-retour, graine comme contenu composé, et reproduit la grille.
@@ -278,6 +279,7 @@ function expect(cond, ctx, msg) {
     pulsationVoice: "groove",
     pulsationVolumes: { clic: 2.5, groove: 0.4 },
     aids: { click: false, visual: false, sound: true },
+    subdivide: false,
   };
   const prefKeys = Object.keys(prefs);
   const seedState = { seed: 42, figures: ["noire", "croche"], procedes: ["dots"], meter: "3/4", note: "A", measures: "8" };
@@ -299,7 +301,7 @@ function expect(cond, ctx, msg) {
   expect(composedBack !== null && prefKeys.every((k) => !(k in composedBack)), ctx,
     "contenu — le lien relu porte une préférence de lecture");
   for (const link of [seedLink, composedLink]) {
-    expect(!/groove|clic|volume|aids|pulsation/i.test(link), ctx, `lien sans trace de préférence (${link})`);
+    expect(!/groove|clic|volume|aids|pulsation|subdivi/i.test(link), ctx, `lien sans trace de préférence (${link})`);
   }
 })();
 

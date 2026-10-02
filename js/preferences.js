@@ -1,12 +1,14 @@
 /*
  * Bass Rhythm Trainer — préférences de lecture (voix et volumes de
- * pulsation, aides activées), mémorisées sur l'appareil.
+ * pulsation, aides activées, subdivision), mémorisées sur l'appareil.
  *
  * Module pur : le stockage est injecté (localStorage dans la page, un objet
  * { getItem, setItem } sous Node). Contrat :
  *   - defaultPreferences() rend une copie neuve des défauts :
  *     { pulsationVoice: "clic", pulsationVolumes: { clic: 1, groove: 1 },
- *       aids: { click: true, visual: true, sound: false } } ;
+ *       aids: { click: true, visual: true, sound: false },
+ *       subdivide: true } — subdivide : croches entendues entre les temps
+ *       d'une mesure composée (au clic comme au charley du groove) ;
  *   - readPreferences(storage) lit l'unique clé versionnée STORAGE_KEY et
  *     rend des préférences complètes. La lecture est tolérante, champ par
  *     champ : stockage absent ou défaillant, JSON corrompu, valeur de mauvais
@@ -42,7 +44,8 @@
     return {
       pulsationVoice: "clic",
       pulsationVolumes: { clic: 1, groove: 1 },
-      aids: { click: true, visual: true, sound: false }
+      aids: { click: true, visual: true, sound: false },
+      subdivide: true
     };
   }
 
@@ -76,6 +79,7 @@
         if (typeof raw.aids[aid] === "boolean") prefs.aids[aid] = raw.aids[aid];
       });
     }
+    if (typeof raw.subdivide === "boolean") prefs.subdivide = raw.subdivide;
     return prefs;
   }
 

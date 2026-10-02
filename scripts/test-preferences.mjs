@@ -4,7 +4,8 @@
  *
  * Vérifie :
  *  (a) défauts : voix clic, volumes 100 % pour chaque voix, aides par défaut
- *      de la page (métronome et guide visuel actifs, son coupé) ;
+ *      de la page (métronome et guide visuel actifs, son coupé), subdivision
+ *      active ;
  *  (b) aller-retour : ce qui est écrit est relu à l'identique, sous une seule
  *      clé versionnée ;
  *  (c) lecture tolérante : stockage absent ou vide, JSON corrompu, valeurs
@@ -57,6 +58,7 @@ const DEFAULTS = {
   pulsationVoice: "clic",
   pulsationVolumes: { clic: 1, groove: 1 },
   aids: { click: true, visual: true, sound: false },
+  subdivide: true,
 };
 
 /* ---------- (a) défauts ---------- */
@@ -79,6 +81,7 @@ const DEFAULTS = {
     pulsationVoice: "groove",
     pulsationVolumes: { clic: 2.5, groove: 0 },
     aids: { click: false, visual: false, sound: true },
+    subdivide: false,
   };
   expect(writePreferences(storage, prefs) === true, "aller-retour — l'écriture doit réussir");
   expect(Object.keys(storage.data).length === 1 && STORAGE_KEY in storage.data,
@@ -121,8 +124,11 @@ const DEFAULTS = {
     [{ aids: { click: "yes", visual: 0, sound: null } }, DEFAULTS],
     [{ aids: { click: false } }, { ...DEFAULTS, aids: { click: false, visual: true, sound: false } }],
     [{ aids: true }, DEFAULTS],
+    [{ subdivide: false }, { ...DEFAULTS, subdivide: false }],
+    [{ subdivide: "non" }, DEFAULTS],
+    [{ subdivide: 0 }, DEFAULTS],
     [{ pulsationVoice: "groove", pulsationVolumes: { groove: 2 }, aids: { sound: true }, unknown: 1 },
-      { pulsationVoice: "groove", pulsationVolumes: { clic: 1, groove: 2 }, aids: { click: true, visual: true, sound: true } }],
+      { pulsationVoice: "groove", pulsationVolumes: { clic: 1, groove: 2 }, aids: { click: true, visual: true, sound: true }, subdivide: true }],
   ];
   for (const [stored, want] of cases) {
     const got = safeRead(memoryStorage({ [STORAGE_KEY]: JSON.stringify(stored) }), JSON.stringify(stored));
