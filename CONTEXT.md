@@ -15,7 +15,16 @@ c'est le même objet dans les deux cas.
 _Avoid_: partition, portée (au sens de « le morceau »)
 
 **Grille générée** :
-Une grille obtenue par tirage au sort à partir d'une configuration.
+Une grille obtenue par tirage au sort à partir d'une configuration : figures
+cochées, procédés cochés, signature, nombre de mesures.
+
+**Procédé** :
+Une écriture rythmique qu'on autorise ou non au tirage, indépendamment des
+figures : *Silences*, *Points*, *Liaisons*, *Syncopes* (syncopes écrites sans
+liaison), *Triolets*. Aucun procédé coché : des notes seules. En mesure
+composée, les valeurs pointées d'un ou deux temps sont des figures ordinaires :
+*Points* n'y gouverne que les pointées plus fines que le temps.
+_Avoid_: niveau, ingrédient, option, difficulté
 
 **Grille composée** :
 Une grille construite à la main par l'utilisateur dans le mode Composer, figure
@@ -37,19 +46,68 @@ est réglée globalement ; seul le rythme varie d'une note à l'autre.
 Un segment de la grille dont la durée vaut exactement la signature. Toute mesure
 d'une grille valide est pleine.
 
+**Signature** :
+Le nombre de temps d'une mesure et la valeur de ce temps (4/4, 5/4, 3/2, 6/8…).
+Une signature est *simple* (temps divisé en deux) ou *composée* (temps divisé en
+trois). En /8, elle est composée quand le numérateur est un multiple de 3 au
+moins égal à 6 (6/8, 9/8, 12/8), simple sinon (3/8, 5/8, 7/8 : le temps est la
+croche).
+_Avoid_: chiffrage, métrique
+
+**Temps** :
+L'unité de pulsation fixée par la signature : la noire en /4, la blanche en /2,
+la noire pointée en mesure composée. C'est l'unité qui règle la ligature et les
+liaisons.
+_Avoid_: battue, pulsation (réservé à l'aide de lecture)
+
+**Mesure composée** :
+Une signature dont le temps est une valeur pointée divisée en trois (6/8, 9/8,
+12/8). C'est le seul sens de « ternaire » dans l'app.
+_Avoid_: ternaire (ambigu : se confond avec le swing), mesure ternaire
+
+**Liaison** :
+Un arc qui relie une note à la suivante : une seule attaque, durées cumulées.
+Une liaison se fait toujours sur un début de temps ; dans un même temps, on écrit
+directement la valeur cumulée.
+_Avoid_: tenue
+
+**Triolet** :
+Un groupe de trois notes égales qui occupe la durée de deux notes de la même
+figure, dans une mesure simple (triolet de croches : trois croches dans un
+temps).
+_Avoid_: ternaire
+
 ### Aides de lecture
 
 **Clic** :
 La voix par défaut de l'aide de pulsation : un son court par temps, accent sur le
-temps 1.
+temps 1 ; en mesure composée, s'y ajoutent les croches de la subdivision, jouées
+plus faiblement.
 _Avoid_: bip
 
 **Groove** :
 La voix « accompagnement » de l'aide de pulsation, choisie *à la place* du clic :
-un motif de batterie de synthèse sobre (grosse caisse sur le 1, caisse claire sur
-2 & 4, charley sur les temps), binaire, mixé sous le rythme lu. Une seule pulsation
-à la fois — le groove remplace le clic, il ne s'y ajoute pas.
+un motif de batterie de synthèse sobre (grosse caisse sur les temps impairs,
+caisse claire sur les temps pairs, charley sur les temps — sur chaque croche en
+mesure composée), mixé sous le rythme lu. Une seule pulsation à la fois — le
+groove remplace le clic, il ne s'y ajoute pas.
 _Avoid_: accompagnement, backing track, rythmique
+
+**Subdivision** :
+Les croches qu'on entend entre les temps d'une mesure composée, au clic comme au
+charley du groove. Elle est active par défaut et peut être coupée, pour ne garder
+que les temps.
+_Avoid_: swing, ternaire
+
+**Volume de pulsation** :
+Le niveau sonore de la voix de pulsation active (clic ou groove), réglable au-delà
+du niveau par défaut pour passer par-dessus un instrument amplifié. Chaque voix
+garde son propre volume.
+_Avoid_: volume du métronome
+
+**Préférence de lecture** :
+Un réglage personnel du lecteur (voix de pulsation, volume de pulsation, aides
+activées), mémorisé sur l'appareil et jamais transmis par un lien de partage.
 
 ### Le mode Composer
 
@@ -67,13 +125,14 @@ suivante.
 Un regroupement de blocs de la palette de Composer : *Notes*, *Silences* ou
 *Modificateurs*. Chaque famille s'affiche ou se masque indépendamment pour
 épurer la palette. C'est un filtre d'affichage, sans effet sur la validité.
-_Avoid_: niveau (réservé à l'échelle de génération), catégorie
+_Avoid_: procédé (réservé au tirage), catégorie
 
 **Modificateur** :
-Un bloc de la famille *Modificateurs* qui altère une figure déjà posée dans
-Composer : le **point** (allonge la dernière note de moitié) ou la **liaison**
-(relie la dernière note à la suivante — une seule attaque, durées cumulées, seul
-moyen de tenir un son par-dessus une barre de mesure).
+Un bloc de la famille *Modificateurs* qui altère l'écriture au curseur dans
+Composer : le **point** (allonge la dernière note de moitié), la **liaison**
+(relie la dernière note à la suivante, voir *Liaison* ; seul moyen de tenir un son
+par-dessus une barre de mesure) ou le **triolet** (ouvre, en début de temps, un
+triolet que les trois figures suivantes remplissent).
 
 **Jouer** (action finale du mode Composer) :
 Quitter l'atelier et charger la grille composée dans le lecteur. N'engendre aucun

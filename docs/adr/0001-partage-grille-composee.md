@@ -22,6 +22,13 @@ détecte lequel des deux il lit.
 - Deux codecs d'URL coexistent : celui de la graine (court) et celui du contenu
   (plus long, ~130 caractères pour 16 mesures, acceptable). Le décodage doit
   distinguer les deux et valider le contenu (rejet silencieux si invalide).
-- Le format contenu devient une **surface de compatibilité** : les liens
+- ~~Le format contenu devient une **surface de compatibilité** : les liens
   partagés doivent rester lisibles par les versions futures (évolutions
-  additives, versionnées si besoin).
+  additives, versionnées si besoin).~~ **Amendé** : tant que l'app n'a pas
+  d'audience, aucun des deux formats n'est une surface de compatibilité. Un lien
+  ancien devenu invalide est rejeté (on tombe sur une grille neuve) ; les
+  formats évoluent librement. Décidé lors de l'arrivée des procédés, des
+  signatures libres et de la règle des liaisons, qui cassent chacun le format.
+- La **sauvegarde locale** reste écartée pour les *grilles*. Les *préférences
+  de lecture* (voix et volume de pulsation, aides) sont, elles, mémorisées sur
+  l'appareil : ce sont des réglages, pas du contenu.

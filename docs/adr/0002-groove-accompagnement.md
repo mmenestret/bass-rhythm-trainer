@@ -40,3 +40,20 @@ alourdir le fichier unique.
   les bascules d'aides : il n'est **pas encodé dans le lien de partage** (qui ne
   porte que la grille et sa config de génération, cf. ADR 0001). Un lien reçu se
   joue avec les réglages d'aides du lecteur.
+
+## Amendement : mesures composées et volume
+
+- Avec l'arrivée des **mesures composées** (6/8, 9/8, 12/8), le groove n'est plus
+  « binaire » : il suit la division de la signature. Grosse caisse et caisse
+  claire restent sur les temps (temps impairs, temps pairs, appliqués à la noire
+  pointée) ; le charley joue chaque croche, accentué sur les temps, mixé au plus
+  bas. Ces croches sont celles de la grille écrite : elles ne mentent pas à
+  l'oreille, contrairement au swing, qui reste écarté. Sources et raisonnement :
+  `docs/mesures-composees-pulsation.md`.
+- La **subdivision** (croches au clic et au charley) se coupe par une bascule
+  visible seulement en mesure composée, active par défaut ; le décompte la joue
+  aussi. Le tempo y compte la noire pointée et plafonne à 120.
+- Le **volume de pulsation** devient réglable par voix (au-delà du niveau par
+  défaut, sous un limiteur), depuis le panneau des aides ; le décompte prend le
+  volume de la voix choisie. Volume, voix et subdivision sont des préférences de
+  lecture mémorisées sur l'appareil, toujours hors du lien de partage.
