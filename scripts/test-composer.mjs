@@ -13,7 +13,10 @@
  *      sûr pour un fragment d'URL, distinction du format graine ;
  *  (e) rejet (null) des liens composés corrompus ou hors domaine ;
  *  (f) invariant bout-en-bout : contenu -> encode -> decode -> assembleComposed
- *      reproduit la grille d'origine.
+ *      reproduit la grille d'origine ;
+ *  (g) règle de liaison (endsOnBeat) et règles de pose de Composer (canTie,
+ *      canDot) en /4 comme en /2, sans mutation de l'état ; rejet d'un lien
+ *      composé qui lie au milieu d'un temps.
  */
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -23,7 +26,7 @@ const require = createRequire(import.meta.url);
 const generatorPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "js", "generator.js");
 const {
   assembleComposed, encodeComposed, decodeComposed, decodeShare, encodeShare,
-  figureBeats, METERS
+  figureBeats, endsOnBeat, canTie, canDot, METERS
 } = require(generatorPath);
 
 let checks = 0;
@@ -251,6 +254,111 @@ function measuresFromEvents(events, meter) {
     }
   }
   expect(rounds >= 15, ctx, `balayage suffisant (${rounds})`);
+})();
+
+/* ---------- (g) règle de liaison et règles de pose (fonctions pures) ---------- */
+(function () {
+  const ctx = "règle de liaison";
+  // Une liaison se fait toujours sur un début de temps : la fin de l'événement
+  // lié doit tomber sur un temps entier.
+  expect(endsOnBeat(0, 1) === true, ctx, "noire sur le temps : fin sur le temps 2");
+  expect(endsOnBeat(0.5, 0.5) === true, ctx, "croche du contretemps : fin sur le temps suivant");
+  expect(endsOnBeat(0.25, 0.25) === false, ctx, "double au milieu du temps : fin au milieu du temps");
+  expect(endsOnBeat(0, 1.5) === false, ctx, "noire pointée : fin au milieu du temps 2");
+  expect(endsOnBeat(2.5, 1.5) === true, ctx, "noire pointée du contretemps : fin sur le temps 4");
+  expect(endsOnBeat(3, 1) === true, ctx, "fin sur la barre de mesure");
+})();
+
+(function () {
+  const ctx = "peut lier";
+  // Construit l'état de composition : mesures pleines + mesure ouverte, comme la page.
+  const comp = (meter, events) => {
+    const b = beats(meter);
+    const measures = [];
+    let bar = [], sum = 0;
+    for (const e of events) {
+      const ev = { fig: e.fig, rest: !!e.rest, dot: !!e.dot, tie: !!e.tie };
+      bar.push(ev);
+      sum += figBeats(ev.fig, meter, ev.dot);
+      if (Math.abs(sum - b) < 1e-9) { measures.push(bar); bar = []; sum = 0; }
+    }
+    measures.push(bar);
+    return { meter, measures };
+  };
+  const N = (fig, extra) => Object.assign({ fig }, extra || {});
+
+  expect(canTie(comp("4/4", [])) === false, ctx, "grille vide : rien à lier");
+  expect(canTie(comp("4/4", [N("noire")])) === true, ctx, "noire sur le temps 1 : liaison permise");
+  expect(canTie(comp("4/4", [N("croche")])) === false, ctx, "croche seule : fin au milieu du temps");
+  expect(canTie(comp("4/4", [N("croche"), N("croche")])) === true, ctx, "deuxième croche : fin sur le temps 2");
+  expect(canTie(comp("4/4", [N("double"), N("double")])) === false, ctx, "deux doubles : fin au milieu du temps");
+  expect(canTie(comp("4/4", [N("noire", { dot: true })])) === false, ctx, "noire pointée : fin au milieu du temps");
+  expect(canTie(comp("4/4", [N("noire", { dot: true }), N("croche")])) === true, ctx, "croche après la pointée : fin sur le temps");
+  expect(canTie(comp("4/4", [N("noire", { rest: true })])) === false, ctx, "silence : jamais lié");
+  expect(canTie(comp("2/4", [N("blanche")])) === true, ctx, "note qui ferme la mesure : liaison par-dessus la barre");
+  expect(canTie(comp("2/4", [N("blanche"), N("croche")])) === false, ctx, "croche en début de mesure suivante : fin au milieu du temps");
+  // En /2, le temps est la blanche.
+  expect(canTie(comp("2/2", [N("noire")])) === false, ctx, "2/2 : noire seule finit au milieu du temps (blanche)");
+  expect(canTie(comp("2/2", [N("noire"), N("noire")])) === true, ctx, "2/2 : deux noires finissent sur le temps");
+  expect(canTie(comp("3/2", [N("croche"), N("croche")])) === false, ctx, "3/2 : deux croches finissent au milieu du temps");
+  expect(canTie(comp("4/2", [N("blanche")])) === true, ctx, "4/2 : blanche sur le temps");
+
+  // L'état n'est jamais muté.
+  const st = comp("4/4", [N("croche"), N("croche", { tie: true }), N("noire")]);
+  const before = JSON.stringify(st);
+  canTie(st);
+  canDot(st);
+  expect(JSON.stringify(st) === before, ctx, "état de composition intact après appel");
+})();
+
+(function () {
+  const ctx = "point permis";
+  const comp = (meter, events) => {
+    const b = beats(meter);
+    const measures = [];
+    let bar = [], sum = 0;
+    for (const e of events) {
+      const ev = { fig: e.fig, rest: !!e.rest, dot: !!e.dot, tie: !!e.tie };
+      bar.push(ev);
+      sum += figBeats(ev.fig, meter, ev.dot);
+      if (Math.abs(sum - b) < 1e-9) { measures.push(bar); bar = []; sum = 0; }
+    }
+    measures.push(bar);
+    return { meter, measures };
+  };
+  const N = (fig, extra) => Object.assign({ fig }, extra || {});
+
+  expect(canDot(comp("4/4", [])) === false, ctx, "grille vide : rien à pointer");
+  expect(canDot(comp("4/4", [N("noire")])) === true, ctx, "noire libre : point permis");
+  expect(canDot(comp("4/4", [N("noire", { rest: true })])) === false, ctx, "silence : jamais pointé");
+  expect(canDot(comp("2/4", [N("noire"), N("noire")])) === false, ctx, "la note ferme sa mesure : le point ne tient pas");
+  expect(canDot(comp("4/4", [N("noire"), N("croche"), N("blanche")])) === false, ctx, "le temps ajouté déborde la mesure");
+  // Le point déplacerait une liaison posée au milieu d'un temps.
+  expect(canDot(comp("4/4", [N("noire", { tie: true })])) === false, ctx, "noire liée : la pointée finirait au milieu du temps");
+  expect(canDot(comp("4/4", [N("blanche", { tie: true })])) === true, ctx, "blanche liée : la pointée finit sur le temps 4");
+  expect(canDot(comp("4/4", [N("croche"), N("croche", { tie: true })])) === false, ctx, "croche liée : la croche pointée finirait au milieu du temps");
+  // Retirer le point obéit à la même règle.
+  expect(canDot(comp("4/4", [N("croche"), N("noire", { dot: true, tie: true })])) === false, ctx,
+    "retirer le point ferait tomber la liaison au milieu du temps");
+  expect(canDot(comp("4/4", [N("croche"), N("noire", { dot: true })])) === true, ctx, "sans liaison, le point se retire");
+  // En /2, la règle se mesure au temps de la blanche.
+  expect(canDot(comp("4/2", [N("noire"), N("blanche", { dot: true, tie: true })])) === false, ctx,
+    "4/2 : retirer le point laisserait la liaison au milieu d'un temps (blanche)");
+  expect(canDot(comp("4/4", [N("noire"), N("blanche", { dot: true, tie: true })])) === true, ctx,
+    "4/4 : les mêmes figures restent sur le temps (noire)");
+  expect(canDot(comp("2/2", [N("blanche", { tie: true })])) === false, ctx, "2/2 : blanche liée pointée finirait au milieu du temps");
+})();
+
+(function () {
+  const ctx = "decode composé : règle de liaison";
+  const midBeat = encodeComposed({ meter: "4/4", note: "D", events: [
+    { fig: "croche", tie: true }, { fig: "croche" }, { fig: "noire" }, { fig: "blanche" }
+  ] });
+  expect(decodeComposed(midBeat) === null, ctx, "liaison au milieu d'un temps rejetée");
+  const onBeat = encodeComposed({ meter: "4/4", note: "D", events: [
+    { fig: "croche" }, { fig: "croche", tie: true }, { fig: "noire" }, { fig: "blanche" }
+  ] });
+  expect(decodeComposed(onBeat) !== null, ctx, "liaison sur un début de temps acceptée");
 })();
 
 /* ---------- rapport ---------- */

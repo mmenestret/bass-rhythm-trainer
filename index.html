@@ -3445,16 +3445,6 @@
     }
     return null;
   }
-  /* Place restante dans la mesure qui contient la dernière note posée (0 si
-     cette note ferme déjà sa mesure — le point n'y tient alors pas). */
-  function remainingOfLast(){
-    for (var i = composer.measures.length - 1; i >= 0; i--){
-      if (composer.measures[i].length){
-        return composerBeats() - measSum(composer.measures[i]);
-      }
-    }
-    return composerBeats();
-  }
   function pendingTie(){
     var e = lastPlacedEvent();
     return !!(e && e.tie && !e.rest);
@@ -3522,34 +3512,35 @@
     composer.selection = null;
     refreshComposer();
   }
-  /* Point : allonge la dernière note de moitié (bascule). Grisé si la dernière
-     n'est pas une note, ou si le demi-temps supplémentaire ne rentre pas. */
+  /* Point : allonge la dernière note de moitié (bascule). Liaison : la
+     dernière note est liée à la suivante (bascule). Les règles de pose (place
+     restante, liaison sur un début de temps) sont des fonctions pures du
+     générateur, qui lisent l'état de composition sans le muter. */
   function pointState(){
-    var e = lastPlacedEvent();
-    if (!e || e.rest) return { on: false, disabled: true };
-    if (e.dot) return { on: true, disabled: false };
-    var fits = figBeats(e.fig, false) * 0.5 <= remainingOfLast() + COMPOSER_EPSILON;
-    return { on: false, disabled: !fits };
+    const last = lastPlacedEvent();
+    return {
+      on: !!(last && last.dot),
+      disabled: !window.BassRhythmGenerator.canDot(composer)
+    };
   }
   function togglePoint(){
-    var st = pointState();
-    if (st.disabled) return;
-    var e = lastPlacedEvent();
-    e.dot = !e.dot;
+    if (!window.BassRhythmGenerator.canDot(composer)) return;
+    const last = lastPlacedEvent();
+    last.dot = !last.dot;
     normalizeComposer();
     refreshComposer();
   }
-  /* Liaison : la dernière note est liée à la suivante (bascule). Grisée si la
-     dernière n'est pas une note. */
   function tieState(){
-    var e = lastPlacedEvent();
-    if (!e || e.rest) return { on: false, disabled: true };
-    return { on: !!e.tie, disabled: false };
+    const last = lastPlacedEvent();
+    return {
+      on: !!(last && last.tie),
+      disabled: !window.BassRhythmGenerator.canTie(composer)
+    };
   }
   function toggleTie(){
-    var e = lastPlacedEvent();
-    if (!e || e.rest) return;
-    e.tie = !e.tie;
+    if (!window.BassRhythmGenerator.canTie(composer)) return;
+    const last = lastPlacedEvent();
+    last.tie = !last.tie;
     refreshComposer();
   }
 

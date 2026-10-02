@@ -31,6 +31,13 @@
  * encodeComposed / decodeComposed sérialisent son CONTENU dans le hash d'URL
  * (second format, coexistant avec la graine) : cf. docs/adr/0001-partage-grille-composee.md.
  *
+ * Règle de liaison : endsOnBeat(start, duration) dit si la fin d'un événement
+ * tombe sur un début de temps — seul cas où une liaison est permise. Les règles
+ * de pose de Composer en découlent, en fonctions pures qui lisent l'état de
+ * composition { meter, measures } (mesures d'événements { fig, rest, dot, tie })
+ * sans le muter : canTie (peut-on lier la dernière note ?) et canDot (le point
+ * peut-il être posé ou retiré sur la dernière note ?).
+ *
  * UMD minimal : window.BassRhythmGenerator dans la page, module.exports sous Node.
  */
 (function (root, factory) {
@@ -157,6 +164,75 @@
      composition manuelle (pose, invariant, codec) et ses tests. */
   function figureBeats(fig, den, dot) {
     return FIGURE_64[fig] * den / 64 * (dot ? 1.5 : 1);
+  }
+
+  /* ---------- règle de liaison ----------
+   *
+   * Une liaison se fait toujours sur un début de temps : dans un même temps, on
+   * écrit directement la valeur cumulée. endsOnBeat(start, duration) répond à
+   * « la fin de cet événement tombe-t-elle sur un début de temps ? » — positions
+   * et durées en temps (la blanche en x/2). Seul endroit où la règle est écrite :
+   * le catalogue du tirage, les liaisons par-dessus la barre, les règles de
+   * Composer et le décodage d'une grille composée s'y réfèrent.
+   */
+  const BEAT_EPSILON = 1e-6;
+
+  function endsOnBeat(start, duration) {
+    const end = start + duration;
+    return Math.abs(end - Math.round(end)) < BEAT_EPSILON;
+  }
+
+  /* ---------- règles de pose de Composer (fonctions pures) ----------
+   *
+   * L'état de composition est { meter, measures } : measures liste des mesures
+   * d'événements { fig, rest, dot, tie }, toutes pleines sauf la dernière
+   * (mesure ouverte, éventuellement vide). Les règles lisent cet état sans
+   * jamais le muter ; la page ne fait que les appeler pour griser ses boutons.
+   */
+
+  /* Dernier événement posé, avec sa position de départ dans sa mesure et la
+     place restante dans cette mesure (null si la grille est vide). */
+  function lastPlacement(composition) {
+    const parsed = parseMeter(composition.meter);
+    const measures = composition.measures || [];
+    for (let i = measures.length - 1; i >= 0; i--) {
+      const bar = measures[i];
+      if (!bar.length) continue;
+      let start = 0;
+      for (let j = 0; j < bar.length - 1; j++) {
+        start += figureBeats(bar[j].fig, parsed.den, bar[j].dot);
+      }
+      const event = bar[bar.length - 1];
+      const duration = figureBeats(event.fig, parsed.den, event.dot);
+      return {
+        event: event,
+        den: parsed.den,
+        start: start,
+        duration: duration,
+        remaining: parsed.beats - start - duration
+      };
+    }
+    return null;
+  }
+
+  /* Peut-on lier la dernière note à la suivante ? Oui si c'est une note et
+     qu'elle finit sur un début de temps (y compris sur la barre de mesure). */
+  function canTie(composition) {
+    const last = lastPlacement(composition);
+    if (!last || last.event.rest) return false;
+    return endsOnBeat(last.start, last.duration);
+  }
+
+  /* Le point (posé ou retiré) est-il permis sur la dernière note ? Le
+     demi-temps ajouté doit tenir dans sa mesure, et une liaison déjà posée sur
+     cette note doit rester sur un début de temps après la bascule. */
+  function canDot(composition) {
+    const last = lastPlacement(composition);
+    if (!last || last.event.rest) return false;
+    const toggled = figureBeats(last.event.fig, last.den, !last.event.dot);
+    if (toggled - last.duration > last.remaining + BEAT_EPSILON) return false;
+    if (last.event.tie && !endsOnBeat(last.start, toggled)) return false;
+    return true;
   }
 
   function gcd(a, b) {
@@ -636,6 +712,8 @@
       var e = events[i];
       var d = figureBeats(e.fig, den, e.dot);
       if (sum + d > beats + 1e-9) return null;
+      /* Règle de liaison : une liaison au milieu d'un temps invalide le lien. */
+      if (e.tie && !endsOnBeat(sum, d)) return null;
       bar.push(e);
       sum += d;
       if (Math.abs(sum - beats) < 1e-9) {
@@ -699,6 +777,9 @@
     barText: barText,
     chooseUnit: chooseUnit,
     figureBeats: figureBeats,
+    endsOnBeat: endsOnBeat,
+    canTie: canTie,
+    canDot: canDot,
     abcHeader: abcHeader,
     joinBars: joinBars,
     availableCells: availableCells,
