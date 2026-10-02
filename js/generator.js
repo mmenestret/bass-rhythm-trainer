@@ -144,7 +144,7 @@
 
   function cell(id, kind, weight, elems) {
     var len = 0;
-    for (var i = 0; i < elems.length; i++) {
+    for (let i = 0; i < elems.length; i++) {
       /* Règle de liaison : le catalogue ne lie jamais au milieu d'un temps. */
       if (elems[i].tie && !endsOnBeat(len, elems[i].d)) {
         throw new Error("Liaison au milieu d'un temps : " + id);
@@ -333,10 +333,10 @@
   ];
 
   /* Procédés reconnus, dans l'ordre d'affichage. */
-  var PROCEDES = ["rests", "dots", "ties", "syncopes", "triplets"];
+  const PROCEDES = ["rests", "dots", "ties", "syncopes", "triplets"];
   /* Procédés tirés comme cellules « spéciales » : ils se partagent un même
      budget par mesure, pour qu'une mesure reste lisible quand on les cumule. */
-  var SPECIAL_PROCEDES = ["dots", "ties", "syncopes", "triplets"];
+  const SPECIAL_PROCEDES = ["dots", "ties", "syncopes", "triplets"];
 
   /* ---------- utilitaires ---------- */
 
@@ -551,8 +551,8 @@
       fig64[FIGURE_64[config.figures[i]]] = true;
     }
     var out = [];
-    for (var c = 0; c < catalog.length; c++) {
-      var cc = catalog[c];
+    for (let c = 0; c < catalog.length; c++) {
+      const cc = catalog[c];
       if (cc.kind !== "base" && !hasProcede(config, cc.kind)) continue;
       if (cc.hasRest && !hasProcede(config, "rests")) continue;
       if (cc.kind === "triplets" && !tripletsAllowed) continue;
@@ -561,7 +561,7 @@
       for (var e = 0; e < cc.elems.length; e++) {
         var el = cc.elems[e];
         const written = writtenBeats(el);
-        var v = beatsTo64(written, m.beat64);
+        const v = beatsTo64(written, m.beat64);
         /* Valeur plus fine que la quadruple croche une fois transposée (en
            /8 simple) : cellule inutilisable. */
         if (Math.abs(written * m.beat64 - v) > BEAT_EPSILON) {
@@ -744,8 +744,8 @@
       var plainOnly = attempt === 39; /* dernier recours : notes seules */
       events = [];
       var pos = 0;
-      var restLeft = plainOnly ? 0 : restTargetFor(config, rng);
-      var specialLeft = plainOnly ? 0 : specialTargetFor(config, rng);
+      let restLeft = plainOnly ? 0 : restTargetFor(config, rng);
+      let specialLeft = plainOnly ? 0 : specialTargetFor(config, rng);
       var dead = false;
       while (pos < beats) {
         var candidates = [], specials = [], rests = [], bases = [];
@@ -837,9 +837,9 @@
     for (var j = 0; j < events.length; j++) {
       var e = events[j];
       const d64 = beatsTo64(writtenBeats(e), beat64);
-      var mult = d64 / unit;
+      const mult = d64 / unit;
       const opensTriplet = !!e.triplet && posTicks % beatTicks === 0;
-      var tok = (opensTriplet ? "(" + TRIPLET_SIZE : "") + (e.rest ? "z" : noteTok) +
+      const tok = (opensTriplet ? "(" + TRIPLET_SIZE : "") + (e.rest ? "z" : noteTok) +
         (mult === 1 ? "" : mult) + (e.tie ? "-" : "");
       if (d64 >= beat64) {
         groups.push(tok);
@@ -874,7 +874,7 @@
      flottant le plus proche, sans dérive d'accumulation. */
   function assemble(measures, config, m) {
     var noteTok = config.note || "D,";
-    var unit = chooseUnit(measures, config.meter);
+    const unit = chooseUnit(measures, config.meter);
     var lden = 64 / unit;
     const beatTicks = m.beat64 * TICKS_PER_64;
 
@@ -935,7 +935,7 @@
       var bar = [];
       for (j = 0; j < measures[i].length; j++) {
         var e = measures[i][j];
-        var copy = { d: e.d, rest: !!e.rest, tie: !!e.tie, triplet: !!e.triplet };
+        const copy = { d: e.d, rest: !!e.rest, tie: !!e.tie, triplet: !!e.triplet };
         bar.push(copy);
         order.push(copy);
       }
@@ -1069,7 +1069,7 @@
       if (map.p.indexOf(PROCEDE_CODE[PROCEDES[p]]) !== -1) procedes.push(PROCEDES[p]);
     }
 
-    var meter = decodeMeter(map.m);
+    const meter = decodeMeter(map.m);
     if (!meter) return null;
 
     if (!/^[A-G]$/.test(map.n)) return null;
@@ -1141,13 +1141,14 @@
       if (kv.length === 2 && kv[0]) map[kv[0]] = kv[1];
     }
     if (!("c" in map && "m" in map && "n" in map && "e" in map)) return null;
-    if (map.c !== COMPOSED_VERSION) return null; /* version inconnue ou ancienne : rejet */
+    /* version inconnue ou ancienne : rejet */
+    if (map.c !== COMPOSED_VERSION) return null;
 
-    var meter = decodeMeter(map.m);
+    const meter = decodeMeter(map.m);
     if (!meter) return null;
     if (!/^[A-G]$/.test(map.n)) return null;
 
-    var beats = parseMeter(meter).beats;
+    const beats = parseMeter(meter).beats;
     const tripletFig = tripletFigure(meter);
 
     var events = [];
@@ -1194,7 +1195,7 @@
     let tripletRun = 0;
     for (i = 0; i < events.length; i++) {
       var e = events[i];
-      var d = eventBeats(e, meter);
+      const d = eventBeats(e, meter);
       if (sum + d > beats + 1e-9) return null;
       if (e.triplet) {
         if (tripletRun % TRIPLET_SIZE === 0 && !endsOnBeat(0, sum)) return null;
@@ -1232,11 +1233,11 @@
         throw new Error("Figure inconnue : " + figures[i]);
       }
     }
-    var procedes = config.procedes === undefined ? [] : config.procedes;
-    if (Object.prototype.toString.call(procedes) !== "[object Array]") {
+    const procedes = config.procedes === undefined ? [] : config.procedes;
+    if (!Array.isArray(procedes)) {
       throw new Error("Procédés invalides : " + procedes);
     }
-    for (var p = 0; p < procedes.length; p++) {
+    for (let p = 0; p < procedes.length; p++) {
       if (PROCEDES.indexOf(procedes[p]) === -1) {
         throw new Error("Procédé inconnu : " + procedes[p]);
       }

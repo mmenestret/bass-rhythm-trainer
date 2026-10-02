@@ -477,8 +477,8 @@ for (const measures of [4, 16]) {
           if (t.tripletIndex === 0) groups++;
           if (t.triplet && t.rest) restSlots.add(t.tripletIndex);
         }
-        /* Mélange binaire / ternaire : des mesures portent à la fois un
-           triolet et un temps binaire. */
+        /* Mesure simple et triolets : des mesures portent à la fois un
+           triolet et un temps divisé en deux. */
         const barTicks = analyzeMeter(meter).beats * analyzeMeter(meter).beat64 * TICKS_PER_64;
         const byBar = new Map();
         for (const t of toks) {

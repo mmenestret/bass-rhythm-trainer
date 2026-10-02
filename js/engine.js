@@ -137,7 +137,8 @@
   var GROOVE_KICK_LEVEL = 0.32;
   var GROOVE_SNARE_LEVEL = 0.16;
   var GROOVE_HAT_LEVEL = 0.08;
-  const GROOVE_HAT_SUB_LEVEL = 0.045; // charley des croches de subdivision, sous celui des temps
+  // charley des croches de subdivision, sous celui des temps
+  const GROOVE_HAT_SUB_LEVEL = 0.045;
   var GROOVE_NOISE_S = 0.3;      // durée du buffer de bruit (caisse claire, charley)
 
   /* Clic à trois niveaux : le 1 (aigu, fort), les autres temps, puis les
@@ -160,7 +161,8 @@
      par défaut ci-dessus, de 0 (silence) à 3. Au-delà de 100 %, la somme
      peut dépasser la pleine échelle : le limiteur de sortie la contient. */
   const PULSATION_VOLUME_MAX = 3;
-  const PULSATION_VOLUME_RAMP_S = 0.02; // glissé du réglage en vol (pas de zip)
+  // glissé du réglage en vol (pas de zip)
+  const PULSATION_VOLUME_RAMP_S = 0.02;
 
   /* Limiteur de sortie : compresseur natif à seuil haut, ratio fort et
      attaque courte. Sous le seuil, le son passe (au gain de rattrapage près,
@@ -589,7 +591,7 @@
   function playNotePreview(ctx, v, seconds) {
     var dur = seconds > 0 ? seconds : 1.5;
     const output = buildOutput(ctx);
-    var voice = buildNoteVoice(ctx, output.master, ctx.currentTime + 0.02, dur, v);
+    const voice = buildNoteVoice(ctx, output.master, ctx.currentTime + 0.02, dur, v);
     var done = false;
     voice.src.onended = function () {
       done = true;
@@ -747,7 +749,8 @@
     var notesOn = !!opts.notesEnabled;
     var clicksOn = opts.clicksEnabled !== false;
     var pulsationVoice = opts.pulsationVoice === "groove" ? "groove" : "clic";
-    var noise = null;        // buffer de bruit du groove, créé à son premier battement
+    // buffer de bruit du groove, créé à son premier battement
+    let noise = null;
     var getNoteVoice = opts.getNoteVoice || function () { return null; };
     var noteIdx = 0;
     var cycleBase = 0;       // décalage en temps des cycles de boucle déjà recyclés
@@ -755,7 +758,7 @@
     var liveNotes = [];      // voix actives { src, cut, start } pour coupure/annulation
 
     const output = buildOutput(ctx);
-    var master = output.master;
+    const master = output.master;
 
     /* Volume de pulsation par voix. Toutes les voix de pulsation (clic,
        groove, décompte) passent par pulseBus, dont le gain est le volume de
@@ -803,8 +806,8 @@
       var gain = ctx.createGain();
       osc.type = "sine";
       osc.frequency.value = voice.freq;
-      var peak = voice.peak;
-      var decay = voice.decay;
+      const peak = voice.peak;
+      const decay = voice.decay;
       gain.gain.setValueAtTime(0.0001, time);
       gain.gain.linearRampToValueAtTime(peak, time + 0.0025);
       gain.gain.exponentialRampToValueAtTime(0.0001, time + decay);
