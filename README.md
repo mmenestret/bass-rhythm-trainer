@@ -2,8 +2,8 @@
 
 Application HTML d'entraînement à la lecture rythmique pour bassiste débutant,
 inspirée du *Solfège Rythmique Vol. 1* de Dante Agostini (progression ronde →
-triple croche avec silences, puis pointées/liaisons/syncopes), en mesures
-simples comme en mesures composées (6/8, 9/8, 12/8).
+triple croche avec silences, puis pointées/liaisons/syncopes et triolets), en
+mesures simples comme en mesures composées (6/8, 9/8, 12/8).
 
 Rythme pur sur une note fixe au choix (E à D grave, clé de Fa) : seule la
 durée compte. Design « Apnée » : brume qui respire, hairlines, Cormorant
@@ -52,8 +52,8 @@ bouton **copier le lien** (à côté du repeat/∞) : l'URL encode la grille
 affichée — graine et réglages — et la rejoue à l'identique chez qui l'ouvre
 (l'appli la restaure au chargement) ; réglages : son (basse growl, synthé,
 basse Ergo, contrebasse à l'archet — avec préécoute), note d'entraînement
-(E à D), procédés (Silences, Points, Liaisons, Syncopes, Triolets — ces
-derniers bientôt), figures de notes, signature (2/4 · 3/4 · 4/4 · 6/8, ou
+(E à D), procédés (Silences, Points, Liaisons, Syncopes, Triolets), figures
+de notes, signature (2/4 · 3/4 · 4/4 · 6/8, ou
 « Autre… » : numérateur de 1 à 12 sur 2, 4 ou 8), nombre de mesures.
 
 **Composer** (bouton dans l'en-tête, à côté de **Jouer** — le panneau de
@@ -61,11 +61,16 @@ réglages et de génération) : construire une grille à la main figure par figu
 au lieu de la tirer au sort. Tiroir à droite (signature, avec le même choix
 qu'au tirage ; en mesure composée, la noire pointée et la blanche pointée
 sont dans la palette ; familles Notes /
-Silences / Modificateurs, palette, point et liaison), scène non grisée où la
+Silences / Modificateurs, palette, point, liaison et triolet), scène non grisée où la
 portée en travail reste centrée et s'écarte depuis le centre au fil du
 remplissage ; remplissage strict (chaque mesure vaut exactement la signature) ;
 liaison grisée quand la dernière note finit au milieu d'un temps, point refusé
-s'il y ferait tomber une liaison posée ;
+s'il y ferait tomber une liaison posée ; le modificateur **Triolet** ouvre, sur
+un début de temps (jamais en mesure composée ni en /8), un groupe de trois
+cases gravé en direct que les trois touches suivantes remplissent — croche ou
+demi-soupir en /4, noire ou soupir en /2 — puis il se ferme seul ; pendant ce
+temps les autres blocs sont grisés, et **Effacer** retire la dernière note du
+triolet (ou le referme s'il est vide) ;
 duplication de mesures par sélection sur la portée ; **Jouer** charge la grille
 composée dans le lecteur comme une grille générée (une grille courte y est
 recentrée, à l'allure d'une partition habituelle). Le panneau **Jouer** propose
@@ -147,13 +152,13 @@ en cas d'échec) :
 
 ```sh
 node scripts/test-meter.mjs       # signatures : domaine permis, temps, durée du temps, mesures composées
-node scripts/test-generator.mjs   # grilles : toutes signatures, figures et procédés cochés, règle de liaison, ligature, variété
+node scripts/test-generator.mjs   # grilles : toutes signatures, figures et procédés cochés, règle de liaison, triolets, ligature, variété
 node scripts/test-engine.mjs      # transport : battements exacts, tempo en vol et ses bornes, décompte, subdivision, groove
 node scripts/test-guidage.mjs     # allumage des notes : durées, liaisons, frontières, cas dégradés
 node scripts/test-son.mjs         # son des notes : une attaque par note, liaisons cumulées, coupes
-node scripts/test-sync.mjs        # synchronisation de bout en bout (mock AudioContext, latence, volume, limiteur, 6/8 à 12/8)
+node scripts/test-sync.mjs        # synchronisation de bout en bout (mock AudioContext, latence, volume, limiteur, 6/8 à 12/8, triolets)
 node scripts/test-share.mjs       # graine + lien partageable : reproductibilité, flux ∞, aller-retour du codec d'URL
-node scripts/test-composer.mjs    # grille composée : assemblage, point/liaison, codec de contenu, invariants
+node scripts/test-composer.mjs    # grille composée : assemblage, point/liaison/triolet, codec de contenu, invariants
 node scripts/test-i18n.mjs        # dictionnaires, marqueurs, ?lang=en et builds autonomes FR/EN
 node scripts/test-preferences.mjs # préférences de lecture : défauts, aller-retour, valeurs corrompues, stockage défaillant
 ```
@@ -162,9 +167,18 @@ node scripts/test-preferences.mjs # préférences de lecture : défauts, aller-r
 
 - Configuration : son + note d'entraînement, figures de notes à cocher,
   procédés à cocher indépendamment (Silences, Points, Liaisons, Syncopes
-  écrites sans liaison ; Triolets à venir), tous décochés par défaut — des
-  notes seules. Un procédé inapplicable avec les figures cochées est grisé,
-  avec ce qui lui manque (« nécessite la croche »). 4/8/16 mesures.
+  écrites sans liaison, Triolets), tous décochés par défaut — des notes
+  seules. Un procédé inapplicable avec les figures cochées est grisé, avec ce
+  qui lui manque (« nécessite la croche ») ou la signature qui l'exclut
+  (« pas en mesure composée »). 4/8/16 mesures.
+- Triolets : un triolet dure un temps et commence toujours sur un début de
+  temps — trois croches en /4, trois noires en /2 —, mêlé aux temps binaires ;
+  avec *Silences*, un silence peut en occuper une des trois places. Il exige
+  sa figure (la croche en /4, la noire en /2) et n'existe ni en mesure
+  composée ni en /8. Gravé « (3 » en ABC ; les durées se comptent en ticks
+  entiers (192 par ronde), de sorte que la timeline donne des instants exacts
+  au tiers de temps sans changer de contrat. Une liaison qui sort d'un triolet
+  part de sa dernière note, sur le temps suivant.
 - Signatures : pastilles 2/4 · 3/4 · 4/4 · 6/8, plus « Autre… » qui déplie un
   numérateur (1 à 12) et un dénominateur (2, 4 ou 8), au tirage comme dans
   Composer ; une seule analyse de signature (`js/meter.js`) sert le
@@ -204,8 +218,9 @@ node scripts/test-preferences.mjs # préférences de lecture : défauts, aller-r
 - Partage d'une grille par lien : la génération est seedée (`makeRng`,
   mulberry32 déterministe injectée dans le générateur) ; le hash de l'URL
   encode graine + réglages (dont les procédés), mis à jour en continu et
-  restauré au chargement. Un lien ancien devenu invalide est rejeté et l'app
-  tire une grille neuve (ADR 0001 amendé).
+  restauré au chargement. Une grille composée se partage par son contenu
+  (format `c=2`, triolets compris). Un lien ancien devenu invalide est rejeté
+  et l'app tire une grille neuve (ADR 0001 amendé).
   Copie robuste (repli `execCommand` là où l'API Clipboard exige https).
   Volontairement dépouillé : pas de scoring, de défi ni de suivi.
 - Parké v2 : streaks, détection micro.

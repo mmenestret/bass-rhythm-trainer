@@ -74,7 +74,9 @@ _Avoid_: tenue
 **Triolet** :
 Un groupe de trois notes égales qui occupe la durée de deux notes de la même
 figure, dans une mesure simple (triolet de croches : trois croches dans un
-temps).
+temps ; en /2, triolet de noires). Il commence sur un début de temps et dure
+un temps ; un silence peut en occuper une place. Ni en mesure composée ni en
+/8.
 _Avoid_: ternaire
 
 ### Aides de lecture
