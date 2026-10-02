@@ -16,18 +16,23 @@
  *  (e) decodeShare rejette (null) les chaînes corrompues ou hors domaine,
  *      dont les anciens liens à niveau (l=), qui retombent sur une grille neuve ;
  *  (f) aucune préférence de lecture (voix, volumes de pulsation, aides) ne
- *      passe dans un lien, graine comme contenu composé.
+ *      passe dans un lien, graine comme contenu composé ;
+ *  (g) toute signature permise (n de 1 à 12, d parmi 2, 4 et 8) fait
+ *      l'aller-retour, graine comme contenu composé, et reproduit la grille.
+ * Les balayages (d) et (f) couvrent toutes les signatures permises.
  */
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const require = createRequire(import.meta.url);
-const generatorPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "js", "generator.js");
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const {
-  generateExercise, makeRng, encodeShare, decodeShare, encodeComposed, decodeComposed,
-} = require(generatorPath);
-const METERS = ["2/4", "3/4", "4/4", "2/2", "3/2", "4/2"];
+  generateExercise, makeRng, encodeShare, decodeShare, encodeComposed, decodeComposed, assembleComposed,
+  figureBeats,
+} = require(path.join(ROOT, "js", "generator.js"));
+const { allMeters, analyzeMeter } = require(path.join(ROOT, "js", "meter.js"));
+const METERS = allMeters();
 
 let checks = 0;
 const failures = [];
@@ -175,8 +180,14 @@ function expect(cond, ctx, msg) {
     ["s=2a&f=nc&m=44&n=D&x=8", "clé p manquante"],
     ["s=2a&f=nc&l=2&m=44&n=D&x=8", "ancien lien à niveau (l=)"],
     ["s=2a&f=nc&l=3&p=r&m=44&n=D&x=8", "niveau mêlé aux procédés"],
-    ["s=2a&f=nc&p=r&m=23&n=D&x=8", "signature hors liste (2/3)"],
-    ["s=2a&f=nc&p=r&m=444&n=D&x=8", "signature mal formée"],
+    ["s=2a&f=nc&p=r&m=23&n=D&x=8", "signature hors domaine (2/3)"],
+    ["s=2a&f=nc&p=r&m=444&n=D&x=8", "signature hors domaine (44/4)"],
+    ["s=2a&f=nc&p=r&m=134&n=D&x=8", "numérateur au-delà de 12 (13/4)"],
+    ["s=2a&f=nc&p=r&m=04&n=D&x=8", "numérateur nul"],
+    ["s=2a&f=nc&p=r&m=0128&n=D&x=8", "zéro initial"],
+    ["s=2a&f=nc&p=r&m=416&n=D&x=8", "dénominateur /16"],
+    ["s=2a&f=nc&p=r&m=4&n=D&x=8", "dénominateur manquant"],
+    ["s=2a&f=nc&p=r&m=6-8&n=D&x=8", "séparateur inattendu"],
     ["s=2a&f=nc&p=r&m=44&n=H&x=8", "note hors A–G"],
     ["s=2a&f=nc&p=r&m=44&n=D&x=32", "nombre de mesures hors liste"],
   ];
@@ -194,9 +205,8 @@ function expect(cond, ctx, msg) {
    générateur) : même jeton des deux côtés -> mêmes hauteurs, rythme inchangé. */
 (function () {
   const ctx = "invariant de partage";
-  // Jeux de figures qui remplissent n'importe laquelle des 6 signatures.
+  // Jeux de figures qui remplissent n'importe quelle signature permise.
   const SAFE_FIGURES = [
-    ["blanche", "noire"],
     ["noire", "croche"],
     ["noire", "croche", "double"],
     ["blanche", "noire", "croche", "double"],
@@ -249,8 +259,9 @@ function expect(cond, ctx, msg) {
               infRounds++;
             }
           }
-  expect(boundedRounds > 200, ctx, `balayage borné suffisant (${boundedRounds})`);
-  expect(infRounds > 200, ctx, `balayage ∞ suffisant (${infRounds})`);
+  expect(boundedRounds === METERS.length * 4 * SAFE_FIGURES.length * NOTES.length * SEEDS.length, ctx,
+    `balayage borné suffisant (${boundedRounds})`);
+  expect(infRounds === boundedRounds, ctx, `balayage ∞ suffisant (${infRounds})`);
 
   // Sécurité : deux graines différentes NE doivent PAS donner la même grille
   // (sinon l'« invariant » serait trivialement vrai et sans valeur).
@@ -289,6 +300,33 @@ function expect(cond, ctx, msg) {
     "contenu — le lien relu porte une préférence de lecture");
   for (const link of [seedLink, composedLink]) {
     expect(!/groove|clic|volume|aids|pulsation/i.test(link), ctx, `lien sans trace de préférence (${link})`);
+  }
+})();
+
+/* ---------- (g) toute signature permise dans les deux formats ---------- */
+(function () {
+  const ctx = "signatures libres";
+  for (const meter of METERS) {
+    const seedLink = encodeShare({ seed: 7, figures: ["noire"], procedes: [], meter, note: "E", measures: "4" });
+    const back = decodeShare(seedLink);
+    expect(back !== null && back.meter === meter, ctx, `graine — ${meter} relue ${back && back.meter} (${seedLink})`);
+
+    // Contenu composé : une mesure de temps (noire pointée en composée).
+    const info = analyzeMeter(meter);
+    const events = Array.from({ length: info.beats }, () => ({ fig: info.beatFigure, rest: false, dot: info.beatDotted, tie: false }));
+    const composedLink = encodeComposed({ meter, note: "G", events });
+    const restored = decodeComposed(composedLink);
+    if (!expect(restored !== null && restored.meter === meter && restored.measures.length === 1, ctx,
+      `contenu — ${meter} non relu (${composedLink})`)) continue;
+    const toD = (bar) => bar.map((e) => ({ d: figureBeats(e.fig, meter, e.dot), rest: e.rest, tie: e.tie }));
+    const original = assembleComposed([toD(events)], { meter, note: "G," });
+    const rebuilt = assembleComposed(restored.measures.map(toD), { meter, note: "G," });
+    expect(rebuilt.abc === original.abc, ctx, `contenu — ${meter} : grille non reproduite`);
+  }
+  // Signatures à deux chiffres : 10/4, 11/8, 12/8, 12/2.
+  for (const meter of ["10/4", "11/8", "12/8", "12/2"]) {
+    const link = encodeShare({ seed: 1, figures: ["croche"], procedes: [], meter, note: "D", measures: "8" });
+    expect(link.indexOf("&m=" + meter.replace("/", "") + "&") !== -1, ctx, `${meter} — clé m inattendue (${link})`);
   }
 })();
 
