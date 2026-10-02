@@ -15,19 +15,23 @@
  *  (f) invariant bout-en-bout : contenu -> encode -> decode -> assembleComposed
  *      reproduit la grille d'origine ;
  *  (g) règle de liaison (endsOnBeat) et règles de pose de Composer (canTie,
- *      canDot) en /4 comme en /2, sans mutation de l'état ; rejet d'un lien
+ *      canDot) en /4, en /2, en /8 simple et en mesure composée (le temps y
+ *      est la noire pointée), sans mutation de l'état ; rejet d'un lien
  *      composé qui lie au milieu d'un temps.
+ * Les balayages couvrent toutes les signatures permises.
  */
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const require = createRequire(import.meta.url);
-const generatorPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "js", "generator.js");
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const {
   assembleComposed, encodeComposed, decodeComposed, decodeShare, encodeShare,
-  figureBeats, endsOnBeat, canTie, canDot, METERS
-} = require(generatorPath);
+  figureBeats, endsOnBeat, canTie, canDot
+} = require(path.join(ROOT, "js", "generator.js"));
+const { analyzeMeter, allMeters } = require(path.join(ROOT, "js", "meter.js"));
+const METERS = allMeters();
 
 let checks = 0;
 const failures = [];
@@ -38,10 +42,17 @@ function expect(cond, ctx, msg) {
 }
 
 /* Durée en temps d'une figure sous une signature (mêmes conventions que le
-   générateur : en x/2 le temps vaut une blanche). */
-const den = (meter) => parseInt(meter.split("/")[1], 10);
-const beats = (meter) => parseInt(meter.split("/")[0], 10);
-const figBeats = (fig, meter, dot) => figureBeats(fig, den(meter), dot);
+   générateur : en x/2 le temps vaut une blanche, en mesure composée une
+   noire pointée). */
+const beats = (meter) => analyzeMeter(meter).beats;
+const figBeats = (fig, meter, dot) => figureBeats(fig, meter, dot);
+/* L'événement qui vaut un temps : la figure du temps, pointée en composée. */
+const beatEvent = (meter) => {
+  const info = analyzeMeter(meter);
+  return { fig: info.beatFigure, dot: info.beatDotted };
+};
+/* Nombre de croches dans une mesure. */
+const eighthsPerBar = (meter) => analyzeMeter(meter).numerator * 8 / analyzeMeter(meter).denominator;
 
 /* Construit des mesures { d, rest, tie } à partir d'une liste plate rich
    { fig, rest, dot, tie } et d'une signature (remplissage strict). */
@@ -83,12 +94,12 @@ function measuresFromEvents(events, meter) {
   expect(/D,D,\s/.test(lig.bars[0]), ctx, "deux croches ligaturées sur un temps (D,D,)");
 
   // Sommes exactes sur plusieurs mesures / signatures : la figure qui vaut un
-  // temps est la noire en x/4, la blanche en x/2.
+  // temps est la noire en x/4, la blanche en x/2, la croche en /8 simple, la
+  // noire pointée en mesure composée.
   for (const meter of METERS) {
     const b = beats(meter);
-    const beatFig = den(meter) === 2 ? "blanche" : "noire";
     const measures = measuresFromEvents(
-      Array.from({ length: b * 3 }, () => ({ fig: beatFig })), meter
+      Array.from({ length: b * 3 }, () => beatEvent(meter)), meter
     );
     const r = assembleComposed(measures, { meter, note: "E," });
     const totalBeats = r.notes.reduce((s, n) => s + n.durationBeats, 0);
@@ -114,6 +125,14 @@ function measuresFromEvents(events, meter) {
   const ctx = "liaison";
   // Liaison à cheval sur la barre : dernier événement de la mesure 1 lié au
   // premier de la mesure 2.
+  // Mesure composée : une noire pointée par temps, des croches ligaturées par trois.
+  const six = assembleComposed([
+    [{ d: 1 }, { d: 1 / 3 }, { d: 1 / 3 }, { d: 1 / 3 }]
+  ], { meter: "6/8", note: "D," });
+  expect(six.bars[0] === "D,3 D,D,D,", "6/8", `noire pointée puis trois croches ligaturées (${six.bars[0]})`);
+  expect(six.notes.map((n) => n.startBeats).join(",") === "0,1," + (1 + 1 / 3) + "," + (1 + 2 / 3) ||
+    six.notes[1].startBeats === 1, "6/8", "le deuxième temps commence pile à 1");
+
   const cross = assembleComposed([
     [{ d: 2 }, { d: 1 }, { d: 1, tie: true }],
     [{ d: 1 }, { d: 1 }, { d: 2 }]
@@ -140,26 +159,21 @@ function measuresFromEvents(events, meter) {
 (function () {
   const ctx = "encode/decode composé";
   const NOTES = ["E", "F", "G", "A", "B", "C", "D"];
-  // Motifs valides pour toute signature (remplissent une mesure entière).
-  const patterns = {
-    "4/4": [
-      [{ fig: "noire" }, { fig: "noire" }, { fig: "noire" }, { fig: "noire" }],
-      [{ fig: "blanche" }, { fig: "noire", dot: true }, { fig: "croche" }],
-      [{ fig: "noire" }, { fig: "croche", rest: true }, { fig: "croche" }, { fig: "blanche" }]
-    ],
-    "3/4": [[{ fig: "noire" }, { fig: "noire" }, { fig: "noire" }]],
-    "2/4": [[{ fig: "noire" }, { fig: "croche" }, { fig: "croche" }]],
-    "4/2": [[{ fig: "blanche" }, { fig: "blanche" }, { fig: "blanche" }, { fig: "blanche" }]],
-    "3/2": [[{ fig: "blanche" }, { fig: "blanche" }, { fig: "blanche" }]],
-    "2/2": [[{ fig: "blanche" }, { fig: "noire" }, { fig: "noire" }]]
+  // Motifs valides pour toute signature (remplissent une mesure entière) :
+  // une mesure de temps, puis une mesure de croches dont la première est un
+  // demi-soupir et la dernière est liée à la mesure suivante.
+  const patterns = (meter) => {
+    const beatsBar = Array.from({ length: beats(meter) }, () => beatEvent(meter));
+    const eighths = Array.from({ length: eighthsPerBar(meter) }, (_, i) => ({ fig: "croche", rest: i === 0 }));
+    // (un silence n'est jamais lié : en 1/8, l'unique croche reste un demi-soupir)
+    eighths[eighths.length - 1].tie = !eighths[eighths.length - 1].rest;
+    return beatsBar.concat(eighths, beatsBar);
   };
 
   let round = 0;
   for (const meter of METERS) {
     for (const note of NOTES) {
-      // Concatène deux mesures pour une grille non triviale.
-      const pats = patterns[meter];
-      const events = pats[0].concat(pats[pats.length - 1]);
+      const events = patterns(meter);
       const st = { meter, note, events };
       const enc = encodeComposed(st);
       expect(/^[0-9a-zA-Z=&]+$/.test(enc), ctx, `encodage sûr pour un fragment d'URL (${enc})`);
@@ -172,7 +186,7 @@ function measuresFromEvents(events, meter) {
       round++;
     }
   }
-  expect(round > 30, ctx, `balayage suffisant (${round})`);
+  expect(round === METERS.length * NOTES.length, ctx, `balayage suffisant (${round})`);
 
   // Longueur raisonnable : 16 mesures de noires en 4/4 -> ~70 caractères.
   const long = encodeComposed({
@@ -207,6 +221,9 @@ function measuresFromEvents(events, meter) {
     ["c=2&m=44&n=D&e=aaaa", "version inconnue"],
     ["c=1&m=23&n=D&e=", "flux vide"],
     ["c=1&m=99&n=D&e=222", "signature hors domaine"],
+    ["c=1&m=134&n=D&e=222", "numérateur au-delà de 12"],
+    ["c=1&m=416&n=D&e=222", "dénominateur /16"],
+    ["c=1&m=04&n=D&e=2", "numérateur nul"],
     ["c=1&m=44&n=H&e=222", "note hors A–G"],
     ["c=1&m=44&n=D&e=zzz", "caractère hors base36 utile (z)"],
     ["c=1&m=44&n=D&e=22", "grille non close sur la signature (reste)"],
@@ -229,13 +246,22 @@ function measuresFromEvents(events, meter) {
     // liaison à cheval sur la barre (dernière noire de la mesure 1 liée)
     "3/4": [{ fig: "noire" }, { fig: "noire" }, { fig: "noire", tie: true },
             { fig: "noire" }, { fig: "croche" }, { fig: "croche" }, { fig: "noire" }],
-    "2/4": [{ fig: "noire" }, { fig: "noire" },
-            { fig: "croche" }, { fig: "croche" }, { fig: "noire" }],
     "4/2": [{ fig: "blanche" }, { fig: "blanche" }, { fig: "blanche" }, { fig: "blanche" },
             { fig: "noire" }, { fig: "noire" }, { fig: "blanche" }, { fig: "blanche" }, { fig: "blanche" }],
-    "3/2": [{ fig: "blanche" }, { fig: "blanche" }, { fig: "blanche" }],
-    "2/2": [{ fig: "blanche" }, { fig: "blanche" }]
+    // 6/8 : noire–croche, sicilienne | noire pointée liée à la blanche pointée suivante
+    "6/8": [{ fig: "noire" }, { fig: "croche" }, { fig: "croche", dot: true }, { fig: "double" }, { fig: "croche" },
+            { fig: "noire", dot: true }, { fig: "noire", dot: true, tie: true }, { fig: "blanche", dot: true }],
+    // 7/8 simple : sept croches, puis noire pointée + blanche
+    "7/8": [{ fig: "croche" }, { fig: "croche" }, { fig: "croche" }, { fig: "croche" },
+            { fig: "croche" }, { fig: "croche" }, { fig: "croche" },
+            { fig: "noire", dot: true }, { fig: "blanche" }]
   };
+  // Les autres signatures : une mesure de temps puis une mesure de croches.
+  for (const meter of METERS) {
+    if (build[meter]) continue;
+    build[meter] = Array.from({ length: beats(meter) }, () => beatEvent(meter))
+      .concat(Array.from({ length: eighthsPerBar(meter) }, () => ({ fig: "croche" })));
+  }
 
   let rounds = 0;
   for (const meter of METERS) {
@@ -253,7 +279,7 @@ function measuresFromEvents(events, meter) {
       rounds++;
     }
   }
-  expect(rounds >= 15, ctx, `balayage suffisant (${rounds})`);
+  expect(rounds === METERS.length * NOTES.length, ctx, `balayage suffisant (${rounds})`);
 })();
 
 /* ---------- (g) règle de liaison et règles de pose (fonctions pures) ---------- */
@@ -267,6 +293,11 @@ function measuresFromEvents(events, meter) {
   expect(endsOnBeat(0, 1.5) === false, ctx, "noire pointée : fin au milieu du temps 2");
   expect(endsOnBeat(2.5, 1.5) === true, ctx, "noire pointée du contretemps : fin sur le temps 4");
   expect(endsOnBeat(3, 1) === true, ctx, "fin sur la barre de mesure");
+  // Mesure composée : positions et durées en noires pointées (la croche vaut 1/3).
+  expect(endsOnBeat(2 / 3, 1 / 3) === true, ctx, "6/8 : troisième croche du temps, fin sur le temps 2");
+  expect(endsOnBeat(1 / 3, 1 / 3) === false, ctx, "6/8 : deuxième croche, fin au milieu du temps");
+  expect(endsOnBeat(0, figureBeats("noire", "6/8", false)) === false, ctx, "6/8 : noire sur le temps, fin au milieu du temps");
+  expect(endsOnBeat(0, figureBeats("noire", "6/8", true)) === true, ctx, "6/8 : noire pointée, fin sur le temps 2");
 })();
 
 (function () {
@@ -302,6 +333,17 @@ function measuresFromEvents(events, meter) {
   expect(canTie(comp("2/2", [N("noire"), N("noire")])) === true, ctx, "2/2 : deux noires finissent sur le temps");
   expect(canTie(comp("3/2", [N("croche"), N("croche")])) === false, ctx, "3/2 : deux croches finissent au milieu du temps");
   expect(canTie(comp("4/2", [N("blanche")])) === true, ctx, "4/2 : blanche sur le temps");
+  // En mesure composée, le temps est la noire pointée.
+  expect(canTie(comp("6/8", [N("noire", { dot: true })])) === true, ctx, "6/8 : noire pointée sur le temps");
+  expect(canTie(comp("6/8", [N("noire")])) === false, ctx, "6/8 : noire seule finit au milieu du temps");
+  expect(canTie(comp("6/8", [N("noire"), N("croche")])) === true, ctx, "6/8 : noire–croche finit sur le temps");
+  expect(canTie(comp("6/8", [N("croche"), N("croche")])) === false, ctx, "6/8 : deux croches finissent au milieu du temps");
+  expect(canTie(comp("9/8", [N("croche"), N("croche"), N("croche")])) === true, ctx, "9/8 : trois croches finissent sur le temps");
+  expect(canTie(comp("12/8", [N("blanche", { dot: true }), N("croche"), N("noire")])) === true, ctx,
+    "12/8 : croche–noire du troisième temps finit sur le temps 4");
+  // En /8 simple, le temps est la croche.
+  expect(canTie(comp("7/8", [N("croche")])) === true, ctx, "7/8 : croche sur le temps");
+  expect(canTie(comp("5/8", [N("double")])) === false, ctx, "5/8 : double seule finit au milieu du temps");
 
   // L'état n'est jamais muté.
   const st = comp("4/4", [N("croche"), N("croche", { tie: true }), N("noire")]);
@@ -347,6 +389,15 @@ function measuresFromEvents(events, meter) {
   expect(canDot(comp("4/4", [N("noire"), N("blanche", { dot: true, tie: true })])) === true, ctx,
     "4/4 : les mêmes figures restent sur le temps (noire)");
   expect(canDot(comp("2/2", [N("blanche", { tie: true })])) === false, ctx, "2/2 : blanche liée pointée finirait au milieu du temps");
+  // Mesure composée : la noire pointée remplit le temps.
+  expect(canDot(comp("6/8", [N("noire")])) === true, ctx, "6/8 : noire pointée permise");
+  expect(canDot(comp("6/8", [N("croche")])) === true, ctx, "6/8 : croche pointée (sicilienne) permise");
+  expect(canDot(comp("6/8", [N("noire", { dot: true }), N("blanche")])) === false, ctx,
+    "6/8 : la blanche pointée déborderait la mesure");
+  expect(canDot(comp("6/8", [N("noire", { dot: true, tie: true })])) === false, ctx,
+    "6/8 : retirer le point laisserait la liaison au milieu du temps");
+  expect(canDot(comp("6/8", [N("noire", { tie: true })])) === true, ctx,
+    "6/8 : pointer une noire liée la ramène sur le temps");
 })();
 
 (function () {

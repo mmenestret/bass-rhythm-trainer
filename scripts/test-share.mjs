@@ -25,8 +25,9 @@ import path from "node:path";
 const require = createRequire(import.meta.url);
 const generatorPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "js", "generator.js");
 const {
-  generateExercise, makeRng, encodeShare, decodeShare, encodeComposed, decodeComposed, METERS,
+  generateExercise, makeRng, encodeShare, decodeShare, encodeComposed, decodeComposed,
 } = require(generatorPath);
+const METERS = ["2/4", "3/4", "4/4", "2/2", "3/2", "4/2"];
 
 let checks = 0;
 const failures = [];

@@ -2108,7 +2108,10 @@
   var visualOn = playbackPrefs.aids.visual;
   var soundOn = playbackPrefs.aids.sound;
 
-  function beatsPerBar(){ return parseInt(signature.split("/")[0], 10); }
+  /* Analyse de signature (js/meter.js) : temps par mesure, durée du temps,
+     mesure simple ou composée — la même pour le générateur et le moteur. */
+  const Meter = window.BassRhythmMeter;
+  function beatsPerBar(){ return Meter.analyzeMeter(signature).beats; }
 
   /* ---------- en-tête d'exercice ----------
      La leçon nomme la configuration en vocabulaire Agostini — palier de la
@@ -3621,10 +3624,9 @@
   var composerDrawer = document.getElementById("composer-drawer");
 
   /* ---------- durées et invariant (logique pure) ---------- */
-  function composerDen(){ return parseInt(composer.meter.split("/")[1], 10); }
-  function composerBeats(){ return parseInt(composer.meter.split("/")[0], 10); }
+  function composerBeats(){ return Meter.analyzeMeter(composer.meter).beats; }
   function figBeats(fig, dot){
-    return window.BassRhythmGenerator.figureBeats(fig, composerDen(), dot);
+    return window.BassRhythmGenerator.figureBeats(fig, composer.meter, dot);
   }
   function eventDur(ev){ return figBeats(ev.fig, ev.dot); }
   function measSum(m){
@@ -3793,21 +3795,22 @@
   }
   function composerAbc(){
     var G = window.BassRhythmGenerator;
-    var den = composerDen(), beats = composerBeats();
+    var beats = composerBeats();
+    const beat64 = Meter.analyzeMeter(composer.meter).beat64;
     var noteTok = noteByLetter(noteChoice).abc;
     var dModel = toDModel(composer.measures);
-    var unit = G.chooseUnit(dModel, den);
+    var unit = G.chooseUnit(dModel, composer.meter);
     var lden = 64 / unit;
     var bars = dModel.map(function(m, mi){
-      var t = G.barText(m, unit, den, noteTok);
+      var t = G.barText(m, unit, composer.meter, noteTok);
       if (mi === dModel.length - 1){
         // mesure ouverte : la partie vide est comblée par un silence invisible
         var rem = beats - sumD(m);
         if (rem > COMPOSER_EPSILON){
-          var mu = Math.round(rem * 64 / den) / unit;
+          var mu = Math.round(rem * beat64) / unit;
           t = (t ? t + " " : "") + "x" + (mu === 1 ? "" : mu);
         } else if (!t){
-          t = "x" + (Math.round(beats * 64 / den) / unit);
+          t = "x" + (Math.round(beats * beat64) / unit);
         }
       }
       return t;
@@ -3927,7 +3930,7 @@
     if (restGlyphCache.hasOwnProperty(fig)) return restGlyphCache[fig];
     var svg = "";
     if (window.ABCJS && window.BassRhythmGenerator){
-      var n64 = window.BassRhythmGenerator.figureBeats(fig, 64, false);
+      var n64 = window.BassRhythmGenerator.FIGURE_64[fig];
       var tmp = document.createElement("div");
       tmp.style.cssText = "position:absolute;left:-9999px;top:0";
       document.body.appendChild(tmp);
@@ -4069,7 +4072,7 @@
     currentNotes = artifact.notes;
     currentBars = artifact.bars;
     currentHeader = artifact.header;
-    TOTAL_BEATS = meta.measures.length * parseInt(meta.meter.split("/")[0], 10);
+    TOTAL_BEATS = meta.measures.length * Meter.analyzeMeter(meta.meter).beats;
     // Grille finie : jamais de flux ∞ ; le repeat redevient une commande.
     repeatBtn.classList.remove("inf");
     repeatBtn.disabled = false;

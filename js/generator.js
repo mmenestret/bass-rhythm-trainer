@@ -7,7 +7,8 @@
  *     procedes: ["rests"|"dots"|"ties"|"syncopes"|"triplets", ...] — procédés
  *               cochés, indépendants (défaut [] : notes seules). « triplets »
  *               est accepté mais pas encore tiré,
- *     meter:    "2/4" | "3/4" | "4/4" | "2/2" | "3/2" | "4/2",
+ *     meter:    signature n/d permise (n de 1 à 12, d parmi 2, 4 et 8), analysée
+ *               par js/meter.js — "4/4", "7/4", "3/2", "5/8", "6/8", "12/8"…
  *     measures: 4 | 8 | 16,
  *     note:     jeton ABC optionnel de la note d'entraînement (défaut "D,") —
  *               lettre naturelle A–G suivie d'éventuelles virgules d'octave,
@@ -16,7 +17,9 @@
  *   abc    = partition ABC complète (clé de Fa, note fixe — config.note),
  *            découpée à 4 mesures par système.
  *   notes  = timeline [{ startBeats, durationBeats, isRest, tiedToNext }] pour le
- *            moteur de lecture (ticket 03). startBeats/durationBeats en temps.
+ *            moteur de lecture (ticket 03). startBeats/durationBeats en temps
+ *            (la noire pointée en mesure composée) ; un début de temps y est
+ *            toujours un nombre entier exact.
  *   bars   = texte ABC de chaque mesure ; header = en-tête X/M/L/K. Avec
  *            joinBars(bars, perLine), le client re-découpe la même grille en
  *            2 ou 4 mesures par système (responsive) sans regénérer.
@@ -30,9 +33,16 @@
  * syncopes écrites sans liaison. La densité découle des procédés cochés :
  * silences dosés à part, procédés spéciaux sous un budget commun par mesure.
  * procedeNeeds(config, procede) dit ce qui manque pour qu'un procédé soit
- * applicable avec les figures cochées (null s'il l'est). En x/2, le temps
- * vaut une blanche : les mêmes cellules se transposent automatiquement
- * (la noire y joue le rôle de la croche, etc.).
+ * applicable avec les figures cochées (null s'il l'est). En mesure simple,
+ * les cellules sont écrites en temps et se transposent d'elles-mêmes : en x/2
+ * le temps vaut une blanche (la noire y joue le rôle de la croche), en /8
+ * simple (3/8, 5/8, 7/8) une croche. En mesure composée (6/8, 9/8, 12/8), le
+ * temps vaut une noire pointée divisée en trois croches : les cellules
+ * forment leur propre catalogue idiomatique (COMPOUND_CELLS), où la noire
+ * pointée et la blanche pointée sont des figures ordinaires ; Points n'y
+ * gouverne que les pointées plus fines que le temps (sicilienne). La
+ * ligature regroupe toujours les valeurs plus courtes que le temps par temps
+ * — les croches par trois en mesure composée.
  *
  * Grille composée (mode Composer) : assembleComposed(measures, config) rend le
  * même { abc, notes, bars, header } à partir d'une suite de mesures construites
@@ -50,15 +60,16 @@
  * note ?).
  *
  * UMD minimal : window.BassRhythmGenerator dans la page, module.exports sous Node.
+ * Dépend de js/meter.js (window.BassRhythmMeter, chargé avant).
  */
 (function (root, factory) {
   "use strict";
   if (typeof module === "object" && typeof module.exports === "object") {
-    module.exports = factory();
+    module.exports = factory(require("./meter.js"));
   } else {
-    root.BassRhythmGenerator = factory();
+    root.BassRhythmGenerator = factory(root.BassRhythmMeter);
   }
-}(typeof self !== "undefined" ? self : this, function () {
+}(typeof self !== "undefined" ? self : this, function (Meter) {
   "use strict";
 
   /* Durées des figures en 64e de ronde (quadruple croche = 1). */
@@ -75,14 +86,13 @@
   /* Figures de la plus longue à la plus courte. */
   const FIGURE_ORDER = Object.keys(FIGURE_64);
 
-  var METERS = ["2/4", "3/4", "4/4", "2/2", "3/2", "4/2"];
-
   /* ---------- règle de liaison ----------
    *
    * Une liaison se fait toujours sur un début de temps : dans un même temps, on
    * écrit directement la valeur cumulée. endsOnBeat(start, duration) répond à
    * « la fin de cet événement tombe-t-elle sur un début de temps ? » — positions
-   * et durées en temps (la blanche en x/2). Seul endroit où la règle est écrite :
+   * et durées en temps (la blanche en x/2, la noire pointée en mesure
+   * composée). Seul endroit où la règle est écrite :
    * le catalogue du tirage, les liaisons par-dessus la barre, les règles de
    * Composer et le décodage d'une grille composée s'y réfèrent.
    */
@@ -93,7 +103,7 @@
     return Math.abs(end - Math.round(end)) < BEAT_EPSILON;
   }
 
-  /* ---------- catalogue de cellules rythmiques (durées en temps) ---------- */
+  /* ---------- catalogues de cellules rythmiques (durées en temps) ---------- */
 
   function note(d) { return { d: d, rest: false, tie: false }; }
   function tiedNote(d) { return { d: d, rest: false, tie: true }; }
@@ -126,6 +136,7 @@
   }
 
   /*
+   * Catalogue des mesures simples (durées en temps : la noire en x/4).
    * kind = "base"     : toujours disponible — notes seules (paliers A, B, C, E binaire) ;
    *        sinon le procédé qui la gouverne :
    *        "rests"    : silences équivalents aux figures cochées ;
@@ -134,7 +145,7 @@
    *        "syncopes" : syncopes écrites sans liaison.
    * Les liaisons par-dessus la barre relèvent aussi de "ties" (addCrossBarTies).
    */
-  var CELLS = [
+  const SIMPLE_CELLS = [
     /* --- base : valeurs longues (palier A) --- */
     cell("beat-note", "base", 10, [note(1)]),
     cell("two-beat-note", "base", 5, [note(2)]),
@@ -197,6 +208,96 @@
     cell("syncope-long", "syncopes", 2, [note(0.5), note(1), note(1), note(0.5)])
   ];
 
+  /*
+   * Catalogue des mesures composées (durées en temps : la noire pointée vaut
+   * 1, la croche 1/3, la double 1/6). Les procédés y gardent leur sens :
+   *   "base"     : noire pointée, blanche pointée (et ronde pointée en 12/8),
+   *                figures ordinaires du temps ; noire–croche, croche–noire,
+   *                trois croches, puis doubles, triples et quadruples ;
+   *   "rests"    : soupir pointé, demi-pause pointée, demi-soupirs et quarts
+   *                de soupir dans le temps ;
+   *   "dots"     : la sicilienne (croche pointée – double – croche), seule
+   *                pointée plus fine que le temps ;
+   *   "ties"     : liaisons d'un temps à l'autre (noire pointée liée, croche
+   *                liée par-dessus le temps, doubles liées) ;
+   *   "syncopes" : l'hémiole (trois noires sur deux temps), la syncope écrite
+   *                sans liaison propre à la mesure composée : la noire du
+   *                milieu enjambe le temps.
+   * Les liaisons par-dessus la barre relèvent toujours de "ties".
+   */
+  const EIGHTH = 1 / 3;
+  const SIXTEENTH = 1 / 6;
+  const THIRTY_SECOND = 1 / 12;
+  const SIXTY_FOURTH = 1 / 24;
+  const COMPOUND_CELLS = [
+    /* --- base : valeurs du temps --- */
+    cell("c-beat-note", "base", 10, [note(1)]),
+    cell("c-two-beat-note", "base", 4, [note(2)]),
+    cell("c-four-beat-note", "base", 1, [note(4)]),
+    /* --- base : croches --- */
+    cell("c-quarter-eighth", "base", 8, [note(2 * EIGHTH), note(EIGHTH)]),
+    cell("c-eighth-quarter", "base", 4, [note(EIGHTH), note(2 * EIGHTH)]),
+    cell("c-three-eighths", "base", 9, repeatElems([note(EIGHTH)], 3)),
+    /* --- base : doubles croches --- */
+    cell("c-six-sixteenths", "base", 4, repeatElems([note(SIXTEENTH)], 6)),
+    cell("c-two-sixteenths-two-eighths", "base", 4,
+      [note(SIXTEENTH), note(SIXTEENTH), note(EIGHTH), note(EIGHTH)]),
+    cell("c-eighth-two-sixteenths-eighth", "base", 4,
+      [note(EIGHTH), note(SIXTEENTH), note(SIXTEENTH), note(EIGHTH)]),
+    cell("c-two-eighths-two-sixteenths", "base", 4,
+      [note(EIGHTH), note(EIGHTH), note(SIXTEENTH), note(SIXTEENTH)]),
+    cell("c-quarter-two-sixteenths", "base", 3, [note(2 * EIGHTH), note(SIXTEENTH), note(SIXTEENTH)]),
+    /* --- base : triples croches --- */
+    cell("c-twelve-thirty-seconds", "base", 2, repeatElems([note(THIRTY_SECOND)], 12)),
+    cell("c-two-eighths-four-thirty-seconds", "base", 2,
+      [note(EIGHTH), note(EIGHTH)].concat(repeatElems([note(THIRTY_SECOND)], 4))),
+    cell("c-sixteenths-thirty-seconds", "base", 2,
+      [note(SIXTEENTH), note(SIXTEENTH)].concat(repeatElems([note(THIRTY_SECOND)], 4), [note(SIXTEENTH), note(SIXTEENTH)])),
+    /* --- base : quadruples croches --- */
+    cell("c-twenty-four-sixty-fourths", "base", 1, repeatElems([note(SIXTY_FOURTH)], 24)),
+    cell("c-two-eighths-eight-sixty-fourths", "base", 2,
+      [note(EIGHTH), note(EIGHTH)].concat(repeatElems([note(SIXTY_FOURTH)], 8))),
+    cell("c-sixteenth-two-sixty-fourths-x4", "base", 1,
+      repeatElems([note(SIXTEENTH), note(SIXTY_FOURTH), note(SIXTY_FOURTH)], 4)),
+
+    /* --- Silences --- */
+    /* soupir pointé, demi-pause pointée */
+    cell("c-beat-rest", "rests", 6, [silence(1)]),
+    cell("c-two-beat-rest", "rests", 2, [silence(2)]),
+    cell("c-quarter-eighthrest", "rests", 4, [note(2 * EIGHTH), silence(EIGHTH)]),
+    cell("c-quarterrest-eighth", "rests", 3, [silence(2 * EIGHTH), note(EIGHTH)]),
+    cell("c-eighthrest-two-eighths", "rests", 4, [silence(EIGHTH), note(EIGHTH), note(EIGHTH)]),
+    cell("c-eighth-eighthrest-eighth", "rests", 3, [note(EIGHTH), silence(EIGHTH), note(EIGHTH)]),
+    cell("c-two-eighths-eighthrest", "rests", 3, [note(EIGHTH), note(EIGHTH), silence(EIGHTH)]),
+    cell("c-eighthrest-quarter", "rests", 3, [silence(EIGHTH), note(2 * EIGHTH)]),
+    cell("c-sixteenthrest-sixteenth-two-eighths", "rests", 2,
+      [silence(SIXTEENTH), note(SIXTEENTH), note(EIGHTH), note(EIGHTH)]),
+    cell("c-eighth-sixteenthrest-sixteenth-eighth", "rests", 1,
+      [note(EIGHTH), silence(SIXTEENTH), note(SIXTEENTH), note(EIGHTH)]),
+
+    /* --- Points : la sicilienne (croche pointée – double – croche) --- */
+    cell("c-sicilienne", "dots", 5, [note(1.5 * EIGHTH), note(SIXTEENTH), note(EIGHTH)]),
+
+    /* --- Liaisons : toujours sur un début de temps --- */
+    /* noire pointée liée à trois croches */
+    cell("c-beat-tied-eighths", "ties", 3, [tiedNote(1), note(EIGHTH), note(EIGHTH), note(EIGHTH)]),
+    /* croches liées par-dessus le temps */
+    cell("c-tied-eighths", "ties", 3,
+      [note(EIGHTH), note(EIGHTH), tiedNote(EIGHTH), note(EIGHTH), note(EIGHTH), note(EIGHTH)]),
+    /* croche liée à la noire du temps suivant */
+    cell("c-eighth-tied-quarter", "ties", 2,
+      [note(EIGHTH), note(EIGHTH), tiedNote(EIGHTH), note(2 * EIGHTH), note(EIGHTH)]),
+    /* noire pointée liée à noire pointée */
+    cell("c-beat-tied-beat", "ties", 1, [tiedNote(1), note(1)]),
+    /* doubles liées d'un temps à l'autre */
+    cell("c-tied-sixteenths", "ties", 1,
+      [note(EIGHTH), note(EIGHTH), note(SIXTEENTH), tiedNote(SIXTEENTH),
+        note(SIXTEENTH), note(SIXTEENTH), note(EIGHTH), note(EIGHTH)]),
+
+    /* --- Syncopes écrites sans liaison : l'hémiole --- */
+    cell("c-hemiola", "syncopes", 4, [note(2 * EIGHTH), note(2 * EIGHTH), note(2 * EIGHTH)])
+  ];
+
   /* Procédés reconnus, dans l'ordre d'affichage. « triplets » est réservé :
      aucune cellule ne le porte encore (triolets à venir). */
   var PROCEDES = ["rests", "dots", "ties", "syncopes", "triplets"];
@@ -206,25 +307,33 @@
 
   /* ---------- utilitaires ---------- */
 
+  /* Analyse de signature (js/meter.js) : { beats, beat64, compound… } ;
+     lève une erreur pour une signature non permise. */
   function parseMeter(meter) {
-    if (METERS.indexOf(meter) === -1) {
-      throw new Error("Signature non gérée : " + meter);
-    }
-    var parts = meter.split("/");
-    return { beats: parseInt(parts[0], 10), den: parseInt(parts[1], 10) };
+    return Meter.analyzeMeter(meter);
   }
 
-  /* Convertit une durée en temps vers une durée en 64e de ronde. */
-  function beatsTo64(d, den) {
-    return Math.round(d * 64 / den);
+  /* Convertit une durée en temps vers une durée en 64e de ronde, le temps
+     valant beat64 64e (16 en x/4, 24 en mesure composée). */
+  function beatsTo64(d, beat64) {
+    return Math.round(d * beat64);
   }
 
-  /* Durée en temps d'une figure sous une signature (dénominateur den),
-     éventuellement pointée (×1,5). En x/2 le temps vaut une blanche : la même
-     figure s'y transpose (la noire y vaut un demi-temps). Partagée par la
-     composition manuelle (pose, invariant, codec) et ses tests. */
-  function figureBeats(fig, den, dot) {
-    return FIGURE_64[fig] * den / 64 * (dot ? 1.5 : 1);
+  /* Position en temps ramenée à l'entier exact quand elle tombe sur un début
+     de temps (les tiers de la mesure composée ne sont pas exacts en flottant) :
+     la timeline et les clics du moteur s'y rejoignent à l'égalité stricte. */
+  function snapBeat(x) {
+    const rounded = Math.round(x);
+    return Math.abs(x - rounded) < BEAT_EPSILON ? rounded : x;
+  }
+
+  /* Durée en temps d'une figure sous une signature, éventuellement pointée
+     (×1,5). La même figure se transpose selon le temps : en x/2 la noire vaut
+     un demi-temps, en mesure composée la noire pointée vaut un temps.
+     Partagée par la composition manuelle (pose, invariant, codec) et ses
+     tests. */
+  function figureBeats(fig, meter, dot) {
+    return FIGURE_64[fig] * (dot ? 1.5 : 1) / parseMeter(meter).beat64;
   }
 
   /* ---------- règles de pose de Composer (fonctions pures) ----------
@@ -238,20 +347,21 @@
   /* Dernier événement posé, avec sa position de départ dans sa mesure et la
      place restante dans cette mesure (null si la grille est vide). */
   function lastPlacement(composition) {
-    const parsed = parseMeter(composition.meter);
+    const meter = composition.meter;
+    const parsed = parseMeter(meter);
     const measures = composition.measures || [];
     for (let i = measures.length - 1; i >= 0; i--) {
       const bar = measures[i];
       if (!bar.length) continue;
       let start = 0;
       for (let j = 0; j < bar.length - 1; j++) {
-        start += figureBeats(bar[j].fig, parsed.den, bar[j].dot);
+        start += figureBeats(bar[j].fig, meter, bar[j].dot);
       }
       const event = bar[bar.length - 1];
-      const duration = figureBeats(event.fig, parsed.den, event.dot);
+      const duration = figureBeats(event.fig, meter, event.dot);
       return {
         event: event,
-        den: parsed.den,
+        meter: meter,
         start: start,
         duration: duration,
         remaining: parsed.beats - start - duration
@@ -274,7 +384,7 @@
   function canDot(composition) {
     const last = lastPlacement(composition);
     if (!last || last.event.rest) return false;
-    const toggled = figureBeats(last.event.fig, last.den, !last.event.dot);
+    const toggled = figureBeats(last.event.fig, last.meter, !last.event.dot);
     if (toggled - last.duration > last.remaining + BEAT_EPSILON) return false;
     if (last.event.tie && !endsOnBeat(last.start, toggled)) return false;
     return true;
@@ -313,25 +423,36 @@
    * Une cellule est disponible si son procédé est coché (les cellules de base
    * le sont toujours) et si toutes ses durées correspondent à une figure
    * cochée (les silences exigent la figure de durée équivalente ; les valeurs
-   * pointées exigent leur figure de base).
+   * pointées exigent leur figure de base). Le catalogue suit la signature :
+   * mesure simple ou composée. En composée, une valeur pointée d'au moins un
+   * temps (note ou silence) est ordinaire : elle n'exige que sa figure de base.
    */
   function availableCells(config) {
     var m = parseMeter(config.meter);
+    const catalog = m.compound ? COMPOUND_CELLS : SIMPLE_CELLS;
     var fig64 = {};
     for (var i = 0; i < config.figures.length; i++) {
       fig64[FIGURE_64[config.figures[i]]] = true;
     }
     var out = [];
-    for (var c = 0; c < CELLS.length; c++) {
-      var cc = CELLS[c];
+    for (var c = 0; c < catalog.length; c++) {
+      var cc = catalog[c];
       if (cc.kind !== "base" && !hasProcede(config, cc.kind)) continue;
       if (cc.lenInt > m.beats) continue;
       var ok = true;
       for (var e = 0; e < cc.elems.length; e++) {
         var el = cc.elems[e];
-        var v = beatsTo64(el.d, m.den);
+        var v = beatsTo64(el.d, m.beat64);
+        /* Valeur plus fine que la quadruple croche une fois transposée (en
+           /8 simple) : cellule inutilisable. */
+        if (Math.abs(el.d * m.beat64 - v) > BEAT_EPSILON) {
+          ok = false;
+          break;
+        }
         if (fig64[v]) continue;
-        if (!el.rest && cc.kind === "dots" && v % 3 === 0 && fig64[v * 2 / 3]) continue;
+        const pointedOk = v % 3 === 0 && fig64[v * 2 / 3];
+        const ordinaryPointed = m.compound && v >= m.beat64;
+        if (pointedOk && (ordinaryPointed || (!el.rest && cc.kind === "dots"))) continue;
         ok = false;
         break;
       }
@@ -405,13 +526,15 @@
   }
 
   /* Un procédé est applicable si les figures cochées, sous la signature,
-     permettent de le tirer au moins une fois. */
+     permettent de le tirer au moins une fois, avec les autres procédés cochés
+     (config.procedes, facultatif) : en 5/8, la noire pointée d'un procédé
+     Points peut seule ouvrir la place d'un soupir. */
   function procedeApplicable(config, procede) {
     const beats = parseMeter(config.meter).beats;
     const usable = placements(availableCells({
       figures: config.figures,
       meter: config.meter,
-      procedes: [procede]
+      procedes: [procede].concat(config.procedes || [])
     }), beats);
     for (let i = 0; i < usable.length; i++) {
       if (usable[i].cell.kind === procede) return true;
@@ -421,7 +544,8 @@
 
   /*
    * Ce qui manque à un procédé : null s'il est applicable avec les figures
-   * cochées ({ figures, meter }) ; sinon les figures à cocher en plus pour le
+   * cochées ({ figures, meter, procedes? } — les autres procédés cochés
+   * comptent) ; sinon les figures à cocher en plus pour le
    * rendre applicable (une, ou deux à défaut, de la plus longue à la plus
    * courte), ou [] si aucune ne suffit. On propose d'abord les figures voisines
    * de celles déjà cochées, la plus courte d'abord à égale distance.
@@ -442,7 +566,11 @@
       return distance(a) - distance(b) || FIGURE_ORDER.indexOf(b) - FIGURE_ORDER.indexOf(a);
     });
     const tryFigures = function (extra) {
-      return procedeApplicable({ figures: checked.concat(extra), meter: config.meter }, procede);
+      return procedeApplicable({
+        figures: checked.concat(extra),
+        meter: config.meter,
+        procedes: config.procedes
+      }, procede);
     };
     for (let i = 0; i < candidates.length; i++) {
       if (tryFigures([candidates[i]])) return [candidates[i]];
@@ -558,11 +686,12 @@
    * 1/64 (une grille sans événement retombe sur 1/8). Partagée par le tirage
    * aléatoire et la composition manuelle — même choix d'unité des deux côtés.
    */
-  function chooseUnit(measures, den) {
+  function chooseUnit(measures, meter) {
+    const beat64 = parseMeter(meter).beat64;
     var g = 0;
     for (var i = 0; i < measures.length; i++) {
       for (var j = 0; j < measures[i].length; j++) {
-        g = gcd(g, beatsTo64(measures[i][j].d, den));
+        g = gcd(g, beatsTo64(measures[i][j].d, beat64));
       }
     }
     return gcd(g, 8);
@@ -571,24 +700,27 @@
   /*
    * Texte ABC d'une mesure. Une valeur d'au moins un temps reste isolée ; les
    * valeurs plus courtes sont ligaturées par temps (regroupées tant qu'elles
-   * partagent le même temps entier). noteTok = jeton de la note (les silences
-   * s'écrivent "z"), le suffixe "-" marque une liaison vers l'événement
-   * suivant. Fonction pure, réutilisée par l'assemblage et la scène de
-   * composition (mesure ouverte gravée en direct).
+   * partagent le même temps — les croches par trois en mesure composée).
+   * meter = signature (elle fixe la durée du temps), noteTok = jeton de la
+   * note (les silences s'écrivent "z"), le suffixe "-" marque une liaison
+   * vers l'événement suivant. Fonction pure, réutilisée par l'assemblage et
+   * la scène de composition (mesure ouverte gravée en direct).
    */
-  function barText(events, unit, den, noteTok) {
+  function barText(events, unit, meter, noteTok) {
+    const beat64 = parseMeter(meter).beat64;
     var groups = [];   /* chaînes (tokens isolés) ou { beat, toks } (ligature par temps) */
     var current = null;
-    var pos = 0;
+    let pos64 = 0;
     for (var j = 0; j < events.length; j++) {
       var e = events[j];
-      var mult = beatsTo64(e.d, den) / unit;
+      const d64 = beatsTo64(e.d, beat64);
+      var mult = d64 / unit;
       var tok = (e.rest ? "z" : noteTok) + (mult === 1 ? "" : mult) + (e.tie ? "-" : "");
-      if (e.d >= 1) {
+      if (d64 >= beat64) {
         groups.push(tok);
         current = null;
       } else {
-        var beatIdx = Math.floor(pos + 1e-6);
+        const beatIdx = Math.floor(pos64 / beat64);
         if (current && current.beat === beatIdx) {
           current.toks.push(tok);
         } else {
@@ -596,7 +728,7 @@
           groups.push(current);
         }
       }
-      pos += e.d;
+      pos64 += d64;
     }
     var parts = [];
     for (var g = 0; g < groups.length; g++) {
@@ -613,9 +745,8 @@
   }
 
   function assemble(measures, config, m) {
-    var den = m.den;
     var noteTok = config.note || "D,";
-    var unit = chooseUnit(measures, den);
+    var unit = chooseUnit(measures, config.meter);
     var lden = 64 / unit;
 
     var notes = [];
@@ -628,7 +759,7 @@
       for (var j = 0; j < events.length; j++) {
         var e = events[j];
         notes.push({
-          startBeats: globalStart + pos,
+          startBeats: globalStart + snapBeat(pos),
           durationBeats: e.d,
           isRest: !!e.rest,
           tiedToNext: !!e.tie
@@ -636,7 +767,7 @@
         pos += e.d;
       }
       globalStart += m.beats;
-      barTexts.push(barText(events, unit, den, noteTok));
+      barTexts.push(barText(events, unit, config.meter, noteTok));
     }
 
     var header = abcHeader(config.meter, lden);
@@ -712,7 +843,8 @@
    * grille (graine + figures + procédés + signature + note + nombre de
    * mesures) en une chaîne compacte pour le hash d'URL, et l'inverse (null si
    * invalide). Les procédés tiennent dans la clé « p » (un caractère chacun,
-   * vide si aucun). Un ancien lien à niveau (clé « l ») est rejeté : aucune
+   * vide si aucun). La signature, toute signature permise, tient dans la clé
+   * « m » (numérateur puis dénominateur : « 68 », « 128 »). Un ancien lien à niveau (clé « l ») est rejeté : aucune
    * compatibilité n'est due (ADR 0001 amendé), l'app tire une grille neuve.
    */
   function makeRng(seed) {
@@ -734,6 +866,20 @@
     if (FIG_CODE.hasOwnProperty(_f)) CODE_FIG[FIG_CODE[_f]] = _f;
   }
   var MEASURE_CHOICES = ["4", "8", "16", "inf"];
+
+  /* Signature dans un lien : numérateur puis dénominateur, sans séparateur
+     (« 44 », « 68 », « 128 », « 112 » pour 11/2) — le dénominateur, toujours
+     d'un chiffre (2, 4 ou 8), se lit en dernier : aucune ambiguïté. */
+  function encodeMeter(meter) {
+    return String(meter).replace("/", "");
+  }
+
+  function decodeMeter(text) {
+    const match = /^(\d{1,2})([248])$/.exec(text);
+    if (!match) return null;
+    const meter = match[1] + "/" + match[2];
+    return Meter.isMeter(meter) ? meter : null;
+  }
   const PROCEDE_CODE = { rests: "r", dots: "d", ties: "t", syncopes: "s", triplets: "3" };
 
   function encodeShare(state) {
@@ -750,7 +896,7 @@
     return "s=" + ((state.seed >>> 0).toString(36)) +
       "&f=" + figs +
       "&p=" + procedes +
-      "&m=" + String(state.meter).replace("/", "") +
+      "&m=" + encodeMeter(state.meter) +
       "&n=" + state.note +
       "&x=" + meas;
   }
@@ -793,9 +939,8 @@
       if (map.p.indexOf(PROCEDE_CODE[PROCEDES[p]]) !== -1) procedes.push(PROCEDES[p]);
     }
 
-    if (!/^[2-4][2-4]$/.test(map.m)) return null;
-    var meter = map.m.charAt(0) + "/" + map.m.charAt(1);
-    if (METERS.indexOf(meter) === -1) return null;
+    var meter = decodeMeter(map.m);
+    if (!meter) return null;
 
     if (!/^[A-G]$/.test(map.n)) return null;
 
@@ -838,7 +983,7 @@
       chars += code.toString(36);
     }
     return "c=1" +
-      "&m=" + String(state.meter).replace("/", "") +
+      "&m=" + encodeMeter(state.meter) +
       "&n=" + state.note +
       "&e=" + chars;
   }
@@ -854,14 +999,11 @@
     if (!("c" in map && "m" in map && "n" in map && "e" in map)) return null;
     if (map.c !== "1") return null; /* version inconnue : rejet */
 
-    if (!/^[2-4][2-4]$/.test(map.m)) return null;
-    var meter = map.m.charAt(0) + "/" + map.m.charAt(1);
-    if (METERS.indexOf(meter) === -1) return null;
+    var meter = decodeMeter(map.m);
+    if (!meter) return null;
     if (!/^[A-G]$/.test(map.n)) return null;
 
-    var parsed = parseMeter(meter);
-    var beats = parsed.beats;
-    var den = parsed.den;
+    var beats = parseMeter(meter).beats;
 
     var events = [];
     for (i = 0; i < map.e.length; i++) {
@@ -892,7 +1034,7 @@
     var sum = 0;
     for (i = 0; i < events.length; i++) {
       var e = events[i];
-      var d = figureBeats(e.fig, den, e.dot);
+      var d = figureBeats(e.fig, meter, e.dot);
       if (sum + d > beats + 1e-9) return null;
       /* Règle de liaison : une liaison au milieu d'un temps invalide le lien. */
       if (e.tie && !endsOnBeat(sum, d)) return null;
@@ -977,7 +1119,6 @@
     encodeComposed: encodeComposed,
     decodeComposed: decodeComposed,
     FIGURE_64: FIGURE_64,
-    METERS: METERS,
     PROCEDES: PROCEDES
   };
 }));
