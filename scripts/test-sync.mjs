@@ -30,6 +30,11 @@
  *      clic, les battements de grille jouent la batterie de synthèse (grosse
  *      caisse / caisse claire / charley) au lieu du clic, comptes conformes à
  *      grooveVoicesAt, premier hit à la barre 1 ; mode clic (défaut) inchangé.
+ * (10) volume de pulsation : la crête de la voix active à la sortie suit le
+ *      facteur réglé (0 à 2,5, borné), le décompte prend le volume de la voix
+ *      choisie, chaque voix garde le sien, le réglage s'applique en vol aux
+ *      battements suivants ; un limiteur (compresseur natif) est le dernier
+ *      nœud avant la sortie, pour le transport comme pour les préécoutes.
  * Code de sortie non nul si échec.
  */
 import { createRequire } from "node:module";
@@ -49,7 +54,9 @@ const {
   outputLatencySeconds,
   cursorXAt,
   createTransport,
+  playNotePreview,
   playGroovePreview,
+  PULSATION_VOLUME_MAX,
 } = require(path.join(ROOT, "js", "engine.js"));
 const { generateExercise } = require(path.join(ROOT, "js", "generator.js"));
 
@@ -76,53 +83,77 @@ globalThis.clearInterval = (h) => { if (h && typeof h === "object") h.cleared = 
 globalThis.setTimeout = (fn) => { fn(); return 0; }; // unique setTimeout : nettoyage du stop()
 
 /* ---------- mock AudioContext ---------- */
+/* Les paramètres gardent leur automation et les nœuds leurs sorties : le
+   graphe simulé se relit (niveau effectif d'une source à la sortie). */
 function mockParam() {
-  return {
+  const param = {
     value: 0,
-    setValueAtTime() {},
-    linearRampToValueAtTime() {},
-    exponentialRampToValueAtTime() {},
-    cancelScheduledValues() {},
+    events: [],
+    setValueAtTime(v, t) { param.events.push({ type: "set", v, t }); },
+    linearRampToValueAtTime(v, t) { param.events.push({ type: "linear", v, t }); },
+    exponentialRampToValueAtTime(v, t) { param.events.push({ type: "exp", v, t }); },
+    cancelScheduledValues(t) { param.events = param.events.filter((e) => e.t < t); },
   };
+  return param;
+}
+function mockNode(kind, extra = {}) {
+  const node = {
+    kind,
+    outputs: [],
+    connect(dest) { node.outputs.push(dest); return dest; },
+    disconnect() { node.outputs.length = 0; },
+    ...extra,
+  };
+  return node;
 }
 function createMockCtx(opts = {}) {
   const ctx = {
     currentTime: opts.startAt ?? 0,
-    destination: {},
-    clickStarts: [], // { time, freq, scheduledAt } — oscillateurs sinus (clics)
-    noteStarts: [],  // { time, scheduledAt } — AudioBufferSourceNode (attaques de notes)
-    synthStarts: [], // oscillateurs triangle (repli synthé, non utilisé ici)
-    createGain() { return { gain: mockParam(), connect() {}, disconnect() {} }; },
+    destination: { kind: "destination", outputs: [] },
+    clickStarts: [], // { time, freq, scheduledAt, node } — oscillateurs sinus (clics)
+    noteStarts: [],  // { time, scheduledAt, node } — AudioBufferSourceNode (attaques de notes)
+    synthStarts: [], // oscillateurs triangle (repli synthé, grosse caisse du groove)
+    compressors: [], // DynamicsCompressorNode créés
+    createGain() { return mockNode("gain", { gain: mockParam() }); },
     createOscillator() {
-      const osc = {
+      const osc = mockNode("oscillator", {
         type: "sine",
         frequency: mockParam(),
         onended: null,
-        connect() {},
         start(t) {
-          const rec = { time: t, freq: osc.frequency.value, scheduledAt: ctx.currentTime };
+          const rec = { time: t, freq: osc.frequency.value, scheduledAt: ctx.currentTime, node: osc };
           (osc.type === "sine" ? ctx.clickStarts : ctx.synthStarts).push(rec);
         },
         stop() {},
-      };
+      });
       return osc;
     },
     createBufferSource() {
-      const src = {
+      const src = mockNode("buffer", {
         buffer: null,
         playbackRate: mockParam(),
         loop: false,
         loopStart: 0,
         loopEnd: 0,
         onended: null,
-        connect() {},
-        start(t) { ctx.noteStarts.push({ time: t, scheduledAt: ctx.currentTime }); },
+        start(t) { ctx.noteStarts.push({ time: t, scheduledAt: ctx.currentTime, node: src }); },
         stop() {},
-      };
+      });
       return src;
     },
     createBiquadFilter() {
-      return { type: "", Q: mockParam(), frequency: mockParam(), connect() {} };
+      return mockNode("filter", { type: "", Q: mockParam(), frequency: mockParam() });
+    },
+    createDynamicsCompressor() {
+      const comp = mockNode("compressor", {
+        threshold: mockParam(),
+        knee: mockParam(),
+        ratio: mockParam(),
+        attack: mockParam(),
+        release: mockParam(),
+      });
+      ctx.compressors.push(comp);
+      return comp;
     },
     sampleRate: 44100,
     createBuffer(channels, length) {
@@ -132,6 +163,55 @@ function createMockCtx(opts = {}) {
   if ("outputLatency" in opts) ctx.outputLatency = opts.outputLatency;
   if ("baseLatency" in opts) ctx.baseLatency = opts.baseLatency;
   return ctx;
+}
+/* Valeur d'un paramètre à l'instant t : valeur de base, puis automation
+   (paliers, rampes linéaires et exponentielles interpolées). */
+function paramAt(param, t) {
+  let prevT = -Infinity;
+  let prevV = param.value;
+  for (const e of param.events) {
+    if (e.type === "set") {
+      if (e.t > t) break;
+      prevT = e.t;
+      prevV = e.v;
+      continue;
+    }
+    if (e.t <= t) {
+      prevT = e.t;
+      prevV = e.v;
+      continue;
+    }
+    if (prevT === -Infinity) return prevV;
+    const k = (t - prevT) / (e.t - prevT);
+    if (e.type === "exp" && prevV > 0 && e.v > 0) return prevV * Math.pow(e.v / prevV, k);
+    return prevV + (e.v - prevV) * k;
+  }
+  return prevV;
+}
+/* Gain effectif d'un nœud jusqu'à la sortie à l'instant t : produit des gains
+   le long de chaque chemin, sommé sur les chemins (compresseur = passe-tout
+   sous son seuil). */
+function gainToOutput(ctx, node, t) {
+  if (node === ctx.destination) return 1;
+  const own = node.gain ? paramAt(node.gain, t) : 1;
+  let sum = 0;
+  for (const out of node.outputs) sum += gainToOutput(ctx, out, t);
+  return own * sum;
+}
+/* Crête entendue d'une voix démarrée à `start` : niveau maximal à la sortie
+   sur ses 60 premières millisecondes (attaque et décroissance comprises). */
+function peakAtOutput(ctx, rec) {
+  let peak = 0;
+  for (let dt = 0; dt <= 0.06; dt += 0.0005) {
+    peak = Math.max(peak, gainToOutput(ctx, rec.node, rec.time + dt));
+  }
+  return peak;
+}
+/* Chemins d'un nœud jusqu'à la sortie (listes de nœuds traversés). */
+function pathsToOutput(ctx, node, prefix = []) {
+  const here = [...prefix, node];
+  if (node === ctx.destination) return [here];
+  return node.outputs.flatMap((out) => pathsToOutput(ctx, out, here));
 }
 /* Avance l'horloge audio par pas de 25 ms (période réelle de la pompe) en
    déclenchant tous les timers vivants — pompe simulée pas à pas. */
@@ -601,6 +681,139 @@ try {
     expect(ctxP.clickStarts.length === 0, "préécoute groove — aucun clic sinus");
     expect(handle && typeof handle.stop === "function", "préécoute groove — rend { stop() }");
     handle.stop();
+  }
+
+  /* ================ (10) volume de pulsation par voix + limiteur ================ */
+  {
+    const BPM = 60, bpb = 4, total = 8;
+    const countIn = countInBeats(bpb);
+    const runFor = (pulsationVoice, pulsationVolumes) => {
+      const ctx = createMockCtx();
+      const t0 = ctx.currentTime + START_DELAY_S;
+      const opts = {
+        ctx, bpm: BPM, beatsPerBar: bpb, totalBeats: total, pulsationVoice,
+        noteEvents: [], notesEnabled: false, getNoteVoice: () => null,
+      };
+      if (pulsationVolumes) opts.pulsationVolumes = pulsationVolumes;
+      const tr = createTransport(opts);
+      stepPump(ctx, t0 + (countIn + total + 2) * (60 / BPM));
+      return { ctx, tr };
+    };
+    // Crêtes à la sortie : clics (décompte + grille) puis voix du groove.
+    const clickPeaks = (ctx) => ctx.clickStarts.map((r) => peakAtOutput(ctx, r));
+    const groovePeaks = (ctx) => [...ctx.synthStarts, ...ctx.noteStarts]
+      .sort((a, b) => a.time - b.time)
+      .map((r) => peakAtOutput(ctx, r));
+    const ratiosOk = (got, ref, factor) => got.length === ref.length && got.length > 0 &&
+      got.every((p, i) => close(p, ref[i] * factor, 1e-9));
+
+    expect(PULSATION_VOLUME_MAX === 2.5, `volume — borne haute ${PULSATION_VOLUME_MAX}, attendu 2,5`);
+
+    // Références au niveau par défaut (aucun volume fourni = 100 %).
+    const refClic = clickPeaks(runFor("clic").ctx);
+    const refGroove = runFor("groove");
+    const refGrooveCountIn = clickPeaks(refGroove.ctx);
+    const refGrooveHits = groovePeaks(refGroove.ctx);
+    expect(refClic.length === countIn + total && refClic.every((p) => p > 0),
+      "volume — référence clic : crêtes nulles ou manquantes");
+    expect(ratiosOk(clickPeaks(runFor("clic", { clic: 1, groove: 1 }).ctx), refClic, 1),
+      "volume — 100 % explicite doit égaler le niveau par défaut");
+
+    // Clic : la crête de chaque clic (décompte compris) suit le facteur.
+    for (const v of [0, 0.5, 1.75, 2.5]) {
+      const got = clickPeaks(runFor("clic", { clic: v, groove: 1 }).ctx);
+      expect(ratiosOk(got, refClic, v),
+        `volume clic ${v} — crêtes ${got.slice(0, 2).map((p) => p.toFixed(4))}…, attendu ${v} × référence`);
+    }
+    // Groove : les voix de batterie ET le décompte (au clic) suivent le volume du groove.
+    for (const v of [0, 0.6, 2.5]) {
+      const { ctx } = runFor("groove", { clic: 1, groove: v });
+      expect(ratiosOk(groovePeaks(ctx), refGrooveHits, v),
+        `volume groove ${v} — les voix de batterie ne suivent pas le facteur`);
+      expect(ratiosOk(clickPeaks(ctx), refGrooveCountIn, v),
+        `volume groove ${v} — le décompte doit prendre le volume du groove`);
+    }
+    // Chaque voix garde son volume : celui de l'autre voix est sans effet.
+    expect(ratiosOk(clickPeaks(runFor("clic", { clic: 1, groove: 0 }).ctx), refClic, 1),
+      "volume — le volume du groove ne doit pas toucher le clic");
+    expect(ratiosOk(groovePeaks(runFor("groove", { clic: 2.5, groove: 1 }).ctx), refGrooveHits, 1),
+      "volume — le volume du clic ne doit pas toucher le groove");
+    // Bornes : au-delà de 2,5 -> 2,5 ; négatif -> silence ; invalide -> 100 %.
+    expect(ratiosOk(clickPeaks(runFor("clic", { clic: 9, groove: 1 }).ctx), refClic, 2.5),
+      "volume — un facteur au-delà de 2,5 doit être borné à 2,5");
+    expect(ratiosOk(clickPeaks(runFor("clic", { clic: -1, groove: 1 }).ctx), refClic, 0),
+      "volume — un facteur négatif doit être borné à 0");
+    expect(ratiosOk(clickPeaks(runFor("clic", { clic: "fort", groove: 1 }).ctx), refClic, 1),
+      "volume — un facteur invalide doit valoir 100 %");
+
+    // En vol : les battements suivants prennent le nouveau volume, sans arrêt.
+    {
+      const ctx = createMockCtx();
+      const t0 = ctx.currentTime + START_DELAY_S;
+      const tr = createTransport({
+        ctx, bpm: BPM, beatsPerBar: bpb, totalBeats: total,
+        noteEvents: [], notesEnabled: false, getNoteVoice: () => null,
+      });
+      stepPump(ctx, t0 + 5.5);
+      const changeAt = ctx.currentTime;
+      tr.setPulsationVolume("groove", 0); // autre voix : sans effet sur le clic
+      tr.setPulsationVolume("clic", 2);
+      stepPump(ctx, t0 + (countIn + total + 2) * (60 / BPM));
+      const peaks = clickPeaks(ctx);
+      expect(peaks.length === countIn + total, `volume en vol — ${peaks.length} clic(s), la lecture doit continuer`);
+      ctx.clickStarts.forEach((r, i) => {
+        const factor = r.time < changeAt ? 1 : 2;
+        expect(close(peaks[i], refClic[i] * factor, 1e-9),
+          `volume en vol — clic ${i} (t=${r.time.toFixed(2)}) à ${peaks[i].toFixed(4)}, attendu ${factor} × référence`);
+      });
+      expect(tr.pulsationVolume("clic") === 2 && tr.pulsationVolume("groove") === 0,
+        "volume en vol — chaque voix doit garder la valeur réglée");
+      tr.setPulsationVolume("clic", 4);
+      expect(tr.pulsationVolume("clic") === 2.5, "volume en vol — borné à 2,5");
+    }
+
+    // Limiteur : tout chemin vers la sortie traverse un compresseur réglé en
+    // limiteur, dernier nœud avant la sortie (notes et pulsation comprises).
+    const limiterOk = (ctx, recs, label) => {
+      expect(recs.length > 0, `${label} — aucune voix à vérifier`);
+      for (const rec of recs) {
+        const paths = pathsToOutput(ctx, rec.node);
+        expect(paths.length > 0, `${label} — voix non reliée à la sortie`);
+        for (const p of paths) {
+          const last = p[p.length - 2];
+          expect(last && last.kind === "compressor",
+            `${label} — dernier nœud avant la sortie : ${last && last.kind}, attendu un compresseur`);
+          if (last && last.kind === "compressor") {
+            expect(last.ratio.value >= 12 && last.threshold.value <= 0 && last.threshold.value >= -6,
+              `${label} — compresseur pas réglé en limiteur (ratio ${last.ratio.value}, seuil ${last.threshold.value} dB)`);
+          }
+        }
+      }
+    };
+    {
+      const ctx = createMockCtx();
+      const t0 = ctx.currentTime + START_DELAY_S;
+      createTransport({
+        ctx, bpm: BPM, beatsPerBar: bpb, totalBeats: total, pulsationVolumes: { clic: 2.5, groove: 1 },
+        noteEvents: [{ startBeats: 0, holdBeats: 1 }, { startBeats: 2, holdBeats: 1 }],
+        notesEnabled: true, getNoteVoice: () => ({ buffer: BUFFER }),
+      });
+      stepPump(ctx, t0 + (countIn + 3) * (60 / BPM));
+      limiterOk(ctx, ctx.clickStarts, "limiteur clic");
+      limiterOk(ctx, ctx.noteStarts, "limiteur notes");
+    }
+    {
+      const { ctx } = runFor("groove", { clic: 1, groove: 2.5 });
+      limiterOk(ctx, [...ctx.clickStarts, ...ctx.synthStarts, ...ctx.noteStarts], "limiteur groove");
+    }
+    {
+      const ctxP = createMockCtx();
+      playGroovePreview(ctxP, 1.6);
+      limiterOk(ctxP, [...ctxP.synthStarts, ...ctxP.noteStarts], "limiteur préécoute groove");
+      const ctxN = createMockCtx();
+      playNotePreview(ctxN, { buffer: BUFFER }, 1.5);
+      limiterOk(ctxN, ctxN.noteStarts, "limiteur préécoute son");
+    }
   }
 
 } finally {

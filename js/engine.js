@@ -13,6 +13,8 @@
  *      s'espacent au nouvel intervalle — continuité sans saut.
  *      positionAt(t) : position continue en battements, linéaire par morceaux
  *      entre les changements de tempo.
+ *    - clampPulsationVolume(v) : facteur de volume de pulsation borné à
+ *      [0, PULSATION_VOLUME_MAX = 2,5] ; valeur non numérique -> 1.
  *    - meterBeats("3/2") -> 3 : temps par mesure d'une signature.
  *    - countInBeats(bpb) -> bpb : le décompte occupe une mesure entière.
  *    - barBeat(gridBeat, bpb) -> { measure, beat } (1-based).
@@ -55,8 +57,8 @@
  *    - playNotePreview(ctx, v, seconds) : préécoute hors transport (~1,5 s),
  *      rend { stop() }.
  *    - createTransport({ ctx, bpm, beatsPerBar, totalBeats, startGridBeat,
- *      noteEvents, notesEnabled, clicksEnabled, pulsationVoice, getNoteVoice,
- *      loop }) :
+ *      noteEvents, notesEnabled, clicksEnabled, pulsationVoice,
+ *      pulsationVolumes, getNoteVoice, loop }) :
  *      horloge à lookahead (setInterval ~25 ms, horizon ~120 ms), chaque clic
  *      programmé sur ctx.currentTime — jamais de setTimeout cumulatif.
  *      Clic = oscillateur sinus court avec enveloppe douce (esthétique Apnée) ;
@@ -77,6 +79,13 @@
  *      Mixage : basse à 0,8, clics inchangés, master à 0,8 — pire cas
  *      (attaque du sample pleine échelle + clic accentué) ≈ 0,96, sans
  *      saturation, la basse nette et le clic derrière.
+ *      Volume de pulsation : pulsationVolumes { clic, groove } donne à chaque
+ *      voix un facteur de 0 à 2,5 (défaut 1) appliqué à son niveau ; le
+ *      décompte prend le volume de la voix choisie. setPulsationVolume(voice,
+ *      v) le règle en vol, pulsationVolume(voice) le relit. Un limiteur
+ *      (DynamicsCompressorNode natif) suit le master : monter la pulsation,
+ *      son des notes compris, ne sature jamais la sortie. Les préécoutes
+ *      passent par la même sortie limitée.
  *      visualNow() : instant de position visuelle UNIQUE — currentTime moins
  *      la latence de sortie : ce qui s'affiche suit ce qui s'entend.
  *      stop() rend la position entendue et un point de reprise calé au début
@@ -114,6 +123,22 @@
   var GROOVE_SNARE_LEVEL = 0.16;
   var GROOVE_HAT_LEVEL = 0.08;
   var GROOVE_NOISE_S = 0.3;      // durée du buffer de bruit (caisse claire, charley)
+
+  /* Volume de pulsation : facteur par voix (clic, groove) appliqué au niveau
+     par défaut ci-dessus, de 0 (silence) à 2,5. Au-delà de 100 %, la somme
+     peut dépasser la pleine échelle : le limiteur de sortie la contient. */
+  const PULSATION_VOLUME_MAX = 2.5;
+  const PULSATION_VOLUME_RAMP_S = 0.02; // glissé du réglage en vol (pas de zip)
+
+  /* Limiteur de sortie : compresseur natif à seuil haut, ratio fort et
+     attaque courte. Sous le seuil, le son passe (au gain de rattrapage près,
+     que le compresseur natif ajoute de lui-même : environ +0,6 dB ici) ;
+     au-dessus, les crêtes sont écrasées sous la pleine échelle. */
+  const LIMITER_THRESHOLD_DB = -1;
+  const LIMITER_KNEE_DB = 0;
+  const LIMITER_RATIO = 20;
+  const LIMITER_ATTACK_S = 0.001;
+  const LIMITER_RELEASE_S = 0.1;
 
   /* ============================ partie pure ============================ */
 
@@ -175,6 +200,13 @@
         return s.time + (pos - s.beat) * s.spb;
       }
     };
+  }
+
+  /* Facteur de volume de pulsation borné à [0, PULSATION_VOLUME_MAX] ; toute
+     valeur non numérique vaut 100 %. */
+  function clampPulsationVolume(value) {
+    if (typeof value !== "number" || !isFinite(value)) return 1;
+    return Math.min(PULSATION_VOLUME_MAX, Math.max(0, value));
   }
 
   function meterBeats(meter) {
@@ -454,20 +486,45 @@
   }
 
   /*
+   * Sortie commune du transport et des préécoutes : master (MASTER_LEVEL) ->
+   * limiteur -> ctx.destination. Rend { master, disconnect() } ; les voix se
+   * branchent sur master.
+   */
+  function buildOutput(ctx) {
+    const master = ctx.createGain();
+    const limiter = ctx.createDynamicsCompressor();
+    master.gain.value = MASTER_LEVEL;
+    limiter.threshold.value = LIMITER_THRESHOLD_DB;
+    limiter.knee.value = LIMITER_KNEE_DB;
+    limiter.ratio.value = LIMITER_RATIO;
+    limiter.attack.value = LIMITER_ATTACK_S;
+    limiter.release.value = LIMITER_RELEASE_S;
+    master.connect(limiter);
+    limiter.connect(ctx.destination);
+    return {
+      master: master,
+      disconnect: function () {
+        try {
+          master.disconnect();
+          limiter.disconnect();
+        } catch (e) { /* déjà déconnecté */ }
+      }
+    };
+  }
+
+  /*
    * Préécoute d'un son hors transport : joue la voix v (cf. buildNoteVoice)
    * pendant seconds (défaut 1,5 s) sur ctx.destination. Rend { stop() } pour
    * couper court quand une autre préécoute démarre par-dessus.
    */
   function playNotePreview(ctx, v, seconds) {
     var dur = seconds > 0 ? seconds : 1.5;
-    var master = ctx.createGain();
-    master.gain.value = MASTER_LEVEL;
-    master.connect(ctx.destination);
-    var voice = buildNoteVoice(ctx, master, ctx.currentTime + 0.02, dur, v);
+    const output = buildOutput(ctx);
+    var voice = buildNoteVoice(ctx, output.master, ctx.currentTime + 0.02, dur, v);
     var done = false;
     voice.src.onended = function () {
       done = true;
-      try { master.disconnect(); } catch (e) { /* déjà déconnecté */ }
+      output.disconnect();
     };
     return {
       stop: function () {
@@ -555,9 +612,8 @@
   function playGroovePreview(ctx, seconds) {
     var total = seconds > 0 ? seconds : 1.6;
     var beatS = total / 4;
-    var master = ctx.createGain();
-    master.gain.value = MASTER_LEVEL;
-    master.connect(ctx.destination);
+    const output = buildOutput(ctx);
+    const master = output.master;
     var noise = buildNoiseBuffer(ctx);
     var start = ctx.currentTime + 0.05;
     var voices = [];
@@ -572,7 +628,7 @@
     function cleanup() {
       if (done) return;
       done = true;
-      try { master.disconnect(); } catch (e) { /* déjà déconnecté */ }
+      output.disconnect();
     }
     // Déconnexion du master à la fin de la dernière voix (charley du temps 4).
     if (voices.length) voices[voices.length - 1].srcs[0].onended = cleanup;
@@ -623,9 +679,22 @@
     while (noteIdx < noteEvents.length && noteEvents[noteIdx].startBeats < startGridBeat) noteIdx += 1;
     var liveNotes = [];      // voix actives { src, cut, start } pour coupure/annulation
 
-    var master = ctx.createGain();
-    master.gain.value = MASTER_LEVEL;
-    master.connect(ctx.destination);
+    const output = buildOutput(ctx);
+    var master = output.master;
+
+    /* Volume de pulsation par voix. Toutes les voix de pulsation (clic,
+       groove, décompte) passent par pulseBus, dont le gain est le volume de
+       la voix choisie : le décompte, toujours au clic, prend donc le volume
+       de cette voix. Chaque voix garde son volume ; régler la voix inactive
+       ne s'entend pas. */
+    const initialVolumes = opts.pulsationVolumes || {};
+    const pulsationVolumes = {
+      clic: clampPulsationVolume(initialVolumes.clic),
+      groove: clampPulsationVolume(initialVolumes.groove)
+    };
+    const pulseBus = ctx.createGain();
+    pulseBus.gain.value = pulsationVolumes[pulsationVoice];
+    pulseBus.connect(master);
 
     /* Suivi uniforme des voix de pulsation (clic ET groove) dans `live` :
        chaque entrée { srcs, gain } peut être coupée net (setClicksEnabled off,
@@ -653,7 +722,7 @@
       gain.gain.exponentialRampToValueAtTime(0.0001, time + decay);
       gain.gain.linearRampToValueAtTime(0, time + decay + 0.01);
       osc.connect(gain);
-      gain.connect(master);
+      gain.connect(pulseBus);
       osc.start(time);
       osc.stop(time + decay + 0.03);
       trackPulsation({ srcs: [osc], gain: gain });
@@ -669,9 +738,9 @@
         return;
       }
       var v = grooveVoicesAt(d.beatInBar);
-      if (v.kick) trackPulsation(buildKick(ctx, master, time));
-      if (v.snare) trackPulsation(buildSnare(ctx, master, time, noise));
-      if (v.hat) trackPulsation(buildHat(ctx, master, time, noise));
+      if (v.kick) trackPulsation(buildKick(ctx, pulseBus, time));
+      if (v.snare) trackPulsation(buildSnare(ctx, pulseBus, time, noise));
+      if (v.hat) trackPulsation(buildHat(ctx, pulseBus, time, noise));
     }
 
     /* Voix d'une note : construction partagée avec la préécoute
@@ -780,6 +849,23 @@
       /* Tempo en vol : ré-ancrage au prochain battement non programmé. */
       setBpm: function (v) { clock.setBpm(v); },
       bpm: function () { return clock.bpm(); },
+      /* Volume de pulsation d'une voix ("clic" | "groove"), facteur borné à
+         [0, 2,5]. Réglé en vol : la voix active glisse vers sa nouvelle
+         valeur en PULSATION_VOLUME_RAMP_S, ce qui est déjà programmé compris ;
+         l'autre voix mémorise la sienne. */
+      setPulsationVolume: function (voice, value) {
+        if (!Object.prototype.hasOwnProperty.call(pulsationVolumes, voice)) return;
+        pulsationVolumes[voice] = clampPulsationVolume(value);
+        if (voice !== pulsationVoice || stopped) return;
+        const now = ctx.currentTime;
+        const g = pulseBus.gain;
+        g.cancelScheduledValues(now);
+        g.setValueAtTime(g.value, now);
+        g.linearRampToValueAtTime(pulsationVolumes[voice], now + PULSATION_VOLUME_RAMP_S);
+      },
+      pulsationVolume: function (voice) {
+        return pulsationVolumes[voice];
+      },
       /* Position continue à l'instant t : { step, countIn, gridBeat }. */
       positionAt: function (t) {
         var step = clock.positionAt(t);
@@ -874,7 +960,8 @@
         live.length = 0;
         // Unique setTimeout de nettoyage (pas de programmation cumulative).
         setTimeout(function () {
-          try { master.disconnect(); } catch (e) { /* déjà déconnecté */ }
+          try { pulseBus.disconnect(); } catch (e) { /* déjà déconnecté */ }
+          output.disconnect();
         }, 80);
         /* Position ENTENDUE à l'arrêt (latence de sortie déduite), reprise
            calée au DÉBUT de la mesure en cours : le re-décompte d'une mesure
@@ -903,6 +990,8 @@
     SCHEDULE_HORIZON_S: SCHEDULE_HORIZON_S,
     START_DELAY_S: START_DELAY_S,
     NOTE_RELEASE_S: NOTE_RELEASE_S,
+    PULSATION_VOLUME_MAX: PULSATION_VOLUME_MAX,
+    clampPulsationVolume: clampPulsationVolume,
     createBeatClock: createBeatClock,
     meterBeats: meterBeats,
     countInBeats: countInBeats,
