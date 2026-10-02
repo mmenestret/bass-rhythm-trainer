@@ -8,8 +8,9 @@
  * inline tout ce qui est nécessaire à une ouverture en file:// sans réseau :
  *  (1) assets/fonts/fonts.css, chaque woff2 converti en data URI ;
  *  (2) les PNG des figures rythmiques en data URI ;
- *  (3) vendor/abcjs-basic-min.js, js/generator.js, js/engine.js en <script>
- *      inline (le commentaire de licence abcjs est conservé tel quel) ;
+ *  (3) vendor/abcjs-basic-min.js, js/generator.js, js/engine.js, js/i18n.js,
+ *      js/preferences.js en <script> inline (le commentaire de licence abcjs
+ *      est conservé tel quel) ;
  *  (4) tous les samples audio (assets/audio/*.wav|m4a) en base64 dans
  *      window.BRT_EMBEDDED_SAMPLES (clé = nom de fichier), consommé par
  *      index.html AVANT tout fetch.
@@ -151,7 +152,7 @@ html = html.replace(
 );
 
 // (3) Scripts inline (licence abcjs conservée : elle vit en tête du fichier).
-for (const rel of ["vendor/abcjs-basic-min.js", "js/generator.js", "js/engine.js", "js/i18n.js"]) {
+for (const rel of ["vendor/abcjs-basic-min.js", "js/generator.js", "js/engine.js", "js/i18n.js", "js/preferences.js"]) {
   const tag = `<script src="${rel}"></script>`;
   if (!html.includes(tag)) { fail(`balise introuvable dans index.html : ${tag}`); continue; }
   const js = escapeInlineScript(read(rel).toString("utf8"));
@@ -229,7 +230,7 @@ for (const [pat, label] of [
 
 // C. node --check sur chaque bloc <script> inline extrait.
 const blocks = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]);
-const EXPECTED_BLOCKS = 6; // samples, abcjs, generator, engine, i18n, script applicatif
+const EXPECTED_BLOCKS = 7; // samples, abcjs, generator, engine, i18n, preferences, script applicatif
 if (blocks.length !== EXPECTED_BLOCKS)
   fail(`${blocks.length} bloc(s) <script> inline au lieu de ${EXPECTED_BLOCKS}`);
 const tmp = mkdtempSync(path.join(os.tmpdir(), "brt-build-"));

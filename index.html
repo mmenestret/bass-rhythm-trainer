@@ -802,12 +802,18 @@
     opacity: 1;
     transform: scale(1);
   }
-  /* le flotteur des trois bascules : ancré et centré au-dessus du déclencheur,
-     hors flux pour ne pas décaler la rangée ; se déplie en fondu + échelle */
-  .aids .seg {
+  /* le flotteur des aides : ancré et centré au-dessus du déclencheur, hors
+     flux pour ne pas décaler la rangée ; se déplie en fondu + échelle. Les
+     trois bascules en tête, le volume de pulsation dessous, sous un filet. */
+  .aids-panel {
     position: absolute;
     bottom: calc(100% + 12px);
     left: 50%;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--hairline);
+    border-radius: 22px;
+    overflow: hidden;
     transform: translateX(-50%) translateY(6px) scale(0.94);
     transform-origin: bottom center;
     background: var(--glass);
@@ -819,10 +825,86 @@
     z-index: 20;
     transition: opacity 0.32s var(--ease-drift),transform 0.32s var(--ease-drift);
   }
-  .aids.open .seg {
+  .aids.open .aids-panel {
     opacity: 1;
     pointer-events: auto;
     transform: translateX(-50%) translateY(0) scale(1);
+  }
+  .aids-panel .seg {
+    border: none;
+    border-radius: 0;
+    background: none;
+  }
+
+  /* volume de pulsation : la voix active et son pourcentage, puis un curseur
+     à filet fin (rempli d'accent jusqu'au pouce, --fill posé par le script) */
+  .pulse-volume {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 9px 12px 6px;
+    border-top: 1px solid var(--hairline);
+  }
+  .pulse-volume-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 9.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--ink-soft);
+  }
+  .pulse-volume-value {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+  }
+  .pulse-volume-range {
+    --fill: 40%;
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 26px;
+    margin: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+  .pulse-volume-range::-webkit-slider-runnable-track {
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(to right,var(--accent) var(--fill),var(--hairline-strong) var(--fill));
+  }
+  .pulse-volume-range::-moz-range-track {
+    height: 2px;
+    border-radius: 999px;
+    background: linear-gradient(to right,var(--accent) var(--fill),var(--hairline-strong) var(--fill));
+  }
+  .pulse-volume-range::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    margin-top: -6.5px;
+    border: 1px solid var(--accent);
+    border-radius: 50%;
+    background: var(--mist-2);
+    transition: transform 0.3s var(--ease-drift);
+  }
+  .pulse-volume-range::-moz-range-thumb {
+    width: 13px;
+    height: 13px;
+    border: 1px solid var(--accent);
+    border-radius: 50%;
+    background: var(--mist-2);
+    transition: transform 0.3s var(--ease-drift);
+  }
+  .pulse-volume-range:active::-webkit-slider-thumb {
+    transform: scale(1.15);
+  }
+  .pulse-volume-range:active::-moz-range-thumb {
+    transform: scale(1.15);
   }
 
   .hint {
@@ -1611,6 +1693,18 @@
       min-width: 50px;
       min-height: 46px;
     }
+    .pulse-volume-range {
+      height: 40px;
+    }
+    .pulse-volume-range::-webkit-slider-thumb {
+      width: 24px;
+      height: 24px;
+      margin-top: -11px;
+    }
+    .pulse-volume-range::-moz-range-thumb {
+      width: 22px;
+      height: 22px;
+    }
     .sound .preview {
       width: 42px;
       height: 42px;
@@ -1704,20 +1798,30 @@
   <!-- transport -->
   <div class="transport rise d4 player-only">
     <div class="aids" id="aids">
-      <button id="aids-toggle" class="aids-toggle" aria-expanded="false" aria-controls="aids-panel" aria-haspopup="true" title="Aides de lecture" aria-label="Aides de lecture — métronome, guide visuel, son" data-i18n-title="aids.title" data-i18n-aria-label="aids.description">
+      <button id="aids-toggle" class="aids-toggle" aria-expanded="false" aria-controls="aids-panel" aria-haspopup="true" title="Aides de lecture" aria-label="Aides de lecture — métronome, guide visuel, son, volume de pulsation" data-i18n-title="aids.title" data-i18n-aria-label="aids.description">
         <svg viewBox="0 0 24 24"><line x1="4" y1="8.5" x2="20" y2="8.5"/><circle cx="9.5" cy="8.5" r="2.4"/><line x1="4" y1="15.5" x2="20" y2="15.5"/><circle cx="14.5" cy="15.5" r="2.4"/></svg>
         <span class="aids-badge" aria-hidden="true"></span>
       </button>
-      <div class="seg" id="aids-panel" role="group" aria-label="Aides de lecture" data-i18n-aria-label="aids.title">
-        <button id="tgl-click" class="active" title="Métronome — clics des temps" aria-pressed="true" aria-label="Métronome" data-i18n-title="metronome.title" data-i18n-aria-label="metronome.label">
-          <svg viewBox="0 0 24 24"><path d="M9.3 4.5h5.4l2.8 15H6.5z"/><line x1="12" y1="15.5" x2="16" y2="6.8"/><line x1="8.4" y1="15.5" x2="15.6" y2="15.5"/></svg>
-        </button>
-        <button id="tgl-visual" class="active" title="Guide visuel — durée des notes et curseur" aria-pressed="true" aria-label="Guide visuel" data-i18n-title="visual.title" data-i18n-aria-label="visual.label">
-          <svg viewBox="0 0 24 24"><path d="M2.8 12s3.4-6 9.2-6 9.2 6 9.2 6-3.4 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.5"/></svg>
-        </button>
-        <button id="tgl-sound" title="Son — rythmique jouée" aria-pressed="false" aria-label="Son" data-i18n-title="noteSound.title" data-i18n-aria-label="noteSound.label">
-          <svg viewBox="0 0 24 24"><path d="M4.5 9.6v4.8h3.2l4.5 3.7V5.9L7.7 9.6z"/><path d="M15.6 9.4a3.7 3.7 0 0 1 0 5.2M18.2 7.1a7 7 0 0 1 0 9.8"/></svg>
-        </button>
+      <div class="aids-panel" id="aids-panel" role="group" aria-label="Aides de lecture" data-i18n-aria-label="aids.title">
+        <div class="seg">
+          <button id="tgl-click" class="active" title="Métronome — clics des temps" aria-pressed="true" aria-label="Métronome" data-i18n-title="metronome.title" data-i18n-aria-label="metronome.label">
+            <svg viewBox="0 0 24 24"><path d="M9.3 4.5h5.4l2.8 15H6.5z"/><line x1="12" y1="15.5" x2="16" y2="6.8"/><line x1="8.4" y1="15.5" x2="15.6" y2="15.5"/></svg>
+          </button>
+          <button id="tgl-visual" class="active" title="Guide visuel — durée des notes et curseur" aria-pressed="true" aria-label="Guide visuel" data-i18n-title="visual.title" data-i18n-aria-label="visual.label">
+            <svg viewBox="0 0 24 24"><path d="M2.8 12s3.4-6 9.2-6 9.2 6 9.2 6-3.4 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.5"/></svg>
+          </button>
+          <button id="tgl-sound" title="Son — rythmique jouée" aria-pressed="false" aria-label="Son" data-i18n-title="noteSound.title" data-i18n-aria-label="noteSound.label">
+            <svg viewBox="0 0 24 24"><path d="M4.5 9.6v4.8h3.2l4.5 3.7V5.9L7.7 9.6z"/><path d="M15.6 9.4a3.7 3.7 0 0 1 0 5.2M18.2 7.1a7 7 0 0 1 0 9.8"/></svg>
+          </button>
+        </div>
+        <!-- volume de pulsation de la voix active (clic ou groove), réglable en vol -->
+        <div class="pulse-volume">
+          <label class="pulse-volume-head" for="pulse-volume">
+            <span id="pulse-volume-voice" data-i18n="beat.click">Clic</span>
+            <span id="pulse-volume-value" class="pulse-volume-value">100 %</span>
+          </label>
+          <input type="range" id="pulse-volume" class="pulse-volume-range" min="0" max="250" step="5" value="100" aria-label="Volume du clic" data-i18n-aria-label="volume.click">
+        </div>
       </div>
     </div>
 
@@ -1896,6 +2000,7 @@
 <script src="js/generator.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/i18n.js"></script>
+<script src="js/preferences.js"></script>
 <script>
 (function(){
   "use strict";
@@ -1976,13 +2081,31 @@
   var noteEls = [];   // éléments SVG notes/silences, alignés 1:1 sur currentNotes
   var litState = [];  // booléen par élément : classe « lit » posée ou non
 
+  /* Préférences de lecture (js/preferences.js) : voix et volumes de
+     pulsation, aides activées. Mémorisées sur l'appareil sous une seule clé,
+     jamais dans le lien de partage. localStorage inaccessible (mode privé,
+     quota dépassé) : les réglages valent pour la session, sans erreur. */
+  const Preferences = window.BassRhythmPreferences;
+  const preferenceStorage = (function(){
+    try {
+      return window.localStorage;
+    } catch (err) {
+      return null;
+    }
+  })();
+  const playbackPrefs = Preferences.readPreferences(preferenceStorage);
+  function savePlaybackPrefs(){
+    Preferences.writePreferences(preferenceStorage, playbackPrefs);
+  }
+
   /* Aides de lecture : trois bascules INDÉPENDANTES. Métronome = clics des
      temps (le décompte reste toujours audible) ; guide visuel = allumage des
      notes + curseur ; son = rythmique jouée avec le son choisi. Chacune
-     s'applique en vol sans interrompre la lecture. */
-  var clickOn = true;
-  var visualOn = true;
-  var soundOn = false;
+     s'applique en vol sans interrompre la lecture. État initial : les
+     préférences mémorisées. */
+  var clickOn = playbackPrefs.aids.click;
+  var visualOn = playbackPrefs.aids.visual;
+  var soundOn = playbackPrefs.aids.sound;
 
   function beatsPerBar(){ return parseInt(signature.split("/")[0], 10); }
 
@@ -2431,7 +2554,7 @@
   ];
   var noteChoice = "D";
   var soundChoice = "growl";
-  var pulsationVoice = "clic"; // voix de l'aide de pulsation (clic|groove) — préférence locale, hors lien de partage
+  var pulsationVoice = playbackPrefs.pulsationVoice; // voix de l'aide de pulsation (clic|groove) — préférence locale, hors lien de partage
 
   var sampleStore = {}; // url -> { data: Promise<ArrayBuffer>, buffer, decoding, failed }
 
@@ -2584,6 +2707,7 @@
       notesEnabled: soundOn,
       clicksEnabled: clickOn,
       pulsationVoice: pulsationVoice,
+      pulsationVolumes: playbackPrefs.pulsationVolumes,
       getNoteVoice: currentVoice,
       loop: repeatOn && !infiniteOn
     });
@@ -2745,9 +2869,12 @@
   /* ---------- aides de lecture (bascules indépendantes) ----------
      Effet immédiat, y compris en cours de lecture : la rAF lit visualOn à
      chaque image ; métronome et son basculent dans le moteur sans toucher la
-     lecture (coupure nette du programmé non joué, reprise dans l'horizon). */
-  function bindToggle(id, fn){
+     lecture (coupure nette du programmé non joué, reprise dans l'horizon).
+     Chaque bascule part de la préférence mémorisée et la met à jour. */
+  function bindToggle(id, initialOn, fn){
     var btn = document.getElementById(id);
+    btn.classList.toggle("active", initialOn);
+    btn.setAttribute("aria-pressed", String(initialOn));
     btn.addEventListener("click", function(){
       var on = !btn.classList.contains("active");
       btn.classList.toggle("active", on);
@@ -2755,21 +2882,57 @@
       fn(on);
     });
   }
-  bindToggle("tgl-click", function(on){
+  bindToggle("tgl-click", clickOn, function(on){
     clickOn = on;
+    playbackPrefs.aids.click = on;
+    savePlaybackPrefs();
     if (playing && transport) transport.setClicksEnabled(on);
   });
-  bindToggle("tgl-visual", function(on){
+  bindToggle("tgl-visual", visualOn, function(on){
     visualOn = on;
+    playbackPrefs.aids.visual = on;
+    savePlaybackPrefs();
     if (!on){
       clearLit();
       cursor.classList.remove("live");
     }
   });
-  bindToggle("tgl-sound", function(on){
+  bindToggle("tgl-sound", soundOn, function(on){
     soundOn = on;
+    playbackPrefs.aids.sound = on;
+    savePlaybackPrefs();
     if (playing && transport) transport.setNotesEnabled(on);
   });
+
+  /* Volume de pulsation : le curseur du panneau des aides règle la voix
+     active (clic ou groove), de 0 à 250 % de son niveau par défaut, en vol.
+     Chaque voix garde sa valeur : changer de voix restaure la sienne. La
+     préférence est écrite au relâchement (change), pas à chaque pas. */
+  const pulseVolumeInput = document.getElementById("pulse-volume");
+  const pulseVolumeVoice = document.getElementById("pulse-volume-voice");
+  const pulseVolumeValue = document.getElementById("pulse-volume-value");
+  const PULSE_VOLUME_MAX_PERCENT = Preferences.PULSATION_VOLUME_MAX * 100;
+  pulseVolumeInput.max = String(PULSE_VOLUME_MAX_PERCENT);
+
+  function refreshPulseVolume(){
+    const isGroove = pulsationVoice === "groove";
+    const percent = Math.round(playbackPrefs.pulsationVolumes[pulsationVoice] * 100);
+    const text = t("volume.value", { percent: percent });
+    pulseVolumeInput.value = String(percent);
+    pulseVolumeInput.setAttribute("aria-label", t(isGroove ? "volume.groove" : "volume.click"));
+    pulseVolumeInput.setAttribute("aria-valuetext", text);
+    pulseVolumeInput.style.setProperty("--fill", (percent / PULSE_VOLUME_MAX_PERCENT * 100) + "%");
+    pulseVolumeVoice.textContent = t(isGroove ? "beat.groove" : "beat.click");
+    pulseVolumeValue.textContent = text;
+  }
+  pulseVolumeInput.addEventListener("input", function(){
+    const volume = Number(pulseVolumeInput.value) / 100;
+    playbackPrefs.pulsationVolumes[pulsationVoice] = volume;
+    if (playing && transport) transport.setPulsationVolume(pulsationVoice, volume);
+    refreshPulseVolume();
+  });
+  pulseVolumeInput.addEventListener("change", savePlaybackPrefs);
+  refreshPulseVolume();
 
   /* Déclencheur des aides : un seul cercle qui déplie le flotteur des trois
      bascules. La rangée reste symétrique (play centré) ; le flotteur se referme
@@ -2942,10 +3105,17 @@
       soundChoice = inp.value;
     });
   });
+  /* Voix de pulsation : préférence mémorisée, appliquée en vol (les temps
+     suivants jouent la nouvelle voix, à son volume). */
   document.querySelectorAll('#pulsation-list input[name="pulsation"]').forEach(function(inp){
+    inp.checked = inp.value === pulsationVoice;
     inp.addEventListener("change", function(){
       if (!inp.checked) return;
       pulsationVoice = inp.value;
+      playbackPrefs.pulsationVoice = pulsationVoice;
+      savePlaybackPrefs();
+      if (playing && transport) transport.setPulsationVoice(pulsationVoice);
+      refreshPulseVolume();
     });
   });
   bindPills("note-pills", function(v){
