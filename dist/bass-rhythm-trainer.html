@@ -1548,6 +1548,15 @@
     line-height: 1;
     color: var(--ink);
   }
+  /* case vide d'un triolet ouvert, sur la portée de Composer */
+  .score .triplet-slot {
+    opacity: 0.28;
+  }
+  .palette-item.mod .mod-triplet {
+    font-size: 18px;
+    font-style: italic;
+    font-weight: 600;
+  }
   .palette-item.mod.on {
     border-color: var(--accent);
     background: var(--accent-soft);
@@ -2201,7 +2210,7 @@ Wikimedia Commons and are in the public domain.
       <label class="pill"><input type="checkbox" name="procede" value="dots"><span data-i18n="procede.dots">Points</span><span class="pill-hint"></span></label>
       <label class="pill"><input type="checkbox" name="procede" value="ties"><span data-i18n="procede.ties">Liaisons</span><span class="pill-hint"></span></label>
       <label class="pill"><input type="checkbox" name="procede" value="syncopes"><span data-i18n="procede.syncopes">Syncopes</span><span class="pill-hint"></span></label>
-      <label class="pill disabled"><input type="checkbox" name="procede" value="triplets" disabled><span data-i18n="procede.triplets">Triolets</span><span class="pill-hint" data-i18n="procede.soon">bientôt</span></label>
+      <label class="pill"><input type="checkbox" name="procede" value="triplets"><span data-i18n="procede.triplets">Triolets</span><span class="pill-hint"></span></label>
     </div>
   </div>
 
@@ -2400,8 +2409,7 @@ window.BRT_EMBEDDED_SAMPLES = {
  *   config = {
  *     figures:  ["ronde"|"blanche"|"noire"|"croche"|"double"|"triple"|"quadruple", ...],
  *     procedes: ["rests"|"dots"|"ties"|"syncopes"|"triplets", ...] — procédés
- *               cochés, indépendants (défaut [] : notes seules). « triplets »
- *               est accepté mais pas encore tiré,
+ *               cochés, indépendants (défaut [] : notes seules),
  *     meter:    signature n/d permise (n de 1 à 12, d parmi 2, 4 et 8), analysée
  *               par js/meter.js — "4/4", "7/4", "3/2", "5/8", "6/8", "12/8"…
  *     measures: 4 | 8 | 16,
@@ -2414,7 +2422,8 @@ window.BRT_EMBEDDED_SAMPLES = {
  *   notes  = timeline [{ startBeats, durationBeats, isRest, tiedToNext }] pour le
  *            moteur de lecture (ticket 03). startBeats/durationBeats en temps
  *            (la noire pointée en mesure composée) ; un début de temps y est
- *            toujours un nombre entier exact.
+ *            toujours un nombre entier exact, et les tiers de temps des
+ *            triolets y sont exacts au flottant près (calculés en ticks).
  *   bars   = texte ABC de chaque mesure ; header = en-tête X/M/L/K. Avec
  *            joinBars(bars, perLine), le client re-découpe la même grille en
  *            2 ou 4 mesures par système (responsive) sans regénérer.
@@ -2425,7 +2434,10 @@ window.BRT_EMBEDDED_SAMPLES = {
  * sont toujours disponibles ; chaque autre cellule relève d'un procédé
  * (Silences, Points, Liaisons, Syncopes) et n'est tirée que s'il est coché.
  * Liaisons couvre aussi les liaisons par-dessus la barre ; Syncopes, les
- * syncopes écrites sans liaison. La densité découle des procédés cochés :
+ * syncopes écrites sans liaison ; Triolets, les triolets d'un temps (trois
+ * croches en /4, trois noires en /2, avec un silence interne si Silences est
+ * coché), jamais en mesure composée ni en /8. Un silence exige toujours
+ * Silences. La densité découle des procédés cochés :
  * silences dosés à part, procédés spéciaux sous un budget commun par mesure.
  * procedeNeeds(config, procede) dit ce qui manque pour qu'un procédé soit
  * applicable avec les figures cochées (null s'il l'est). En mesure simple,
@@ -2439,6 +2451,14 @@ window.BRT_EMBEDDED_SAMPLES = {
  * ligature regroupe toujours les valeurs plus courtes que le temps par temps
  * — les croches par trois en mesure composée.
  *
+ * Durées : les événements portent leur durée réelle en temps (d) ; une note
+ * de triolet (triplet: true) vaut les deux tiers de sa valeur écrite (la
+ * croche de triolet dure 1/3 de temps en /4). Les positions se comptent en
+ * ticks entiers, 192 par ronde (3 par 64e) : le tiers de temps y est exact,
+ * la ligature, la règle des triolets et la timeline s'y calculent sans
+ * dérive. L'ABC, lui, n'écrit que des valeurs binaires (unité L: entre 1/8
+ * et 1/64) ; un triolet s'y grave « (3 » devant ses trois notes.
+ *
  * Grille composée (mode Composer) : assembleComposed(measures, config) rend le
  * même { abc, notes, bars, header } à partir d'une suite de mesures construites
  * à la main — l'assemblage (chooseUnit + barText) est partagé, sans duplication.
@@ -2449,10 +2469,12 @@ window.BRT_EMBEDDED_SAMPLES = {
  * tombe sur un début de temps — seul cas où une liaison est permise. Le tirage
  * la respecte (catalogue vérifié au chargement, liaisons par-dessus la barre)
  * et les règles de pose de Composer en découlent, en fonctions pures qui
- * lisent l'état de composition { meter, measures } (mesures d'événements
- * { fig, rest, dot, tie }) sans le muter : canTie (peut-on lier la dernière
- * note ?) et canDot (le point peut-il être posé ou retiré sur la dernière
- * note ?).
+ * lisent l'état de composition { meter, measures, openTriplet } (mesures
+ * d'événements { fig, rest, dot, tie, triplet }) sans le muter : canTie
+ * (peut-on lier la dernière note ?), canDot (le point peut-il être posé ou
+ * retiré sur la dernière note ?), canOpenTriplet (peut-on ouvrir un triolet
+ * au curseur ?), tripletFigures (figures permises dans le triolet ouvert) et
+ * tripletFilled (cases déjà remplies du triolet ouvert).
  *
  * UMD minimal : window.BassRhythmGenerator dans la page, module.exports sous Node.
  * Dépend de js/meter.js (window.BassRhythmMeter, chargé avant).
@@ -2481,6 +2503,13 @@ window.BRT_EMBEDDED_SAMPLES = {
   /* Figures de la plus longue à la plus courte. */
   const FIGURE_ORDER = Object.keys(FIGURE_64);
 
+  /* Ticks par 64e de ronde : 192 ticks par ronde, base entière qui contient
+     le tiers de temps (croche de triolet = 16 ticks en /4). */
+  const TICKS_PER_64 = 3;
+  /* Une note de triolet vaut les deux tiers de sa valeur écrite. */
+  const TRIPLET_RATIO = 2 / 3;
+  const TRIPLET_SIZE = 3;
+
   /* ---------- règle de liaison ----------
    *
    * Une liaison se fait toujours sur un début de temps : dans un même temps, on
@@ -2500,15 +2529,18 @@ window.BRT_EMBEDDED_SAMPLES = {
 
   /* ---------- catalogues de cellules rythmiques (durées en temps) ---------- */
 
-  function note(d) { return { d: d, rest: false, tie: false }; }
-  function tiedNote(d) { return { d: d, rest: false, tie: true }; }
-  function silence(d) { return { d: d, rest: true, tie: false }; }
+  function note(d) { return { d: d, rest: false, tie: false, triplet: false }; }
+  function tiedNote(d) { return { d: d, rest: false, tie: true, triplet: false }; }
+  function silence(d) { return { d: d, rest: true, tie: false, triplet: false }; }
+  /* Note et silence de triolet d'un temps : un tiers de temps chacun. */
+  function tripletNote() { return { d: 1 / TRIPLET_SIZE, rest: false, tie: false, triplet: true }; }
+  function tripletSilence() { return { d: 1 / TRIPLET_SIZE, rest: true, tie: false, triplet: true }; }
 
   function repeatElems(groups, times) {
     var out = [];
     for (var i = 0; i < times; i++) {
       for (var j = 0; j < groups.length; j++) {
-        out.push({ d: groups[j].d, rest: groups[j].rest, tie: groups[j].tie });
+        out.push({ d: groups[j].d, rest: groups[j].rest, tie: groups[j].tie, triplet: groups[j].triplet });
       }
     }
     return out;
@@ -2527,7 +2559,8 @@ window.BRT_EMBEDDED_SAMPLES = {
     if (Math.abs(len - lenInt) > 1e-9) {
       throw new Error("Cellule non alignée sur le temps : " + id);
     }
-    return { id: id, kind: kind, weight: weight, lenInt: lenInt, elems: elems };
+    const hasRest = elems.some(function (el) { return el.rest; });
+    return { id: id, kind: kind, weight: weight, lenInt: lenInt, elems: elems, hasRest: hasRest };
   }
 
   /*
@@ -2537,7 +2570,10 @@ window.BRT_EMBEDDED_SAMPLES = {
    *        "rests"    : silences équivalents aux figures cochées ;
    *        "dots"     : cellules pointées ;
    *        "ties"     : cellules liées (toujours sur un début de temps) ;
-   *        "syncopes" : syncopes écrites sans liaison.
+   *        "syncopes" : syncopes écrites sans liaison ;
+   *        "triplets" : triolet d'un temps (sa figure écrite vaut un
+   *                     demi-temps : croche en /4, noire en /2), avec un
+   *                     silence interne seulement si Silences est coché.
    * Les liaisons par-dessus la barre relèvent aussi de "ties" (addCrossBarTies).
    */
   const SIMPLE_CELLS = [
@@ -2600,7 +2636,14 @@ window.BRT_EMBEDDED_SAMPLES = {
     /* croche – noire – croche */
     cell("syncope-half-beat-half", "syncopes", 5, [note(0.5), note(1), note(0.5)]),
     /* croche – noire – noire – croche */
-    cell("syncope-long", "syncopes", 2, [note(0.5), note(1), note(1), note(0.5)])
+    cell("syncope-long", "syncopes", 2, [note(0.5), note(1), note(1), note(0.5)]),
+
+    /* --- Triolets : trois notes égales dans un temps (étape 11) --- */
+    cell("triplet", "triplets", 8, repeatElems([tripletNote()], 3)),
+    /* silences internes, à chacune des trois places */
+    cell("triplet-rest-first", "triplets", 2, [tripletSilence(), tripletNote(), tripletNote()]),
+    cell("triplet-rest-middle", "triplets", 2, [tripletNote(), tripletSilence(), tripletNote()]),
+    cell("triplet-rest-last", "triplets", 2, [tripletNote(), tripletNote(), tripletSilence()])
   ];
 
   /*
@@ -2693,12 +2736,11 @@ window.BRT_EMBEDDED_SAMPLES = {
     cell("c-hemiola", "syncopes", 4, [note(2 * EIGHTH), note(2 * EIGHTH), note(2 * EIGHTH)])
   ];
 
-  /* Procédés reconnus, dans l'ordre d'affichage. « triplets » est réservé :
-     aucune cellule ne le porte encore (triolets à venir). */
+  /* Procédés reconnus, dans l'ordre d'affichage. */
   var PROCEDES = ["rests", "dots", "ties", "syncopes", "triplets"];
   /* Procédés tirés comme cellules « spéciales » : ils se partagent un même
      budget par mesure, pour qu'une mesure reste lisible quand on les cumule. */
-  var SPECIAL_PROCEDES = ["dots", "ties", "syncopes"];
+  var SPECIAL_PROCEDES = ["dots", "ties", "syncopes", "triplets"];
 
   /* ---------- utilitaires ---------- */
 
@@ -2714,12 +2756,30 @@ window.BRT_EMBEDDED_SAMPLES = {
     return Math.round(d * beat64);
   }
 
-  /* Position en temps ramenée à l'entier exact quand elle tombe sur un début
-     de temps (les tiers de la mesure composée ne sont pas exacts en flottant) :
-     la timeline et les clics du moteur s'y rejoignent à l'égalité stricte. */
-  function snapBeat(x) {
-    const rounded = Math.round(x);
-    return Math.abs(x - rounded) < BEAT_EPSILON ? rounded : x;
+  /* Convertit une durée en temps vers des ticks entiers (192 par ronde), le
+     temps valant beat64 × 3 ticks : exact pour toute figure, pointée, de
+     mesure composée ou de triolet. */
+  function beatsToTicks(d, beat64) {
+    return Math.round(d * beat64 * TICKS_PER_64);
+  }
+
+  /* Durée écrite (en temps) d'un événement : sa durée réelle, ou les trois
+     demis de celle-ci pour une note de triolet (trois croches pour deux). */
+  function writtenBeats(event) {
+    return event.triplet ? event.d / TRIPLET_RATIO : event.d;
+  }
+
+  /* Figure d'un triolet sur un temps, celle qui vaut un demi-temps : la
+     croche en /4, la noire en /2. null quand la signature n'en permet pas :
+     mesure composée (le temps s'y divise déjà en trois) et /8 simple (ce
+     serait un triolet de doubles, hors du programme). */
+  function tripletFigure(meter) {
+    const m = parseMeter(meter);
+    if (m.compound || m.denominator === 8) return null;
+    for (let i = 0; i < FIGURE_ORDER.length; i++) {
+      if (FIGURE_64[FIGURE_ORDER[i]] * 2 === m.beat64) return FIGURE_ORDER[i];
+    }
+    return null;
   }
 
   /* Durée en temps d'une figure sous une signature, éventuellement pointée
@@ -2731,12 +2791,22 @@ window.BRT_EMBEDDED_SAMPLES = {
     return FIGURE_64[fig] * (dot ? 1.5 : 1) / parseMeter(meter).beat64;
   }
 
+  /* Durée réelle en temps d'un événement de composition { fig, dot, triplet } :
+     une note de triolet vaut les deux tiers de sa figure. */
+  function eventBeats(event, meter) {
+    const written = figureBeats(event.fig, meter, event.dot);
+    return event.triplet ? written * TRIPLET_RATIO : written;
+  }
+
   /* ---------- règles de pose de Composer (fonctions pures) ----------
    *
-   * L'état de composition est { meter, measures } : measures liste des mesures
-   * d'événements { fig, rest, dot, tie }, toutes pleines sauf la dernière
-   * (mesure ouverte, éventuellement vide). Les règles lisent cet état sans
-   * jamais le muter ; la page ne fait que les appeler pour griser ses boutons.
+   * L'état de composition est { meter, measures, openTriplet } : measures
+   * liste des mesures d'événements { fig, rest, dot, tie, triplet }, toutes
+   * pleines sauf la dernière (mesure ouverte, éventuellement vide) ;
+   * openTriplet dit qu'un triolet est ouvert au curseur (ses notes déjà
+   * posées sont les dernières notes de triolet de la mesure ouverte). Les
+   * règles lisent cet état sans jamais le muter ; la page ne fait que les
+   * appeler pour griser ses boutons.
    */
 
   /* Dernier événement posé, avec sa position de départ dans sa mesure et la
@@ -2750,10 +2820,10 @@ window.BRT_EMBEDDED_SAMPLES = {
       if (!bar.length) continue;
       let start = 0;
       for (let j = 0; j < bar.length - 1; j++) {
-        start += figureBeats(bar[j].fig, meter, bar[j].dot);
+        start += eventBeats(bar[j], meter);
       }
       const event = bar[bar.length - 1];
-      const duration = figureBeats(event.fig, meter, event.dot);
+      const duration = eventBeats(event, meter);
       return {
         event: event,
         meter: meter,
@@ -2766,8 +2836,11 @@ window.BRT_EMBEDDED_SAMPLES = {
   }
 
   /* Peut-on lier la dernière note à la suivante ? Oui si c'est une note et
-     qu'elle finit sur un début de temps (y compris sur la barre de mesure). */
+     qu'elle finit sur un début de temps (y compris sur la barre de mesure) :
+     seule la dernière note d'un triolet peut l'être. Pendant un triolet
+     ouvert, la liaison est grisée. */
   function canTie(composition) {
+    if (composition.openTriplet) return false;
     const last = lastPlacement(composition);
     if (!last || last.event.rest) return false;
     return endsOnBeat(last.start, last.duration);
@@ -2775,14 +2848,62 @@ window.BRT_EMBEDDED_SAMPLES = {
 
   /* Le point (posé ou retiré) est-il permis sur la dernière note ? Le
      demi-temps ajouté doit tenir dans sa mesure, et une liaison déjà posée sur
-     cette note doit rester sur un début de temps après la bascule. */
+     cette note doit rester sur un début de temps après la bascule. Une note
+     de triolet n'est jamais pointée, et le point est grisé pendant un
+     triolet ouvert. */
   function canDot(composition) {
+    if (composition.openTriplet) return false;
     const last = lastPlacement(composition);
-    if (!last || last.event.rest) return false;
+    if (!last || last.event.rest || last.event.triplet) return false;
     const toggled = figureBeats(last.event.fig, last.meter, !last.event.dot);
     if (toggled - last.duration > last.remaining + BEAT_EPSILON) return false;
     if (last.event.tie && !endsOnBeat(last.start, toggled)) return false;
     return true;
+  }
+
+  /* Durée en temps déjà posée dans la mesure ouverte (la dernière). */
+  function openMeasureBeats(composition) {
+    const measures = composition.measures || [];
+    const open = measures.length ? measures[measures.length - 1] : [];
+    let sum = 0;
+    for (let i = 0; i < open.length; i++) sum += eventBeats(open[i], composition.meter);
+    return sum;
+  }
+
+  /* Peut-on ouvrir un triolet au curseur ? Seulement là où la signature en
+     permet (tripletFigure : ni mesure composée ni /8), sur un début de temps,
+     et si aucun triolet n'est déjà ouvert. Un triolet dure un temps : il
+     tient toujours dans la mesure ouverte, jamais pleine. */
+  function canOpenTriplet(composition) {
+    if (composition.openTriplet) return false;
+    if (!tripletFigure(composition.meter)) return false;
+    return endsOnBeat(0, openMeasureBeats(composition));
+  }
+
+  /* Cases déjà remplies du triolet ouvert (0, 1 ou 2), null si aucun
+     triolet n'est ouvert : les dernières notes de triolet de la mesure
+     ouverte, les triolets complets qui les précèdent mis à part. */
+  function tripletFilled(composition) {
+    if (!composition.openTriplet) return null;
+    const measures = composition.measures || [];
+    const open = measures.length ? measures[measures.length - 1] : [];
+    let count = 0;
+    for (let i = open.length - 1; i >= 0 && open[i].triplet; i--) count++;
+    return count % TRIPLET_SIZE;
+  }
+
+  /* Figures permises dans le triolet ouvert ([] si aucun) : la figure du
+     triolet (croche en /4, noire en /2), en note ou en silence — sans le
+     silence quand une liaison attend sa note. */
+  function tripletFigures(composition) {
+    if (tripletFilled(composition) === null) return [];
+    const fig = tripletFigure(composition.meter);
+    if (!fig) return [];
+    const last = lastPlacement(composition);
+    const pendingTie = !!(last && last.event.tie && !last.event.rest);
+    const out = [{ fig: fig, rest: false }];
+    if (!pendingTie) out.push({ fig: fig, rest: true });
+    return out;
   }
 
   function gcd(a, b) {
@@ -2818,13 +2939,17 @@ window.BRT_EMBEDDED_SAMPLES = {
    * Une cellule est disponible si son procédé est coché (les cellules de base
    * le sont toujours) et si toutes ses durées correspondent à une figure
    * cochée (les silences exigent la figure de durée équivalente ; les valeurs
-   * pointées exigent leur figure de base). Le catalogue suit la signature :
-   * mesure simple ou composée. En composée, une valeur pointée d'au moins un
-   * temps (note ou silence) est ordinaire : elle n'exige que sa figure de base.
+   * pointées exigent leur figure de base, un triolet sa figure écrite). Le
+   * catalogue suit la signature : mesure simple ou composée. En composée, une
+   * valeur pointée d'au moins un temps (note ou silence) est ordinaire : elle
+   * n'exige que sa figure de base. Un silence exige toujours Silences, même
+   * dans une cellule d'un autre procédé (silence interne d'un triolet) ; un
+   * triolet n'existe que là où tripletFigure le permet.
    */
   function availableCells(config) {
     var m = parseMeter(config.meter);
     const catalog = m.compound ? COMPOUND_CELLS : SIMPLE_CELLS;
+    const tripletsAllowed = tripletFigure(config.meter) !== null;
     var fig64 = {};
     for (var i = 0; i < config.figures.length; i++) {
       fig64[FIGURE_64[config.figures[i]]] = true;
@@ -2833,14 +2958,17 @@ window.BRT_EMBEDDED_SAMPLES = {
     for (var c = 0; c < catalog.length; c++) {
       var cc = catalog[c];
       if (cc.kind !== "base" && !hasProcede(config, cc.kind)) continue;
+      if (cc.hasRest && !hasProcede(config, "rests")) continue;
+      if (cc.kind === "triplets" && !tripletsAllowed) continue;
       if (cc.lenInt > m.beats) continue;
       var ok = true;
       for (var e = 0; e < cc.elems.length; e++) {
         var el = cc.elems[e];
-        var v = beatsTo64(el.d, m.beat64);
+        const written = writtenBeats(el);
+        var v = beatsTo64(written, m.beat64);
         /* Valeur plus fine que la quadruple croche une fois transposée (en
            /8 simple) : cellule inutilisable. */
-        if (Math.abs(el.d * m.beat64 - v) > BEAT_EPSILON) {
+        if (Math.abs(written * m.beat64 - v) > BEAT_EPSILON) {
           ok = false;
           break;
         }
@@ -3043,7 +3171,7 @@ window.BRT_EMBEDDED_SAMPLES = {
         var chosen = pickWeighted(pool, rng);
         for (var e = 0; e < chosen.elems.length; e++) {
           var el = chosen.elems[e];
-          events.push({ d: el.d, rest: el.rest, tie: el.tie });
+          events.push({ d: el.d, rest: el.rest, tie: el.tie, triplet: el.triplet });
         }
         pos += chosen.lenInt;
       }
@@ -3077,8 +3205,9 @@ window.BRT_EMBEDDED_SAMPLES = {
   /* ---------- assemblage ABC + timeline ---------- */
 
   /*
-   * Unité L: de la grille : la plus fine réellement présente, entre 1/8 et
-   * 1/64 (une grille sans événement retombe sur 1/8). Partagée par le tirage
+   * Unité L: de la grille : la plus fine valeur écrite réellement présente,
+   * entre 1/8 et 1/64 (une grille sans événement retombe sur 1/8) ; une note
+   * de triolet compte pour sa valeur écrite. Partagée par le tirage
    * aléatoire et la composition manuelle — même choix d'unité des deux côtés.
    */
   function chooseUnit(measures, meter) {
@@ -3086,7 +3215,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     var g = 0;
     for (var i = 0; i < measures.length; i++) {
       for (var j = 0; j < measures[i].length; j++) {
-        g = gcd(g, beatsTo64(measures[i][j].d, beat64));
+        g = gcd(g, beatsTo64(writtenBeats(measures[i][j]), beat64));
       }
     }
     return gcd(g, 8);
@@ -3098,24 +3227,29 @@ window.BRT_EMBEDDED_SAMPLES = {
    * partagent le même temps — les croches par trois en mesure composée).
    * meter = signature (elle fixe la durée du temps), noteTok = jeton de la
    * note (les silences s'écrivent "z"), le suffixe "-" marque une liaison
-   * vers l'événement suivant. Fonction pure, réutilisée par l'assemblage et
-   * la scène de composition (mesure ouverte gravée en direct).
+   * vers l'événement suivant. Une note de triolet s'écrit à sa valeur
+   * écrite ; celle qui ouvre un triolet, sur un début de temps, porte le
+   * préfixe « (3 ». Fonction pure, réutilisée par l'assemblage et la scène
+   * de composition (mesure ouverte gravée en direct).
    */
   function barText(events, unit, meter, noteTok) {
     const beat64 = parseMeter(meter).beat64;
+    const beatTicks = beat64 * TICKS_PER_64;
     var groups = [];   /* chaînes (tokens isolés) ou { beat, toks } (ligature par temps) */
     var current = null;
-    let pos64 = 0;
+    let posTicks = 0;
     for (var j = 0; j < events.length; j++) {
       var e = events[j];
-      const d64 = beatsTo64(e.d, beat64);
+      const d64 = beatsTo64(writtenBeats(e), beat64);
       var mult = d64 / unit;
-      var tok = (e.rest ? "z" : noteTok) + (mult === 1 ? "" : mult) + (e.tie ? "-" : "");
+      const opensTriplet = !!e.triplet && posTicks % beatTicks === 0;
+      var tok = (opensTriplet ? "(" + TRIPLET_SIZE : "") + (e.rest ? "z" : noteTok) +
+        (mult === 1 ? "" : mult) + (e.tie ? "-" : "");
       if (d64 >= beat64) {
         groups.push(tok);
         current = null;
       } else {
-        const beatIdx = Math.floor(pos64 / beat64);
+        const beatIdx = Math.floor(posTicks / beatTicks);
         if (current && current.beat === beatIdx) {
           current.toks.push(tok);
         } else {
@@ -3123,7 +3257,7 @@ window.BRT_EMBEDDED_SAMPLES = {
           groups.push(current);
         }
       }
-      pos64 += d64;
+      posTicks += beatsToTicks(e.d, beat64);
     }
     var parts = [];
     for (var g = 0; g < groups.length; g++) {
@@ -3139,10 +3273,14 @@ window.BRT_EMBEDDED_SAMPLES = {
     return "X:1\nM:" + meter + "\nL:1/" + lden + "\nK:C clef=bass\n";
   }
 
+  /* Timeline calculée en ticks entiers, puis ramenée en temps par une seule
+     division : un début de temps est un entier exact, un tiers de temps le
+     flottant le plus proche, sans dérive d'accumulation. */
   function assemble(measures, config, m) {
     var noteTok = config.note || "D,";
     var unit = chooseUnit(measures, config.meter);
     var lden = 64 / unit;
+    const beatTicks = m.beat64 * TICKS_PER_64;
 
     var notes = [];
     var barTexts = [];
@@ -3150,16 +3288,17 @@ window.BRT_EMBEDDED_SAMPLES = {
 
     for (var i = 0; i < measures.length; i++) {
       var events = measures[i];
-      var pos = 0;
+      let posTicks = 0;
       for (var j = 0; j < events.length; j++) {
         var e = events[j];
+        const dTicks = beatsToTicks(e.d, m.beat64);
         notes.push({
-          startBeats: globalStart + snapBeat(pos),
-          durationBeats: e.d,
+          startBeats: globalStart + posTicks / beatTicks,
+          durationBeats: dTicks / beatTicks,
           isRest: !!e.rest,
           tiedToNext: !!e.tie
         });
-        pos += e.d;
+        posTicks += dTicks;
       }
       globalStart += m.beats;
       barTexts.push(barText(events, unit, config.meter, noteTok));
@@ -3179,7 +3318,7 @@ window.BRT_EMBEDDED_SAMPLES = {
 
   /*
    * Assemble une grille COMPOSÉE à la main — une suite de mesures d'événements
-   * { d (temps), rest, tie } — au même contrat que generateExercise :
+   * { d (temps réels), rest, tie, triplet } — au même contrat que generateExercise :
    * { abc, notes, bars, header }. Réutilise assemble (aucune logique
    * d'assemblage dupliquée) : une grille composée devient un artefact
    * strictement identique à une grille générée et se rebranche sur toute la
@@ -3200,7 +3339,7 @@ window.BRT_EMBEDDED_SAMPLES = {
       var bar = [];
       for (j = 0; j < measures[i].length; j++) {
         var e = measures[i][j];
-        var copy = { d: e.d, rest: !!e.rest, tie: !!e.tie };
+        var copy = { d: e.d, rest: !!e.rest, tie: !!e.tie, triplet: !!e.triplet };
         bar.push(copy);
         order.push(copy);
       }
@@ -3356,28 +3495,42 @@ window.BRT_EMBEDDED_SAMPLES = {
    *
    * Une grille composée n'est PAS une graine : aucun PRNG ne la représente. On
    * sérialise donc son CONTENU — signature + note d'entraînement + la suite des
-   * événements (figures / silences / points / liaisons) — dans un second format
-   * d'URL, coexistant avec le format graine (encodeShare/decodeShare). Chaque
-   * événement tient sur un caractère base36 : une figure (0–6) éventuellement
-   * pointée et/ou liée, ou un silence — 35 combinaisons (les silences ne sont
-   * ni pointés ni liés). Le format porte un marqueur de version (c=1) et une
-   * clé « e » ; decodeComposed le distingue du format graine (clés s/f/x) et
+   * événements (figures / silences / points / liaisons / triolets) — dans un
+   * second format d'URL, coexistant avec le format graine
+   * (encodeShare/decodeShare). Chaque événement tient sur un caractère
+   * base36 : une figure (0–6) éventuellement pointée et/ou liée, ou un
+   * silence — 35 combinaisons (les silences ne sont ni pointés ni liés). Un
+   * triolet s'écrit « T » suivi de ses trois événements. Le format porte un
+   * marqueur de version (c=2, triolets compris ; c=1 est rejeté) et une clé
+   * « e » ; decodeComposed le distingue du format graine (clés s/f/x) et
    * rejette proprement (null) tout lien hors domaine ou invalide (mesure qui
-   * déborde, grille non close sur la signature). Cf. docs/adr/0001-*.
+   * déborde, grille non close sur la signature, liaison au milieu d'un
+   * temps, triolet hors d'un début de temps, incomplet, pointé, d'une autre
+   * figure que celle de la signature ou dans une signature qui n'en permet
+   * pas). Cf. docs/adr/0001-*.
    */
+  const COMPOSED_VERSION = "2";
+  const TRIPLET_MARK = "T";
   var COMPOSED_FIGS = ["ronde", "blanche", "noire", "croche", "double", "triple", "quadruple"];
 
   function encodeComposed(state) {
     var events = state.events || [];
     var chars = "";
+    let tripletRun = 0;
     for (var i = 0; i < events.length; i++) {
       var ev = events[i];
       var fi = COMPOSED_FIGS.indexOf(ev.fig);
       if (fi === -1) continue;
+      if (ev.triplet) {
+        if (tripletRun % TRIPLET_SIZE === 0) chars += TRIPLET_MARK;
+        tripletRun++;
+      } else {
+        tripletRun = 0;
+      }
       var code = ev.rest ? 28 + fi : fi + (ev.dot ? 7 : 0) + (ev.tie ? 14 : 0);
       chars += code.toString(36);
     }
-    return "c=1" +
+    return "c=" + COMPOSED_VERSION +
       "&m=" + encodeMeter(state.meter) +
       "&n=" + state.note +
       "&e=" + chars;
@@ -3392,45 +3545,67 @@ window.BRT_EMBEDDED_SAMPLES = {
       if (kv.length === 2 && kv[0]) map[kv[0]] = kv[1];
     }
     if (!("c" in map && "m" in map && "n" in map && "e" in map)) return null;
-    if (map.c !== "1") return null; /* version inconnue : rejet */
+    if (map.c !== COMPOSED_VERSION) return null; /* version inconnue ou ancienne : rejet */
 
     var meter = decodeMeter(map.m);
     if (!meter) return null;
     if (!/^[A-G]$/.test(map.n)) return null;
 
     var beats = parseMeter(meter).beats;
+    const tripletFig = tripletFigure(meter);
 
     var events = [];
+    /* tripletLeft : notes du triolet encore attendues après un « T ». */
+    let tripletLeft = 0;
     for (i = 0; i < map.e.length; i++) {
       var ch = map.e.charAt(i);
+      if (ch === TRIPLET_MARK) {
+        if (tripletLeft || !tripletFig) return null;
+        tripletLeft = TRIPLET_SIZE;
+        continue;
+      }
       if (!/^[0-9a-y]$/.test(ch)) return null;
       var code = parseInt(ch, 36);
       if (!isFinite(code) || code < 0 || code > 34) return null;
       var ev;
       if (code >= 28) {
-        ev = { fig: COMPOSED_FIGS[code - 28], rest: true, dot: false, tie: false };
+        ev = { fig: COMPOSED_FIGS[code - 28], rest: true, dot: false, tie: false, triplet: false };
       } else {
         ev = {
           fig: COMPOSED_FIGS[code % 7],
           rest: false,
           dot: code >= 7 && code < 14 || code >= 21,
-          tie: code >= 14
+          tie: code >= 14,
+          triplet: false
         };
+      }
+      if (tripletLeft) {
+        if (ev.fig !== tripletFig || ev.dot) return null;
+        ev.triplet = true;
+        tripletLeft--;
       }
       events.push(ev);
     }
-    if (!events.length) return null;
+    if (!events.length || tripletLeft) return null;
 
     /* Reconstruire les mesures : remplissage strict, chaque mesure close
        exactement sur la signature (invariant d'une grille valide). Tout
-       dépassement ou reste non nul (grille incomplète) invalide le lien. */
+       dépassement ou reste non nul (grille incomplète) invalide le lien. Un
+       triolet commence sur un début de temps. */
     var measures = [];
     var bar = [];
     var sum = 0;
+    let tripletRun = 0;
     for (i = 0; i < events.length; i++) {
       var e = events[i];
-      var d = figureBeats(e.fig, meter, e.dot);
+      var d = eventBeats(e, meter);
       if (sum + d > beats + 1e-9) return null;
+      if (e.triplet) {
+        if (tripletRun % TRIPLET_SIZE === 0 && !endsOnBeat(0, sum)) return null;
+        tripletRun++;
+      } else {
+        tripletRun = 0;
+      }
       /* Règle de liaison : une liaison au milieu d'un temps invalide le lien. */
       if (e.tie && !endsOnBeat(sum, d)) return null;
       bar.push(e);
@@ -3501,9 +3676,14 @@ window.BRT_EMBEDDED_SAMPLES = {
     barText: barText,
     chooseUnit: chooseUnit,
     figureBeats: figureBeats,
+    eventBeats: eventBeats,
+    tripletFigure: tripletFigure,
     endsOnBeat: endsOnBeat,
     canTie: canTie,
     canDot: canDot,
+    canOpenTriplet: canOpenTriplet,
+    tripletFigures: tripletFigures,
+    tripletFilled: tripletFilled,
     abcHeader: abcHeader,
     joinBars: joinBars,
     availableCells: availableCells,
@@ -4758,7 +4938,8 @@ window.BRT_EMBEDDED_SAMPLES = {
       "procede.ties": "Liaisons",
       "procede.syncopes": "Syncopes",
       "procede.triplets": "Triolets",
-      "procede.soon": "bientôt",
+      "procede.notCompound": "pas en mesure composée",
+      "procede.notEighth": "pas en /8",
       "procede.needs": "nécessite {figures}",
       "procede.needsMore": "nécessite d'autres figures",
       "figureDefinite.whole": "la ronde",
@@ -4835,7 +5016,9 @@ window.BRT_EMBEDDED_SAMPLES = {
       "family.modifiers": "Modificateurs",
       "modifier.dotted": "Note<br>pointée",
       "modifier.tieNext": "Lier à<br>la suivante",
+      "modifier.triplet": "Triolet",
       "composer.tiePending": " · <b>liaison en attente</b>",
+      "composer.tripletOpen": " · <b>triolet {filled} / 3</b>",
       "composer.readout": "Mesure en cours : <b>{placed} / {total}</b> temps · reste <b>{remaining}</b>{extra}"
     },
     en: {
@@ -4897,7 +5080,8 @@ window.BRT_EMBEDDED_SAMPLES = {
       "procede.ties": "Ties",
       "procede.syncopes": "Syncopation",
       "procede.triplets": "Triplets",
-      "procede.soon": "coming soon",
+      "procede.notCompound": "not in compound time",
+      "procede.notEighth": "not in /8 time",
       "procede.needs": "needs {figures}",
       "procede.needsMore": "needs other note values",
       "figureDefinite.whole": "whole notes",
@@ -4974,7 +5158,9 @@ window.BRT_EMBEDDED_SAMPLES = {
       "family.modifiers": "Modifiers",
       "modifier.dotted": "Dotted<br>note",
       "modifier.tieNext": "Tie to<br>next note",
+      "modifier.triplet": "Triplet",
       "composer.tiePending": " · <b>tie pending</b>",
+      "composer.tripletOpen": " · <b>triplet {filled} / 3</b>",
       "composer.readout": "Current measure: <b>{placed} / {total}</b> beats · <b>{remaining}</b> remaining{extra}"
     }
   };
@@ -6371,11 +6557,11 @@ window.BRT_EMBEDDED_SAMPLES = {
   bindPills("procede-pills");
 
   /* ---------- procédés : pastilles à cocher ----------
-     Un procédé inapplicable avec les figures cochées et la signature, ou pas
-     encore livré, est grisé et décoché, avec une aide courte : ce qui lui
-     manque (« nécessite la croche ») ou « bientôt ». Le générateur dit ce qui
-     manque (procedeNeeds) ; la page n'en fait que le texte. */
-  const SOON_PROCEDES = ["triplets"];
+     Un procédé inapplicable avec les figures cochées et la signature est
+     grisé et décoché, avec une aide courte : ce qui lui manque (« nécessite
+     la croche »), ou, pour les triolets, la signature qui les exclut (« pas
+     en mesure composée »). Le générateur dit ce qui manque (procedeNeeds,
+     tripletFigure) ; la page n'en fait que le texte. */
   const FIGURE_DEFINITE = {
     ronde: "figureDefinite.whole", blanche: "figureDefinite.half", noire: "figureDefinite.quarter",
     croche: "figureDefinite.eighth", double: "figureDefinite.sixteenth",
@@ -6401,11 +6587,14 @@ window.BRT_EMBEDDED_SAMPLES = {
   /* Les autres procédés cochés comptent : en 5/8, la noire pointée de
      Points peut seule ouvrir la place d'un soupir. */
   function procedeHelp(procede, figures){
-    if (SOON_PROCEDES.indexOf(procede) !== -1) return t("procede.soon");
     if (!figures.length) return "";
+    const G = window.BassRhythmGenerator;
     const others = checkedProcedes().filter(function(p){ return p !== procede; });
-    const needs = window.BassRhythmGenerator.procedeNeeds({ figures: figures, meter: signature, procedes: others }, procede);
+    const needs = G.procedeNeeds({ figures: figures, meter: signature, procedes: others }, procede);
     if (!needs) return "";
+    if (procede === "triplets" && !G.tripletFigure(signature)){
+      return t(Meter.analyzeMeter(signature).compound ? "procede.notCompound" : "procede.notEighth");
+    }
     if (!needs.length) return t("procede.needsMore");
     return t("procede.needs", {
       figures: joinList(needs.map(function(fig){ return t(FIGURE_DEFINITE[fig]); }))
@@ -6956,15 +7145,17 @@ window.BRT_EMBEDDED_SAMPLES = {
   });
 
   /* État du Composer. measures : chaque mesure est une liste d'événements
-     « riches » { fig, rest, dot, tie } ; la DERNIÈRE mesure est toujours la
-     mesure ouverte (partielle ou vide). L'invariant — toute mesure pleine vaut
-     exactement la signature — est rétabli après chaque mutation par
-     normalizeComposer(). La composition persiste pendant la session (rouvrir
-     le tiroir ne l'efface pas). */
+     « riches » { fig, rest, dot, tie, triplet } ; la DERNIÈRE mesure est
+     toujours la mesure ouverte (partielle ou vide). L'invariant — toute
+     mesure pleine vaut exactement la signature — est rétabli après chaque
+     mutation par normalizeComposer(). openTriplet : un triolet est ouvert au
+     curseur, ses cases se remplissent aux touches suivantes. La composition
+     persiste pendant la session (rouvrir le tiroir ne l'efface pas). */
   var composer = {
     active: false,
     meter: "4/4",
     measures: [[]],
+    openTriplet: false,
     families: { silences: false, modif: false },
     selection: null
   };
@@ -6977,7 +7168,7 @@ window.BRT_EMBEDDED_SAMPLES = {
   function figBeats(fig, dot){
     return window.BassRhythmGenerator.figureBeats(fig, composer.meter, dot);
   }
-  function eventDur(ev){ return figBeats(ev.fig, ev.dot); }
+  function eventDur(ev){ return window.BassRhythmGenerator.eventBeats(ev, composer.meter); }
   function measSum(m){
     var s = 0;
     for (var i = 0; i < m.length; i++) s += eventDur(m[i]);
@@ -7024,15 +7215,41 @@ window.BRT_EMBEDDED_SAMPLES = {
   }
 
   /* ---------- pose et modificateurs ---------- */
+  /* Dans un triolet ouvert, seules passent les figures que permet le
+     générateur (tripletFigures : croche ou demi-soupir en /4, noire ou
+     soupir en /2), jamais pointées. */
+  function tripletAllows(fig, isRest, dot){
+    if (dot) return false;
+    return window.BassRhythmGenerator.tripletFigures(composer).some(function(f){
+      return f.fig === fig && f.rest === !!isRest;
+    });
+  }
+  function inTriplet(){ return window.BassRhythmGenerator.tripletFilled(composer) !== null; }
   function placeFigure(fig, isRest, dot){
-    if (isRest && pendingTie()) return; // on ne lie pas vers un silence
-    if (!fitsFigure(fig, dot)) return;  // ne rentre pas dans la place restante
-    openMeasure().push({ fig: fig, rest: !!isRest, dot: !isRest && !!dot, tie: false });
+    if (inTriplet()){
+      if (!tripletAllows(fig, isRest, dot)) return;
+      openMeasure().push({ fig: fig, rest: !!isRest, dot: false, tie: false, triplet: true });
+      // troisième case remplie : le triolet se ferme seul
+      if (window.BassRhythmGenerator.tripletFilled(composer) === 0) composer.openTriplet = false;
+    } else {
+      if (isRest && pendingTie()) return; // on ne lie pas vers un silence
+      if (!fitsFigure(fig, dot)) return;  // ne rentre pas dans la place restante
+      openMeasure().push({ fig: fig, rest: !!isRest, dot: !isRest && !!dot, tie: false, triplet: false });
+    }
     composer.selection = null;
     normalizeComposer();
     refreshComposer();
   }
+  /* Effacer : retire le dernier événement. Sur un triolet ouvert encore vide,
+     referme le triolet ; retirer une note d'un triolet complet le rouvre
+     (ses cases restantes attendent les touches suivantes). */
   function backspaceComposer(){
+    if (window.BassRhythmGenerator.tripletFilled(composer) === 0){
+      composer.openTriplet = false;
+      composer.selection = null;
+      refreshComposer();
+      return;
+    }
     var ms = composer.measures;
     var open = ms[ms.length - 1];
     if (!open.length){
@@ -7040,13 +7257,15 @@ window.BRT_EMBEDDED_SAMPLES = {
       ms.pop();
       open = ms[ms.length - 1];
     }
-    open.pop();
+    const removed = open.pop();
+    if (removed.triplet) composer.openTriplet = true;
     composer.selection = null;
     normalizeComposer();
     refreshComposer();
   }
   function clearComposer(){
     composer.measures = [[]];
+    composer.openTriplet = false;
     composer.selection = null;
     refreshComposer();
   }
@@ -7059,6 +7278,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     }
     composer.meter = v;
     composer.measures = [[]];
+    composer.openTriplet = false;
     composer.selection = null;
     refreshComposer();
     return true;
@@ -7094,10 +7314,30 @@ window.BRT_EMBEDDED_SAMPLES = {
     last.tie = !last.tie;
     refreshComposer();
   }
+  /* Triolet : ouvre, en début de temps, un groupe de trois cases ; un
+     triolet ouvert encore vide se referme au second appui. Pendant le
+     triolet, le bouton reste enfoncé et les autres blocs sont grisés. */
+  function tripletState(){
+    const G = window.BassRhythmGenerator;
+    const filled = G.tripletFilled(composer);
+    return {
+      on: filled !== null,
+      disabled: filled === null ? !G.canOpenTriplet(composer) : filled > 0
+    };
+  }
+  function toggleTriplet(){
+    const G = window.BassRhythmGenerator;
+    const filled = G.tripletFilled(composer);
+    if (filled === 0) composer.openTriplet = false;
+    else if (filled === null && G.canOpenTriplet(composer)) composer.openTriplet = true;
+    else return;
+    composer.selection = null;
+    refreshComposer();
+  }
 
   /* ---------- duplication de plage (sélection sur la portée) ---------- */
   function cloneMeasure(m){
-    return m.map(function(e){ return { fig: e.fig, rest: e.rest, dot: e.dot, tie: e.tie }; });
+    return m.map(function(e){ return { fig: e.fig, rest: e.rest, dot: e.dot, tie: e.tie, triplet: !!e.triplet }; });
   }
   function selectComposerRange(a, b){
     composer.selection = { start: Math.min(a, b), end: Math.max(a, b) };
@@ -7137,7 +7377,7 @@ window.BRT_EMBEDDED_SAMPLES = {
   /* ---------- gravure en direct (mêmes options que la vue de jeu) ---------- */
   function toDModel(measures){
     return measures.map(function(m){
-      return m.map(function(ev){ return { d: eventDur(ev), rest: ev.rest, tie: ev.tie }; });
+      return m.map(function(ev){ return { d: eventDur(ev), rest: ev.rest, tie: ev.tie, triplet: !!ev.triplet }; });
     });
   }
   function sumD(m){
@@ -7145,12 +7385,27 @@ window.BRT_EMBEDDED_SAMPLES = {
     for (var i = 0; i < m.length; i++) s += m[i].d;
     return s;
   }
+  /* Cases encore vides du triolet ouvert (0 sans triolet ouvert). */
+  function openTripletSlots(){
+    const filled = window.BassRhythmGenerator.tripletFilled(composer);
+    return filled === null ? 0 : 3 - filled;
+  }
   function composerAbc(){
     var G = window.BassRhythmGenerator;
     var beats = composerBeats();
     const beat64 = Meter.analyzeMeter(composer.meter).beat64;
     var noteTok = noteByLetter(noteChoice).abc;
     var dModel = toDModel(composer.measures);
+    // triolet ouvert : ses cases vides sont gravées en silences du triolet
+    // (estompés après la gravure), pour que le chiffre 3 et le crochet
+    // s'affichent dès l'ouverture
+    const slots = openTripletSlots();
+    if (slots){
+      const slot = { fig: G.tripletFigure(composer.meter), dot: false, triplet: true };
+      for (let k = 0; k < slots; k++){
+        dModel[dModel.length - 1].push({ d: eventDur(slot), rest: true, tie: false, triplet: true });
+      }
+    }
     var unit = G.chooseUnit(dModel, composer.meter);
     var lden = 64 / unit;
     var bars = dModel.map(function(m, mi){
@@ -7180,6 +7435,13 @@ window.BRT_EMBEDDED_SAMPLES = {
       return;
     }
     ABCJS.renderAbc(el, composerAbc(), { add_classes: true, responsive: "resize" });
+    // cases vides du triolet ouvert : les derniers silences gravés (le reste
+    // de la mesure ouverte est invisible et ne produit aucun élément)
+    const slots = openTripletSlots();
+    const events = el.querySelectorAll(".abcjs-note, .abcjs-rest");
+    for (let k = Math.max(0, events.length - slots); k < events.length; k++){
+      events[k].classList.add("triplet-slot");
+    }
     // la ligne en travail reste centrée et s'écarte depuis le centre au fur et
     // à mesure du remplissage (même helper que la vue de jeu)
     centerStaffSvg(el.querySelector("svg"));
@@ -7309,7 +7571,9 @@ window.BRT_EMBEDDED_SAMPLES = {
     return svg;
   }
   function composerItemHTML(fig, isRest, dot){
-    var ok = fitsFigure(fig, dot) && !(isRest && pendingTie());
+    var ok = inTriplet()
+      ? tripletAllows(fig, isRest, dot)
+      : fitsFigure(fig, dot) && !(isRest && pendingTie());
     var image = '<img class="palette-glyph" src="' + (FIG_SRC[fig] || "") + '" alt="">';
     var glyph = isRest
       ? '<span class="palette-glyph palette-rest">' + restGlyphSvg(fig) + '</span>'
@@ -7343,7 +7607,7 @@ window.BRT_EMBEDDED_SAMPLES = {
       html += '</div></div>';
     }
     if (composer.families.modif){
-      var pt = pointState(), ti = tieState();
+      var pt = pointState(), ti = tieState(), tr = tripletState();
       html += '<div class="palette-group"><div class="palette-family">' + t("family.modifiers") + '</div><div class="palette-items">' +
         '<button type="button" class="palette-item mod' + (pt.on ? " on" : "") + '" data-cmod="dot"' +
           (pt.disabled ? " disabled" : "") + ' aria-pressed="' + pt.on + '">' +
@@ -7351,6 +7615,9 @@ window.BRT_EMBEDDED_SAMPLES = {
         '<button type="button" class="palette-item mod' + (ti.on ? " on" : "") + '" data-cmod="tie"' +
           (ti.disabled ? " disabled" : "") + ' aria-pressed="' + ti.on + '">' +
           '<span class="mod-glyph">⌢</span><span class="palette-label">' + t("modifier.tieNext") + '</span></button>' +
+        '<button type="button" class="palette-item mod' + (tr.on ? " on" : "") + '" data-cmod="triplet"' +
+          (tr.disabled ? " disabled" : "") + ' aria-pressed="' + tr.on + '">' +
+          '<span class="mod-glyph mod-triplet">3</span><span class="palette-label">' + t("modifier.triplet") + '</span></button>' +
         '</div></div>';
     }
     return html;
@@ -7380,6 +7647,8 @@ window.BRT_EMBEDDED_SAMPLES = {
     var total = composerBeats();
     var rem = formatBeats(composerRemaining());
     var extra = pendingTie() ? t("composer.tiePending") : "";
+    const filled = window.BassRhythmGenerator.tripletFilled(composer);
+    if (filled !== null) extra += t("composer.tripletOpen", { filled: filled });
     return t("composer.readout", {
       placed: placed,
       total: total,
@@ -7496,10 +7765,11 @@ window.BRT_EMBEDDED_SAMPLES = {
     setPill("note-pills", state.note);
     composer.meter = state.meter;
     var full = state.measures.map(function(bar){
-      return bar.map(function(e){ return { fig: e.fig, rest: !!e.rest, dot: !!e.dot, tie: !!e.tie }; });
+      return bar.map(function(e){ return { fig: e.fig, rest: !!e.rest, dot: !!e.dot, tie: !!e.tie, triplet: !!e.triplet }; });
     });
     composer.measures = full.map(cloneMeasure);
     composer.measures.push([]); // mesure ouverte
+    composer.openTriplet = false;
     composer.selection = null;
     var artifact = window.BassRhythmGenerator.assembleComposed(toDModel(full), {
       meter: composer.meter, note: noteByLetter(noteChoice).abc
@@ -7527,6 +7797,7 @@ window.BRT_EMBEDDED_SAMPLES = {
     if ((el = e.target.closest("[data-cmod]"))){
       if (el.disabled) return;
       if (el.dataset.cmod === "dot") togglePoint();
+      else if (el.dataset.cmod === "triplet") toggleTriplet();
       else toggleTie();
       return;
     }
