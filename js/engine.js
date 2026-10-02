@@ -82,7 +82,8 @@
  *      Volume de pulsation : pulsationVolumes { clic, groove } donne à chaque
  *      voix un facteur de 0 à 2,5 (défaut 1) appliqué à son niveau ; le
  *      décompte prend le volume de la voix choisie. setPulsationVolume(voice,
- *      v) le règle en vol, pulsationVolume(voice) le relit. Un limiteur
+ *      v) le règle en vol, pulsationVolume(voice) le relit ;
+ *      setPulsationVoice(voice) change de voix en vol, à son propre volume. Un limiteur
  *      (DynamicsCompressorNode natif) suit le master : monter la pulsation,
  *      son des notes compris, ne sature jamais la sortie. Les préécoutes
  *      passent par la même sortie limitée.
@@ -672,7 +673,7 @@
     var notesOn = !!opts.notesEnabled;
     var clicksOn = opts.clicksEnabled !== false;
     var pulsationVoice = opts.pulsationVoice === "groove" ? "groove" : "clic";
-    var noise = pulsationVoice === "groove" ? buildNoiseBuffer(ctx) : null;
+    var noise = null;        // buffer de bruit du groove, créé à son premier battement
     var getNoteVoice = opts.getNoteVoice || function () { return null; };
     var noteIdx = 0;
     var cycleBase = 0;       // décalage en temps des cycles de boucle déjà recyclés
@@ -695,6 +696,16 @@
     const pulseBus = ctx.createGain();
     pulseBus.gain.value = pulsationVolumes[pulsationVoice];
     pulseBus.connect(master);
+
+    /* Glissé du bus vers le volume de la voix courante (réglage en vol). */
+    function glidePulseBus() {
+      if (stopped) return;
+      const now = ctx.currentTime;
+      const g = pulseBus.gain;
+      g.cancelScheduledValues(now);
+      g.setValueAtTime(g.value, now);
+      g.linearRampToValueAtTime(pulsationVolumes[pulsationVoice], now + PULSATION_VOLUME_RAMP_S);
+    }
 
     /* Suivi uniforme des voix de pulsation (clic ET groove) dans `live` :
        chaque entrée { srcs, gain } peut être coupée net (setClicksEnabled off,
@@ -737,6 +748,7 @@
         scheduleClick(time, d.accent);
         return;
       }
+      if (!noise) noise = buildNoiseBuffer(ctx);
       var v = grooveVoicesAt(d.beatInBar);
       if (v.kick) trackPulsation(buildKick(ctx, pulseBus, time));
       if (v.snare) trackPulsation(buildSnare(ctx, pulseBus, time, noise));
@@ -856,12 +868,16 @@
       setPulsationVolume: function (voice, value) {
         if (!Object.prototype.hasOwnProperty.call(pulsationVolumes, voice)) return;
         pulsationVolumes[voice] = clampPulsationVolume(value);
-        if (voice !== pulsationVoice || stopped) return;
-        const now = ctx.currentTime;
-        const g = pulseBus.gain;
-        g.cancelScheduledValues(now);
-        g.setValueAtTime(g.value, now);
-        g.linearRampToValueAtTime(pulsationVolumes[voice], now + PULSATION_VOLUME_RAMP_S);
+        if (voice === pulsationVoice) glidePulseBus();
+      },
+      /* Changement de voix en vol : les battements suivants jouent la
+         nouvelle voix, à son propre volume (le déjà programmé, sur moins
+         d'un horizon, garde l'ancienne). */
+      setPulsationVoice: function (voice) {
+        if (!Object.prototype.hasOwnProperty.call(pulsationVolumes, voice)) return;
+        if (voice === pulsationVoice) return;
+        pulsationVoice = voice;
+        glidePulseBus();
       },
       pulsationVolume: function (voice) {
         return pulsationVolumes[voice];

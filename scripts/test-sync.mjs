@@ -32,8 +32,8 @@
  *      grooveVoicesAt, premier hit à la barre 1 ; mode clic (défaut) inchangé.
  * (10) volume de pulsation : la crête de la voix active à la sortie suit le
  *      facteur réglé (0 à 2,5, borné), le décompte prend le volume de la voix
- *      choisie, chaque voix garde le sien, le réglage s'applique en vol aux
- *      battements suivants ; un limiteur (compresseur natif) est le dernier
+ *      choisie, chaque voix garde le sien, le réglage et le changement de voix
+ *      s'appliquent en vol aux battements suivants ; un limiteur (compresseur natif) est le dernier
  *      nœud avant la sortie, pour le transport comme pour les préécoutes.
  * Code de sortie non nul si échec.
  */
@@ -770,6 +770,47 @@ try {
         "volume en vol — chaque voix doit garder la valeur réglée");
       tr.setPulsationVolume("clic", 4);
       expect(tr.pulsationVolume("clic") === 2.5, "volume en vol — borné à 2,5");
+    }
+
+    // Changer de voix en vol : la nouvelle voix joue dès le battement suivant,
+    // à SON volume (chaque voix garde le sien).
+    {
+      const ref = runFor("groove", { clic: 1, groove: 1 }).ctx;
+      // Crêtes par instant (caisse claire et charley tombent ensemble), triées.
+      const peaksByTime = (c, recs) => {
+        const m = new Map();
+        for (const r of recs) {
+          const k = r.time.toFixed(6);
+          m.set(k, [...(m.get(k) || []), peakAtOutput(c, r)].sort((a, b) => a - b));
+        }
+        return m;
+      };
+      const refByTime = peaksByTime(ref, [...ref.synthStarts, ...ref.noteStarts]);
+      const ctx = createMockCtx();
+      const t0 = ctx.currentTime + START_DELAY_S;
+      const tr = createTransport({
+        ctx, bpm: BPM, beatsPerBar: bpb, totalBeats: total, pulsationVolumes: { clic: 0.5, groove: 2 },
+        noteEvents: [], notesEnabled: false, getNoteVoice: () => null,
+      });
+      stepPump(ctx, t0 + 5.5);
+      const changeAt = ctx.currentTime;
+      tr.setPulsationVoice("groove");
+      stepPump(ctx, t0 + (countIn + total + 2) * (60 / BPM));
+      const clicks = clickPeaks(ctx);
+      expect(ctx.clickStarts.every((r) => r.time < changeAt + 0.12),
+        "voix en vol — plus aucun clic de grille après le passage au groove (au-delà de l'horizon)");
+      ctx.clickStarts.forEach((r, i) => {
+        if (r.time < changeAt) expect(close(clicks[i], refClic[i] * 0.5, 1e-9),
+          `voix en vol — clic ${i} avant le changement à ${clicks[i].toFixed(4)}, attendu 0,5 × référence`);
+      });
+      const hits = [...ctx.synthStarts, ...ctx.noteStarts];
+      expect(hits.length > 0 && hits.every((r) => r.time >= changeAt),
+        `voix en vol — ${hits.length} voix de groove, attendues après le changement`);
+      for (const [k, got] of peaksByTime(ctx, hits)) {
+        const want = refByTime.get(k);
+        expect(want !== undefined && want.length === got.length && got.every((p, i) => close(p, want[i] * 2, 1e-9)),
+          `voix en vol — groove à t=${k} : attendu au volume du groove (2 × référence)`);
+      }
     }
 
     // Limiteur : tout chemin vers la sortie traverse un compresseur réglé en
