@@ -5,8 +5,7 @@
  *   config = {
  *     figures:  ["ronde"|"blanche"|"noire"|"croche"|"double"|"triple"|"quadruple", ...],
  *     procedes: ["rests"|"dots"|"ties"|"syncopes"|"triplets", ...] — procédés
- *               cochés, indépendants (défaut [] : notes seules). « triplets »
- *               est accepté mais pas encore tiré,
+ *               cochés, indépendants (défaut [] : notes seules),
  *     meter:    signature n/d permise (n de 1 à 12, d parmi 2, 4 et 8), analysée
  *               par js/meter.js — "4/4", "7/4", "3/2", "5/8", "6/8", "12/8"…
  *     measures: 4 | 8 | 16,
@@ -19,7 +18,8 @@
  *   notes  = timeline [{ startBeats, durationBeats, isRest, tiedToNext }] pour le
  *            moteur de lecture (ticket 03). startBeats/durationBeats en temps
  *            (la noire pointée en mesure composée) ; un début de temps y est
- *            toujours un nombre entier exact.
+ *            toujours un nombre entier exact, et les tiers de temps des
+ *            triolets y sont exacts au flottant près (calculés en ticks).
  *   bars   = texte ABC de chaque mesure ; header = en-tête X/M/L/K. Avec
  *            joinBars(bars, perLine), le client re-découpe la même grille en
  *            2 ou 4 mesures par système (responsive) sans regénérer.
@@ -30,7 +30,10 @@
  * sont toujours disponibles ; chaque autre cellule relève d'un procédé
  * (Silences, Points, Liaisons, Syncopes) et n'est tirée que s'il est coché.
  * Liaisons couvre aussi les liaisons par-dessus la barre ; Syncopes, les
- * syncopes écrites sans liaison. La densité découle des procédés cochés :
+ * syncopes écrites sans liaison ; Triolets, les triolets d'un temps (trois
+ * croches en /4, trois noires en /2, avec un silence interne si Silences est
+ * coché), jamais en mesure composée ni en /8. Un silence exige toujours
+ * Silences. La densité découle des procédés cochés :
  * silences dosés à part, procédés spéciaux sous un budget commun par mesure.
  * procedeNeeds(config, procede) dit ce qui manque pour qu'un procédé soit
  * applicable avec les figures cochées (null s'il l'est). En mesure simple,
@@ -43,6 +46,14 @@
  * gouverne que les pointées plus fines que le temps (sicilienne). La
  * ligature regroupe toujours les valeurs plus courtes que le temps par temps
  * — les croches par trois en mesure composée.
+ *
+ * Durées : les événements portent leur durée réelle en temps (d) ; une note
+ * de triolet (triplet: true) vaut les deux tiers de sa valeur écrite (la
+ * croche de triolet dure 1/3 de temps en /4). Les positions se comptent en
+ * ticks entiers, 192 par ronde (3 par 64e) : le tiers de temps y est exact,
+ * la ligature, la règle des triolets et la timeline s'y calculent sans
+ * dérive. L'ABC, lui, n'écrit que des valeurs binaires (unité L: entre 1/8
+ * et 1/64) ; un triolet s'y grave « (3 » devant ses trois notes.
  *
  * Grille composée (mode Composer) : assembleComposed(measures, config) rend le
  * même { abc, notes, bars, header } à partir d'une suite de mesures construites
@@ -86,6 +97,13 @@
   /* Figures de la plus longue à la plus courte. */
   const FIGURE_ORDER = Object.keys(FIGURE_64);
 
+  /* Ticks par 64e de ronde : 192 ticks par ronde, base entière qui contient
+     le tiers de temps (croche de triolet = 16 ticks en /4). */
+  const TICKS_PER_64 = 3;
+  /* Une note de triolet vaut les deux tiers de sa valeur écrite. */
+  const TRIPLET_RATIO = 2 / 3;
+  const TRIPLET_SIZE = 3;
+
   /* ---------- règle de liaison ----------
    *
    * Une liaison se fait toujours sur un début de temps : dans un même temps, on
@@ -105,15 +123,18 @@
 
   /* ---------- catalogues de cellules rythmiques (durées en temps) ---------- */
 
-  function note(d) { return { d: d, rest: false, tie: false }; }
-  function tiedNote(d) { return { d: d, rest: false, tie: true }; }
-  function silence(d) { return { d: d, rest: true, tie: false }; }
+  function note(d) { return { d: d, rest: false, tie: false, triplet: false }; }
+  function tiedNote(d) { return { d: d, rest: false, tie: true, triplet: false }; }
+  function silence(d) { return { d: d, rest: true, tie: false, triplet: false }; }
+  /* Note et silence de triolet d'un temps : un tiers de temps chacun. */
+  function tripletNote() { return { d: 1 / TRIPLET_SIZE, rest: false, tie: false, triplet: true }; }
+  function tripletSilence() { return { d: 1 / TRIPLET_SIZE, rest: true, tie: false, triplet: true }; }
 
   function repeatElems(groups, times) {
     var out = [];
     for (var i = 0; i < times; i++) {
       for (var j = 0; j < groups.length; j++) {
-        out.push({ d: groups[j].d, rest: groups[j].rest, tie: groups[j].tie });
+        out.push({ d: groups[j].d, rest: groups[j].rest, tie: groups[j].tie, triplet: groups[j].triplet });
       }
     }
     return out;
@@ -132,7 +153,8 @@
     if (Math.abs(len - lenInt) > 1e-9) {
       throw new Error("Cellule non alignée sur le temps : " + id);
     }
-    return { id: id, kind: kind, weight: weight, lenInt: lenInt, elems: elems };
+    const hasRest = elems.some(function (el) { return el.rest; });
+    return { id: id, kind: kind, weight: weight, lenInt: lenInt, elems: elems, hasRest: hasRest };
   }
 
   /*
@@ -142,7 +164,10 @@
    *        "rests"    : silences équivalents aux figures cochées ;
    *        "dots"     : cellules pointées ;
    *        "ties"     : cellules liées (toujours sur un début de temps) ;
-   *        "syncopes" : syncopes écrites sans liaison.
+   *        "syncopes" : syncopes écrites sans liaison ;
+   *        "triplets" : triolet d'un temps (sa figure écrite vaut un
+   *                     demi-temps : croche en /4, noire en /2), avec un
+   *                     silence interne seulement si Silences est coché.
    * Les liaisons par-dessus la barre relèvent aussi de "ties" (addCrossBarTies).
    */
   const SIMPLE_CELLS = [
@@ -205,7 +230,14 @@
     /* croche – noire – croche */
     cell("syncope-half-beat-half", "syncopes", 5, [note(0.5), note(1), note(0.5)]),
     /* croche – noire – noire – croche */
-    cell("syncope-long", "syncopes", 2, [note(0.5), note(1), note(1), note(0.5)])
+    cell("syncope-long", "syncopes", 2, [note(0.5), note(1), note(1), note(0.5)]),
+
+    /* --- Triolets : trois notes égales dans un temps (étape 11) --- */
+    cell("triplet", "triplets", 8, repeatElems([tripletNote()], 3)),
+    /* silences internes, à chacune des trois places */
+    cell("triplet-rest-first", "triplets", 2, [tripletSilence(), tripletNote(), tripletNote()]),
+    cell("triplet-rest-middle", "triplets", 2, [tripletNote(), tripletSilence(), tripletNote()]),
+    cell("triplet-rest-last", "triplets", 2, [tripletNote(), tripletNote(), tripletSilence()])
   ];
 
   /*
@@ -298,12 +330,11 @@
     cell("c-hemiola", "syncopes", 4, [note(2 * EIGHTH), note(2 * EIGHTH), note(2 * EIGHTH)])
   ];
 
-  /* Procédés reconnus, dans l'ordre d'affichage. « triplets » est réservé :
-     aucune cellule ne le porte encore (triolets à venir). */
+  /* Procédés reconnus, dans l'ordre d'affichage. */
   var PROCEDES = ["rests", "dots", "ties", "syncopes", "triplets"];
   /* Procédés tirés comme cellules « spéciales » : ils se partagent un même
      budget par mesure, pour qu'une mesure reste lisible quand on les cumule. */
-  var SPECIAL_PROCEDES = ["dots", "ties", "syncopes"];
+  var SPECIAL_PROCEDES = ["dots", "ties", "syncopes", "triplets"];
 
   /* ---------- utilitaires ---------- */
 
@@ -319,12 +350,30 @@
     return Math.round(d * beat64);
   }
 
-  /* Position en temps ramenée à l'entier exact quand elle tombe sur un début
-     de temps (les tiers de la mesure composée ne sont pas exacts en flottant) :
-     la timeline et les clics du moteur s'y rejoignent à l'égalité stricte. */
-  function snapBeat(x) {
-    const rounded = Math.round(x);
-    return Math.abs(x - rounded) < BEAT_EPSILON ? rounded : x;
+  /* Convertit une durée en temps vers des ticks entiers (192 par ronde), le
+     temps valant beat64 × 3 ticks : exact pour toute figure, pointée, de
+     mesure composée ou de triolet. */
+  function beatsToTicks(d, beat64) {
+    return Math.round(d * beat64 * TICKS_PER_64);
+  }
+
+  /* Durée écrite (en temps) d'un événement : sa durée réelle, ou les trois
+     demis de celle-ci pour une note de triolet (trois croches pour deux). */
+  function writtenBeats(event) {
+    return event.triplet ? event.d / TRIPLET_RATIO : event.d;
+  }
+
+  /* Figure d'un triolet sur un temps, celle qui vaut un demi-temps : la
+     croche en /4, la noire en /2. null quand la signature n'en permet pas :
+     mesure composée (le temps s'y divise déjà en trois) et /8 simple (ce
+     serait un triolet de doubles, hors du programme). */
+  function tripletFigure(meter) {
+    const m = parseMeter(meter);
+    if (m.compound || m.denominator === 8) return null;
+    for (let i = 0; i < FIGURE_ORDER.length; i++) {
+      if (FIGURE_64[FIGURE_ORDER[i]] * 2 === m.beat64) return FIGURE_ORDER[i];
+    }
+    return null;
   }
 
   /* Durée en temps d'une figure sous une signature, éventuellement pointée
@@ -334,6 +383,13 @@
      tests. */
   function figureBeats(fig, meter, dot) {
     return FIGURE_64[fig] * (dot ? 1.5 : 1) / parseMeter(meter).beat64;
+  }
+
+  /* Durée réelle en temps d'un événement de composition { fig, dot, triplet } :
+     une note de triolet vaut les deux tiers de sa figure. */
+  function eventBeats(event, meter) {
+    const written = figureBeats(event.fig, meter, event.dot);
+    return event.triplet ? written * TRIPLET_RATIO : written;
   }
 
   /* ---------- règles de pose de Composer (fonctions pures) ----------
@@ -423,13 +479,17 @@
    * Une cellule est disponible si son procédé est coché (les cellules de base
    * le sont toujours) et si toutes ses durées correspondent à une figure
    * cochée (les silences exigent la figure de durée équivalente ; les valeurs
-   * pointées exigent leur figure de base). Le catalogue suit la signature :
-   * mesure simple ou composée. En composée, une valeur pointée d'au moins un
-   * temps (note ou silence) est ordinaire : elle n'exige que sa figure de base.
+   * pointées exigent leur figure de base, un triolet sa figure écrite). Le
+   * catalogue suit la signature : mesure simple ou composée. En composée, une
+   * valeur pointée d'au moins un temps (note ou silence) est ordinaire : elle
+   * n'exige que sa figure de base. Un silence exige toujours Silences, même
+   * dans une cellule d'un autre procédé (silence interne d'un triolet) ; un
+   * triolet n'existe que là où tripletFigure le permet.
    */
   function availableCells(config) {
     var m = parseMeter(config.meter);
     const catalog = m.compound ? COMPOUND_CELLS : SIMPLE_CELLS;
+    const tripletsAllowed = tripletFigure(config.meter) !== null;
     var fig64 = {};
     for (var i = 0; i < config.figures.length; i++) {
       fig64[FIGURE_64[config.figures[i]]] = true;
@@ -438,14 +498,17 @@
     for (var c = 0; c < catalog.length; c++) {
       var cc = catalog[c];
       if (cc.kind !== "base" && !hasProcede(config, cc.kind)) continue;
+      if (cc.hasRest && !hasProcede(config, "rests")) continue;
+      if (cc.kind === "triplets" && !tripletsAllowed) continue;
       if (cc.lenInt > m.beats) continue;
       var ok = true;
       for (var e = 0; e < cc.elems.length; e++) {
         var el = cc.elems[e];
-        var v = beatsTo64(el.d, m.beat64);
+        const written = writtenBeats(el);
+        var v = beatsTo64(written, m.beat64);
         /* Valeur plus fine que la quadruple croche une fois transposée (en
            /8 simple) : cellule inutilisable. */
-        if (Math.abs(el.d * m.beat64 - v) > BEAT_EPSILON) {
+        if (Math.abs(written * m.beat64 - v) > BEAT_EPSILON) {
           ok = false;
           break;
         }
@@ -648,7 +711,7 @@
         var chosen = pickWeighted(pool, rng);
         for (var e = 0; e < chosen.elems.length; e++) {
           var el = chosen.elems[e];
-          events.push({ d: el.d, rest: el.rest, tie: el.tie });
+          events.push({ d: el.d, rest: el.rest, tie: el.tie, triplet: el.triplet });
         }
         pos += chosen.lenInt;
       }
@@ -682,8 +745,9 @@
   /* ---------- assemblage ABC + timeline ---------- */
 
   /*
-   * Unité L: de la grille : la plus fine réellement présente, entre 1/8 et
-   * 1/64 (une grille sans événement retombe sur 1/8). Partagée par le tirage
+   * Unité L: de la grille : la plus fine valeur écrite réellement présente,
+   * entre 1/8 et 1/64 (une grille sans événement retombe sur 1/8) ; une note
+   * de triolet compte pour sa valeur écrite. Partagée par le tirage
    * aléatoire et la composition manuelle — même choix d'unité des deux côtés.
    */
   function chooseUnit(measures, meter) {
@@ -691,7 +755,7 @@
     var g = 0;
     for (var i = 0; i < measures.length; i++) {
       for (var j = 0; j < measures[i].length; j++) {
-        g = gcd(g, beatsTo64(measures[i][j].d, beat64));
+        g = gcd(g, beatsTo64(writtenBeats(measures[i][j]), beat64));
       }
     }
     return gcd(g, 8);
@@ -702,25 +766,31 @@
    * valeurs plus courtes sont ligaturées par temps (regroupées tant qu'elles
    * partagent le même temps — les croches par trois en mesure composée).
    * meter = signature (elle fixe la durée du temps), noteTok = jeton de la
-   * note (les silences s'écrivent "z"), le suffixe "-" marque une liaison
-   * vers l'événement suivant. Fonction pure, réutilisée par l'assemblage et
-   * la scène de composition (mesure ouverte gravée en direct).
+   * note (les silences s'écrivent "z", un événement hidden "x", silence
+   * invisible), le suffixe "-" marque une liaison vers l'événement suivant.
+   * Une note de triolet s'écrit à sa valeur écrite ; celle qui ouvre un
+   * triolet, sur un début de temps, porte le préfixe « (3 ». Fonction pure,
+   * réutilisée par l'assemblage et la scène de composition (mesure ouverte
+   * gravée en direct, cases vides d'un triolet ouvert comprises).
    */
   function barText(events, unit, meter, noteTok) {
     const beat64 = parseMeter(meter).beat64;
+    const beatTicks = beat64 * TICKS_PER_64;
     var groups = [];   /* chaînes (tokens isolés) ou { beat, toks } (ligature par temps) */
     var current = null;
-    let pos64 = 0;
+    let posTicks = 0;
     for (var j = 0; j < events.length; j++) {
       var e = events[j];
-      const d64 = beatsTo64(e.d, beat64);
+      const d64 = beatsTo64(writtenBeats(e), beat64);
       var mult = d64 / unit;
-      var tok = (e.rest ? "z" : noteTok) + (mult === 1 ? "" : mult) + (e.tie ? "-" : "");
+      const opensTriplet = !!e.triplet && posTicks % beatTicks === 0;
+      const symbol = e.hidden ? "x" : (e.rest ? "z" : noteTok);
+      var tok = (opensTriplet ? "(" + TRIPLET_SIZE : "") + symbol + (mult === 1 ? "" : mult) + (e.tie ? "-" : "");
       if (d64 >= beat64) {
         groups.push(tok);
         current = null;
       } else {
-        const beatIdx = Math.floor(pos64 / beat64);
+        const beatIdx = Math.floor(posTicks / beatTicks);
         if (current && current.beat === beatIdx) {
           current.toks.push(tok);
         } else {
@@ -728,7 +798,7 @@
           groups.push(current);
         }
       }
-      pos64 += d64;
+      posTicks += beatsToTicks(e.d, beat64);
     }
     var parts = [];
     for (var g = 0; g < groups.length; g++) {
@@ -744,10 +814,14 @@
     return "X:1\nM:" + meter + "\nL:1/" + lden + "\nK:C clef=bass\n";
   }
 
+  /* Timeline calculée en ticks entiers, puis ramenée en temps par une seule
+     division : un début de temps est un entier exact, un tiers de temps le
+     flottant le plus proche, sans dérive d'accumulation. */
   function assemble(measures, config, m) {
     var noteTok = config.note || "D,";
     var unit = chooseUnit(measures, config.meter);
     var lden = 64 / unit;
+    const beatTicks = m.beat64 * TICKS_PER_64;
 
     var notes = [];
     var barTexts = [];
@@ -755,16 +829,17 @@
 
     for (var i = 0; i < measures.length; i++) {
       var events = measures[i];
-      var pos = 0;
+      let posTicks = 0;
       for (var j = 0; j < events.length; j++) {
         var e = events[j];
+        const dTicks = beatsToTicks(e.d, m.beat64);
         notes.push({
-          startBeats: globalStart + snapBeat(pos),
-          durationBeats: e.d,
+          startBeats: globalStart + posTicks / beatTicks,
+          durationBeats: dTicks / beatTicks,
           isRest: !!e.rest,
           tiedToNext: !!e.tie
         });
-        pos += e.d;
+        posTicks += dTicks;
       }
       globalStart += m.beats;
       barTexts.push(barText(events, unit, config.meter, noteTok));
@@ -784,7 +859,7 @@
 
   /*
    * Assemble une grille COMPOSÉE à la main — une suite de mesures d'événements
-   * { d (temps), rest, tie } — au même contrat que generateExercise :
+   * { d (temps réels), rest, tie, triplet } — au même contrat que generateExercise :
    * { abc, notes, bars, header }. Réutilise assemble (aucune logique
    * d'assemblage dupliquée) : une grille composée devient un artefact
    * strictement identique à une grille générée et se rebranche sur toute la
@@ -805,7 +880,7 @@
       var bar = [];
       for (j = 0; j < measures[i].length; j++) {
         var e = measures[i][j];
-        var copy = { d: e.d, rest: !!e.rest, tie: !!e.tie };
+        var copy = { d: e.d, rest: !!e.rest, tie: !!e.tie, triplet: !!e.triplet };
         bar.push(copy);
         order.push(copy);
       }

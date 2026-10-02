@@ -18,10 +18,19 @@
  *      ligaturées par temps (les croches par trois en mesure composée) ;
  *  (g) mesure composée : la noire pointée et la blanche pointée sont des
  *      figures ordinaires (présentes sans Points), la sicilienne n'apparaît
- *      qu'avec Points ; les temps entiers de la timeline sont exacts.
+ *      qu'avec Points ; les temps entiers de la timeline sont exacts ;
+ *  (h) triolets : gravés « (3 » sur la figure de base (croche en /4, noire
+ *      en /2), chaque triolet commence sur un début de temps et dure
+ *      exactement un temps, silences internes avec Silences, jamais en
+ *      mesure composée ni en /8, jamais sans Triolets ; la timeline donne
+ *      des instants exacts au tiers de temps.
  * Plus : structure ABC (en-tête, 4 mesures par ligne, « |] »), cohérence
  * ABC <-> timeline notes, densité des procédés, applicabilité d'un procédé
  * selon les figures cochées (procedeNeeds).
+ *
+ * Les durées lues dans l'ABC sont converties en ticks (192 par ronde) : la
+ * valeur écrite d'une note de triolet compte pour ses deux tiers, ce qui
+ * reste entier (croche de triolet = 16 ticks).
  */
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -42,12 +51,23 @@ const PROCEDE_SETS = [
   ["dots"],
   ["ties"],
   ["syncopes"],
+  ["triplets"],
   ["rests", "dots"],
   ["ties", "syncopes"],
+  ["rests", "triplets"],
   ["rests", "dots", "ties", "syncopes"],
+  ["rests", "dots", "ties", "syncopes", "triplets"],
 ];
-/* Procédés repérables dans la grille gravée (les triolets arrivent plus tard). */
-const DRAWN_PROCEDES = ["rests", "dots", "ties", "syncopes"];
+/* Procédés repérables dans la grille gravée. */
+const DRAWN_PROCEDES = ["rests", "dots", "ties", "syncopes", "triplets"];
+/* Ticks par 64e de ronde : 192 ticks par ronde, le tiers de temps y est entier. */
+const TICKS_PER_64 = 3;
+/* Figure du triolet sur un temps (valeur écrite en 64e) : croche en /4, noire
+   en /2 ; aucun triolet en /8 ni en mesure composée. */
+function tripletWritten64(meterInfo) {
+  if (meterInfo.compound || meterInfo.denominator === 8) return null;
+  return meterInfo.beat64 / 2;
+}
 const FIGURE_SETS = [
   ["blanche", "noire"],
   ["noire", "croche"],
@@ -108,55 +128,87 @@ function verifyExercise(cfg, res, ctx) {
   const target64 = (num * 64) / den;
 
   const beat64 = meterInfo.beat64;
+  const beatTicks = beat64 * TICKS_PER_64;
+  const triplet64 = tripletWritten64(meterInfo);
   const has = (procede) => cfg.procedes.includes(procede);
 
   measures.forEach((mtext, mi) => {
-    let sum64 = 0;
+    let sumTicks = 0;
     const measureTokens = [];
     let previousShort = null; /* { beat, group } de la dernière valeur plus courte que le temps */
+    let tripletLeft = 0;
+    let tripletStart = 0;
     mtext.split(/\s+/).forEach((grp, gi) => {
-      const re = /(D,|z)(\d*)(-?)/g;
+      const re = /(\(3)?(D,|z)(\d*)(-?)/g;
       let covered = "";
       let match;
       let groupBeat = null;
       let groupSize = 0;
       while ((match = re.exec(grp))) {
         covered += match[0];
-        const rest = match[1] === "z";
-        const mult = match[2] === "" ? 1 : Number(match[2]);
-        const tie = match[3] === "-";
-        const dur64 = mult * unit64;
-        const start64 = sum64;
-        const end64 = start64 + dur64;
-        sum64 += dur64;
+        const opensTriplet = match[1] === "(3";
+        const rest = match[2] === "z";
+        const mult = match[3] === "" ? 1 : Number(match[3]);
+        const tie = match[4] === "-";
+        const written64 = mult * unit64;
+        const startTicks = sumTicks;
+        if (opensTriplet) {
+          expect(tripletLeft === 0, ctx, `triolet ouvert dans un triolet (mesure ${mi + 1})`);
+          expect(groupSize === 0, ctx, `triolet ligaturé avec d'autres valeurs (« ${grp} », mesure ${mi + 1})`);
+          tripletLeft = 3;
+          tripletStart = startTicks;
+        }
+        const triplet = tripletLeft > 0;
+        const tripletIndex = triplet ? 3 - tripletLeft : -1;
+        /* Une note de triolet vaut les deux tiers de sa valeur écrite. */
+        const durTicks = triplet ? written64 * 2 : written64 * TICKS_PER_64;
+        const dur64 = durTicks / TICKS_PER_64;
+        const endTicks = startTicks + durTicks;
+        sumTicks += durTicks;
         /* Valeur pointée ; en mesure composée, les pointées d'au moins un
            temps (noire pointée, blanche pointée…) sont des figures
            ordinaires, seules les plus fines relèvent de Points. */
-        const pointed = dur64 % 3 === 0;
-        const ordinaryPointed = pointed && meterInfo.compound && dur64 >= beat64;
+        const pointed = !triplet && written64 % 3 === 0;
+        const ordinaryPointed = pointed && meterInfo.compound && written64 >= beat64;
         const dotted = !rest && pointed && !ordinaryPointed;
         /* Syncope écrite sans liaison : une note attaquée hors d'un début de
            temps qui déborde sur le temps suivant. */
-        const syncope = !rest && start64 % beat64 !== 0 &&
-          end64 > (Math.floor(start64 / beat64) + 1) * beat64;
-        if (rest) {
+        const syncope = !rest && startTicks % beatTicks !== 0 &&
+          endTicks > (Math.floor(startTicks / beatTicks) + 1) * beatTicks;
+        if (triplet) {
+          expect(has("triplets"), ctx, "triolet présent sans le procédé Triolets");
+          expect(triplet64 !== null, ctx, `triolet dans une signature qui n'en permet pas (${cfg.meter})`);
+          expect(written64 === triplet64, ctx,
+            `note de triolet écrite ${written64}/64 au lieu de la figure du triolet (${triplet64}/64)`);
+          expect(fig64.has(written64), ctx, "triolet sans sa figure de base cochée");
+          if (rest) expect(has("rests"), ctx, "silence de triolet sans le procédé Silences");
+          expect(!tie || tripletIndex === 2, ctx, `liaison au milieu d'un triolet (mesure ${mi + 1})`);
+          tripletLeft--;
+          if (tripletLeft === 0) {
+            expect(tripletStart % beatTicks === 0, ctx,
+              `triolet hors d'un début de temps (mesure ${mi + 1}, à ${tripletStart} ticks)`);
+            expect(endTicks - tripletStart === beatTicks, ctx,
+              `triolet de ${endTicks - tripletStart} ticks au lieu d'un temps (mesure ${mi + 1})`);
+          }
+        } else if (rest) {
           expect(has("rests"), ctx, "silence présent sans le procédé Silences");
           expect(!tie, ctx, "liaison posée sur un silence");
-          expect(fig64.has(ordinaryPointed ? (dur64 * 2) / 3 : dur64), ctx,
-            `silence de durée ${dur64}/64 sans figure cochée équivalente`);
+          expect(fig64.has(ordinaryPointed ? (written64 * 2) / 3 : written64), ctx,
+            `silence de durée ${written64}/64 sans figure cochée équivalente`);
         } else if (pointed) {
           if (dotted) expect(has("dots"), ctx, "note pointée plus fine que le temps sans le procédé Points");
-          expect(fig64.has((dur64 * 2) / 3), ctx, `pointée de durée ${dur64}/64 sans figure de base cochée`);
+          expect(fig64.has((written64 * 2) / 3), ctx, `pointée de durée ${written64}/64 sans figure de base cochée`);
         } else {
-          expect(fig64.has(dur64), ctx, `note de durée ${dur64}/64 hors figures cochées`);
+          expect(fig64.has(written64), ctx, `note de durée ${written64}/64 hors figures cochées`);
         }
+        if (triplet && rest) expect(!tie, ctx, "liaison posée sur un silence de triolet");
         /* (f) ligature par temps : une valeur d'au moins un temps reste
            isolée ; les plus courtes d'un même temps forment un seul groupe. */
-        if (dur64 >= beat64) {
+        if (durTicks >= beatTicks) {
           expect(grp === match[0], ctx, `valeur d'un temps ou plus ligaturée (« ${grp} »)`);
           previousShort = null;
         } else {
-          const beatIdx = Math.floor(start64 / beat64);
+          const beatIdx = Math.floor(startTicks / beatTicks);
           if (groupSize === 0) groupBeat = beatIdx;
           expect(beatIdx === groupBeat, ctx, `ligature à cheval sur deux temps (« ${grp} », mesure ${mi + 1})`);
           expect(!(groupSize === 0 && previousShort && previousShort.beat === beatIdx), ctx,
@@ -166,18 +218,19 @@ function verifyExercise(cfg, res, ctx) {
         }
         if (tie) {
           expect(has("ties"), ctx, "liaison sans le procédé Liaisons");
-          expect(end64 % beat64 === 0, ctx,
-            `liaison au milieu d'un temps (mesure ${mi + 1}, fin à ${end64}/64)`);
+          expect(endTicks % beatTicks === 0, ctx,
+            `liaison au milieu d'un temps (mesure ${mi + 1}, fin à ${endTicks} ticks)`);
         }
         if (syncope) expect(has("syncopes"), ctx, "syncope sans le procédé Syncopes");
-        const token = { rest, dur64, tie, dotted, syncope, start64 };
+        const token = { rest, dur64, durTicks, startTicks, written64, tie, dotted, syncope, triplet, tripletIndex };
         measureTokens.push(token);
         allTokens.push(token);
       }
       expect(covered === grp, ctx, `tokens ABC invalides : « ${grp} »`);
     });
-    expect(sum64 === target64, ctx,
-      `mesure ${mi + 1} somme ${sum64}/64 au lieu de ${target64}/64`);
+    expect(tripletLeft === 0, ctx, `triolet incomplet (mesure ${mi + 1})`);
+    expect(sumTicks === target64 * TICKS_PER_64, ctx,
+      `mesure ${mi + 1} somme ${sumTicks} ticks au lieu de ${target64 * TICKS_PER_64}`);
     if (measureTokens.length && measureTokens.every((t) => t.rest)) {
       expect(measureTokens.length === 1, ctx,
         `mesure ${mi + 1} entièrement silencieuse sans être une pause seule`);
@@ -194,31 +247,30 @@ function verifyExercise(cfg, res, ctx) {
     }
   }
 
-  /* cohérence timeline notes <-> ABC */
+  /* cohérence timeline notes <-> ABC : instants exacts au tick près */
   expect(Array.isArray(res.notes), ctx, "notes absent du résultat");
   expect(res.notes.length === allTokens.length, ctx,
     `timeline ${res.notes.length} évènements, ABC ${allTokens.length} tokens`);
-  let cursor = 0;
+  let cursorTicks = 0;
   res.notes.forEach((n, i) => {
     const tok = allTokens[i];
     if (!tok) return;
-    expect(Math.abs(n.startBeats - cursor) < 1e-9, ctx,
-      `évènement ${i} : startBeats ${n.startBeats} au lieu de ${cursor}`);
+    expect(Math.abs(n.startBeats * beatTicks - cursorTicks) < 1e-9, ctx,
+      `évènement ${i} : startBeats ${n.startBeats} au lieu de ${cursorTicks / beatTicks}`);
     expect(n.durationBeats > 0, ctx, `évènement ${i} : durée nulle`);
     expect(!!n.isRest === tok.rest, ctx, `évènement ${i} : isRest incohérent`);
     expect(!!n.tiedToNext === tok.tie, ctx, `évènement ${i} : tiedToNext incohérent`);
-    expect(Math.round(n.durationBeats * beat64) === tok.dur64, ctx,
-      `évènement ${i} : durée ${n.durationBeats} temps != ${tok.dur64}/64`);
+    expect(Math.abs(n.durationBeats * beatTicks - tok.durTicks) < 1e-9, ctx,
+      `évènement ${i} : durée ${n.durationBeats} temps != ${tok.durTicks} ticks`);
     /* Un début de temps est un nombre entier exact (synchronisation avec
-       les clics du moteur), mesure composée comprise. */
-    const measureStart = Math.floor(n.startBeats / beats + 1e-9) * beats;
-    if ((Math.round((n.startBeats - measureStart) * beat64)) % beat64 === 0) {
-      expect(Number.isInteger(n.startBeats), ctx, `évènement ${i} : début de temps inexact (${n.startBeats})`);
+       les clics du moteur), mesure composée et triolets compris. */
+    if (cursorTicks % beatTicks === 0) {
+      expect(n.startBeats === cursorTicks / beatTicks, ctx, `évènement ${i} : début de temps inexact (${n.startBeats})`);
     }
-    cursor += n.durationBeats;
+    cursorTicks += tok.durTicks;
   });
-  expect(Math.abs(cursor - cfg.measures * beats) < 1e-9, ctx,
-    `durée totale ${cursor} temps au lieu de ${cfg.measures * beats}`);
+  expect(cursorTicks === cfg.measures * beats * beatTicks, ctx,
+    `durée totale ${cursorTicks / beatTicks} temps au lieu de ${cfg.measures * beats}`);
 
   return allTokens;
 }
@@ -231,12 +283,14 @@ function procedesSeen(toks) {
     if (t.dotted) seen.add("dots");
     if (t.tie) seen.add("ties");
     if (t.syncope) seen.add("syncopes");
+    if (t.triplet) seen.add("triplets");
   }
   return seen;
 }
 
 /* Densité moyenne par mesure, procédés confondus (silences, pointées,
-   liaisons, syncopes) — sert à vérifier qu'une mesure reste lisible. */
+   liaisons, syncopes, triolets comptés une fois par groupe) — sert à
+   vérifier qu'une mesure reste lisible. */
 function procedeCount(toks) {
   let n = 0;
   for (const t of toks) {
@@ -244,6 +298,7 @@ function procedeCount(toks) {
     if (t.dotted) n++;
     if (t.tie) n++;
     if (t.syncope) n++;
+    if (t.tripletIndex === 0) n++;
   }
   return n;
 }
@@ -400,10 +455,69 @@ for (const measures of [4, 16]) {
     "noire seule : une noire pointée par temps attendue");
 }
 
+/* ---------- (h) triolets : début de temps, un temps, silences internes ---------- */
+{
+  const ctx = "triolets";
+  const SIMPLE_TRIPLET_METERS = ["2/4", "3/4", "4/4", "5/4", "2/2", "3/2", "4/2"];
+  let groups = 0;
+  const restSlots = new Set();
+  let mixedMeasures = 0;
+  for (const meter of SIMPLE_TRIPLET_METERS) {
+    const halfBeat = analyzeMeter(meter).denominator === 2;
+    const figures = halfBeat ? ["blanche", "noire"] : ["noire", "croche"];
+    for (const procedes of [["triplets"], ["rests", "triplets"], ["rests", "dots", "ties", "syncopes", "triplets"]]) {
+      const cfg = { figures, procedes, meter, measures: 8 };
+      for (let g = 0; g < 200; g++) {
+        const res = generateExercise(cfg);
+        generations++;
+        const toks = verifyExercise(cfg, res, `${ctx} · ${meter} · {${procedes.join("+")}} · gén. ${g + 1}`);
+        if (!toks) continue;
+        expect(toks.some((t) => t.triplet) === res.abc.includes("(3"), ctx, "triolet gravé sans « (3 »");
+        for (const t of toks) {
+          if (t.tripletIndex === 0) groups++;
+          if (t.triplet && t.rest) restSlots.add(t.tripletIndex);
+        }
+        /* Mélange binaire / ternaire : des mesures portent à la fois un
+           triolet et un temps binaire. */
+        const barTicks = analyzeMeter(meter).beats * analyzeMeter(meter).beat64 * TICKS_PER_64;
+        const byBar = new Map();
+        for (const t of toks) {
+          const bar = Math.floor(t.startTicks / barTicks);
+          if (!byBar.has(bar)) byBar.set(bar, []);
+          byBar.get(bar).push(t);
+        }
+        for (const barToks of byBar.values()) {
+          if (barToks.some((t) => t.triplet) && barToks.some((t) => !t.triplet)) mixedMeasures++;
+        }
+      }
+    }
+    /* En /2, le triolet est un triolet de noires, gravé en L:1/8 (D,2). */
+    if (halfBeat) {
+      const half = generateExercise({ figures: ["blanche", "noire"], procedes: ["triplets"], meter, measures: 16 });
+      generations++;
+      expect(/\(3D,2D,2D,2/.test(half.abc) || !half.abc.includes("(3"), ctx, `${meter} : triolet de noires attendu (D,2) — ${half.abc}`);
+      expect(half.abc.indexOf("L:1/8") !== -1, ctx, `${meter} : unité L:1/8 attendue avec des noires de triolet`);
+    }
+  }
+  expect(groups > 1000, ctx, `trop peu de triolets tirés (${groups})`);
+  expect(restSlots.size === 3, ctx, `silence interne absent d'une des trois places (${[...restSlots].join(",")})`);
+  expect(mixedMeasures > 0, ctx, "aucun mélange de triolets et de temps binaires");
+
+  /* Sans la figure de base ou en mesure composée, Triolets coché ne tire rien. */
+  for (const [figures, meter] of [[["blanche", "noire"], "4/4"], [["ronde", "blanche"], "2/2"],
+    [["noire", "croche"], "6/8"], [["noire", "croche"], "12/8"], [["croche", "double"], "7/8"]]) {
+    for (let g = 0; g < 50; g++) {
+      const res = generateExercise({ figures, procedes: ["triplets"], meter, measures: 8 });
+      generations++;
+      expect(!res.abc.includes("(3"), ctx, `triolet tiré en ${meter} avec [${figures.join("+")}]`);
+    }
+  }
+}
+
 /* ---------- toute signature permise se remplit ---------- */
 {
   for (const meter of METERS) {
-    for (const procedes of [[], ["rests", "dots", "ties", "syncopes"]]) {
+    for (const procedes of [[], ["rests", "dots", "ties", "syncopes", "triplets"]]) {
       const cfg = { figures: FILL_ALL_FIGURES, procedes, meter, measures: 16 };
       for (let g = 0; g < 60; g++) {
         let res = null;
@@ -446,7 +560,15 @@ for (const measures of [4, 16]) {
   expect(needs(["quadruple"], "4/4", "rests") !== null, ctx, "silences inapplicables avec la quadruple seule");
   expect(same(needs(["quadruple"], "4/4", "rests"), ["triple"]), ctx, "silences : nécessite la triple croche");
   expect(needs(["noire"], "4/4", "rests") === null, ctx, "silences applicables avec la noire");
-  expect(Array.isArray(needs(["noire", "croche"], "4/4", "triplets")), ctx, "triolets pas encore tirés : jamais applicables");
+  // Triolets : la figure de base (croche en /4, noire en /2), jamais en mesure composée ni en /8.
+  expect(needs(["noire", "croche"], "4/4", "triplets") === null, ctx, "triolets applicables avec la croche (4/4)");
+  expect(needs(["croche"], "3/4", "triplets") === null, ctx, "triolets applicables avec la croche seule (3/4)");
+  expect(same(needs(["blanche", "noire"], "4/4", "triplets"), ["croche"]), ctx, "triolets : nécessite la croche (4/4)");
+  expect(needs(["blanche", "noire"], "2/2", "triplets") === null, ctx, "triolets de noires applicables (2/2)");
+  expect(same(needs(["ronde", "blanche"], "2/2", "triplets"), ["noire"]), ctx, "triolets : nécessite la noire (2/2)");
+  expect(same(needs(["noire", "croche"], "6/8", "triplets"), []), ctx, "triolets : jamais en mesure composée (6/8)");
+  expect(same(needs(["noire", "croche", "double"], "12/8", "triplets"), []), ctx, "triolets : jamais en mesure composée (12/8)");
+  expect(same(needs(["croche", "double"], "7/8", "triplets"), []), ctx, "triolets : jamais en /8 simple");
   // Mesures composées : Points ne gouverne que la sicilienne (croche pointée – double – croche).
   expect(same(needs(["noire", "croche"], "6/8", "dots"), ["double"]), ctx, "6/8 · points : nécessite la double croche");
   expect(needs(["croche", "double"], "6/8", "dots") === null, ctx, "6/8 · points applicables avec croche + double");
