@@ -45,7 +45,11 @@
  *      les seuls temps quand la subdivision est coupée) et en 5/4, 7/4 ;
  * (13) grille composée réelle en 6/8 (générateur + rng) : attaques des temps
  *      === clics des temps, attaques des croches sur les clics de
- *      subdivision — guidage visuel et son de basse synchrones.
+ *      subdivision — guidage visuel et son de basse synchrones ;
+ * (14) grille à triolets réelle en 4/4 et en 2/2 (générateur + rng) : les
+ *      attaques des temps === clics, celles des notes de triolet pile au
+ *      tiers et aux deux tiers du temps (t0 + (décompte + k/3)·spb), et la
+ *      note est allumée à l'instant où elle s'entend.
  * Code de sortie non nul si échec.
  */
 import { createRequire } from "node:module";
@@ -1061,6 +1065,60 @@ try {
           expect(lit.includes(idx), `6/8 à ${BPM} — note ${ev.startBeats} éteinte quand elle s'entend (position ${pos})`);
         });
       }
+    }
+  }
+
+  /* ================ (14) triolets en 4/4 et en 2/2 : notes, clics et guidage ================ */
+  for (const [meter, figures, bpb] of [["4/4", ["noire", "croche"], 4], ["2/2", ["blanche", "noire"], 2]]) {
+    let ex = null;
+    for (let seed = 1; seed <= 80 && !ex; seed++) {
+      const cand = generateExercise({
+        figures, procedes: ["rests", "triplets"], meter, measures: 4, rng: mulberry32(seed),
+      });
+      const evs = noteSoundEvents(cand.notes);
+      const onThird = (e) => [1, 2].includes(Math.round((e.startBeats % 1) * 3)) &&
+        Math.abs(e.startBeats * 3 - Math.round(e.startBeats * 3)) < 1e-9;
+      if (evs.some((e) => Number.isInteger(e.startBeats)) && evs.filter(onThird).length >= 4) ex = cand;
+    }
+    expect(!!ex, `${meter} — aucune graine ne donne des attaques sur les temps et dans les triolets`);
+    if (!ex) continue;
+    const events = noteSoundEvents(ex.notes);
+    for (const BPM of [60, 133]) {
+      const spb = 60 / BPM;
+      const ctx = createMockCtx({ outputLatency: 0.02 });
+      const t0 = ctx.currentTime + START_DELAY_S;
+      const tr = createTransport({
+        ctx, bpm: BPM, beatsPerBar: bpb, totalBeats: 4 * bpb,
+        noteEvents: events, notesEnabled: true, getNoteVoice: () => ({ buffer: BUFFER }),
+      });
+      stepPump(ctx, t0 + (5 * bpb + 2) * spb);
+      const clicks = ctx.clickStarts.slice().sort((a, b) => a.time - b.time);
+      expect(clicks.length === 5 * bpb, `${meter} à ${BPM} — ${clicks.length} clic(s), attendu ${5 * bpb}`);
+      expect(ctx.noteStarts.length === events.length, `${meter} à ${BPM} — ${ctx.noteStarts.length} attaque(s) pour ${events.length}`);
+      let thirds = 0;
+      events.forEach((ev, j) => {
+        const t = ctx.noteStarts[j] && ctx.noteStarts[j].time;
+        if (t === undefined) return;
+        const step = bpb + ev.startBeats;
+        if (Number.isInteger(ev.startBeats)) {
+          expect(t === clicks[step].time, `${meter} à ${BPM} — attaque au temps ${ev.startBeats} !== clic du temps (égalité stricte)`);
+        } else {
+          /* Attaque fractionnaire : croche binaire (moitié de temps) ou note
+             de triolet (tiers de temps), à l'instant exact de sa position. */
+          const third = Math.round(step * 3);
+          const onThird = Math.abs(step * 3 - third) < 1e-9 && third % 3 !== 0;
+          const want = onThird ? t0 + (third / 3) * spb : t0 + step * spb;
+          expect(close(t, want), `${meter} à ${BPM} — attaque ${ev.startBeats} à ${t}, attendu ${want}`);
+          expect(close(tr.positionAt(t).step, step), `${meter} à ${BPM} — positionAt(attaque ${ev.startBeats}) inexact`);
+          if (onThird) thirds++;
+        }
+        // Guidage visuel : à l'instant où l'attaque s'entend, la note est allumée.
+        ctx.currentTime = t + 0.02 + 1e-9;
+        const pos = tr.positionAt(tr.visualNow()).gridBeat;
+        const idx = ex.notes.findIndex((n) => Math.abs(n.startBeats - ev.startBeats) < 1e-9);
+        expect(litIndicesAt(ex.notes, pos).includes(idx), `${meter} à ${BPM} — note ${ev.startBeats} éteinte quand elle s'entend (position ${pos})`);
+      });
+      expect(thirds >= 4, `${meter} à ${BPM} — trop peu d'attaques de triolet vérifiées (${thirds})`);
     }
   }
 
