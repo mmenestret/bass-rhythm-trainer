@@ -4,7 +4,7 @@ Recherche documentaire préalable à l'ajout des mesures composées (6/8, 9/8,
 12/8 ; le temps est la noire pointée, divisée en trois croches). Elle tranche
 deux questions : **A**, ce que compte le BPM et ce que joue le clic ; **B**, le
 motif de batterie sobre de référence. Public visé : des élèves bassistes,
-débutants compris. Vocabulaire : voir `CONTEXT.md` ; contraintes du groove :
+débutants compris. Vocabulaire : voir `GLOSSARY.md` ; contraintes du groove :
 voir `docs/adr/0002-groove-accompagnement.md`.
 
 ## Statut des informations
