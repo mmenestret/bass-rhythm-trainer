@@ -13,8 +13,9 @@
  *      s'espacent au nouvel intervalle — continuité sans saut.
  *      positionAt(t) : position continue en battements, linéaire par morceaux
  *      entre les changements de tempo.
- *    - clampPulsationVolume(v) : facteur de volume de pulsation borné à
- *      [0, PULSATION_VOLUME_MAX = 3] ; valeur non numérique -> 1.
+ *    - clampVolume(v) : facteur de volume (pulsation ou note) borné à
+ *      [0, VOLUME_MAX = 3] ; valeur non numérique -> 1. Ancien nom conservé :
+ *      clampPulsationVolume.
  *    - meterBeats("3/2") -> 3 : temps par mesure d'une signature, d'après
  *      l'analyse de signature (js/meter.js) — meterBeats("6/8") -> 2.
  *    - tempoRange(meter) -> { min, max } : 40–200 BPM, 40–120 en mesure
@@ -67,7 +68,7 @@
  *      rend { stop() }.
  *    - createTransport({ ctx, bpm, beatsPerBar, totalBeats, startGridBeat,
  *      subdivisions, noteEvents, notesEnabled, clicksEnabled, pulsationVoice,
- *      pulsationVolumes, getNoteVoice, loop }) :
+ *      pulsationVolumes, noteVolume, getNoteVoice, loop }) :
  *      horloge à lookahead (setInterval ~25 ms, horizon ~120 ms), chaque clic
  *      programmé sur ctx.currentTime — jamais de setTimeout cumulatif.
  *      Clic = oscillateur sinus court avec enveloppe douce (esthétique Apnée) ;
@@ -96,10 +97,13 @@
  *      voix un facteur de 0 à 3 (défaut 1) appliqué à son niveau ; le
  *      décompte prend le volume de la voix choisie. setPulsationVolume(voice,
  *      v) le règle en vol, pulsationVolume(voice) le relit ;
- *      setPulsationVoice(voice) change de voix en vol, à son propre volume. Un limiteur
- *      (DynamicsCompressorNode natif) suit le master : monter la pulsation,
- *      son des notes compris, ne sature jamais la sortie. Les préécoutes
- *      passent par la même sortie limitée.
+ *      setPulsationVoice(voice) change de voix en vol, à son propre volume.
+ *      Volume de la note : noteVolume, facteur de 0 à 3 (défaut 1) appliqué
+ *      au son des notes, toutes basses confondues ; setNoteVolume(v) le règle
+ *      en vol, noteVolume() le relit. Les préécoutes restent au niveau par
+ *      défaut. Un limiteur (DynamicsCompressorNode natif) suit le master :
+ *      monter la pulsation ou la note ne sature jamais la sortie. Les
+ *      préécoutes passent par la même sortie limitée.
  *      visualNow() : instant de position visuelle UNIQUE — currentTime moins
  *      la latence de sortie : ce qui s'affiche suit ce qui s'entend.
  *      stop() rend la position entendue et un point de reprise calé au début
@@ -157,12 +161,14 @@
   const TEMPO_MAX = 200;
   const TEMPO_MAX_COMPOUND = 120;
 
-  /* Volume de pulsation : facteur par voix (clic, groove) appliqué au niveau
-     par défaut ci-dessus, de 0 (silence) à 3. Au-delà de 100 %, la somme
-     peut dépasser la pleine échelle : le limiteur de sortie la contient. */
-  const PULSATION_VOLUME_MAX = 3;
+  /* Volumes réglables : facteur appliqué au niveau par défaut ci-dessus, de
+     0 (silence) à 3 — par voix de pulsation (clic, groove) et pour la note.
+     Au-delà de 100 %, la somme peut dépasser la pleine échelle : le limiteur
+     de sortie la contient. */
+  const VOLUME_MAX = 3;
+  const PULSATION_VOLUME_MAX = VOLUME_MAX;
   // glissé du réglage en vol (pas de zip)
-  const PULSATION_VOLUME_RAMP_S = 0.02;
+  const VOLUME_RAMP_S = 0.02;
 
   /* Limiteur de sortie : compresseur natif à seuil haut, ratio fort et
      attaque courte. Sous le seuil, le son passe (au gain de rattrapage près,
@@ -236,11 +242,11 @@
     };
   }
 
-  /* Facteur de volume de pulsation borné à [0, PULSATION_VOLUME_MAX] ; toute
-     valeur non numérique vaut 100 %. */
-  function clampPulsationVolume(value) {
+  /* Facteur de volume borné à [0, VOLUME_MAX] ; toute valeur non numérique
+     vaut 100 %. */
+  function clampVolume(value) {
     if (typeof value !== "number" || !isFinite(value)) return 1;
-    return Math.min(PULSATION_VOLUME_MAX, Math.max(0, value));
+    return Math.min(VOLUME_MAX, Math.max(0, value));
   }
 
   /* Temps par mesure, lus dans l'analyse de signature (js/meter.js) : le
@@ -766,21 +772,30 @@
        ne s'entend pas. */
     const initialVolumes = opts.pulsationVolumes || {};
     const pulsationVolumes = {
-      clic: clampPulsationVolume(initialVolumes.clic),
-      groove: clampPulsationVolume(initialVolumes.groove)
+      clic: clampVolume(initialVolumes.clic),
+      groove: clampVolume(initialVolumes.groove)
     };
     const pulseBus = ctx.createGain();
     pulseBus.gain.value = pulsationVolumes[pulsationVoice];
     pulseBus.connect(master);
 
-    /* Glissé du bus vers le volume de la voix courante (réglage en vol). */
-    function glidePulseBus() {
+    /* Volume de la note : toutes les voix de notes passent par noteBus. */
+    let noteVolume = clampVolume(opts.noteVolume);
+    const noteBus = ctx.createGain();
+    noteBus.gain.value = noteVolume;
+    noteBus.connect(master);
+
+    /* Glissé d'un bus vers un nouveau volume (réglage en vol). */
+    function glideBus(bus, value) {
       if (stopped) return;
       const now = ctx.currentTime;
-      const g = pulseBus.gain;
+      const g = bus.gain;
       g.cancelScheduledValues(now);
       g.setValueAtTime(g.value, now);
-      g.linearRampToValueAtTime(pulsationVolumes[pulsationVoice], now + PULSATION_VOLUME_RAMP_S);
+      g.linearRampToValueAtTime(value, now + VOLUME_RAMP_S);
+    }
+    function glidePulseBus() {
+      glideBus(pulseBus, pulsationVolumes[pulsationVoice]);
     }
 
     /* Suivi uniforme des voix de pulsation (clic ET groove) dans `live` :
@@ -854,7 +869,7 @@
        (buildNoteVoice). getNoteVoice() est lu à chaque attaque. */
     function scheduleNoteVoice(time, holdBeats) {
       var holdS = holdBeats * 60 / clock.bpm();
-      var voice = buildNoteVoice(ctx, master, time, holdS, getNoteVoice());
+      var voice = buildNoteVoice(ctx, noteBus, time, holdS, getNoteVoice());
       liveNotes.push(voice);
       voice.src.onended = function () {
         var i = liveNotes.indexOf(voice);
@@ -963,11 +978,11 @@
       bpm: function () { return clock.bpm(); },
       /* Volume de pulsation d'une voix ("clic" | "groove"), facteur borné à
          [0, 3]. Réglé en vol : la voix active glisse vers sa nouvelle
-         valeur en PULSATION_VOLUME_RAMP_S, ce qui est déjà programmé compris ;
+         valeur en VOLUME_RAMP_S, ce qui est déjà programmé compris ;
          l'autre voix mémorise la sienne. */
       setPulsationVolume: function (voice, value) {
         if (!(voice in pulsationVolumes)) return;
-        pulsationVolumes[voice] = clampPulsationVolume(value);
+        pulsationVolumes[voice] = clampVolume(value);
         if (voice === pulsationVoice) glidePulseBus();
       },
       /* Changement de voix en vol : les battements suivants jouent la
@@ -981,6 +996,15 @@
       },
       pulsationVolume: function (voice) {
         return pulsationVolumes[voice];
+      },
+      /* Volume de la note, facteur borné à [0, 3], réglé en vol : les notes
+         en cours et programmées glissent vers la nouvelle valeur. */
+      setNoteVolume: function (value) {
+        noteVolume = clampVolume(value);
+        glideBus(noteBus, noteVolume);
+      },
+      noteVolume: function () {
+        return noteVolume;
       },
       /* Subdivision en vol (croches par temps, 1 = le temps seul) : les
          temps suivants la prennent ; coupée, les croches pas encore
@@ -1085,6 +1109,7 @@
         // Unique setTimeout de nettoyage (pas de programmation cumulative).
         setTimeout(function () {
           try { pulseBus.disconnect(); } catch (e) { /* déjà déconnecté */ }
+          try { noteBus.disconnect(); } catch (e) { /* déjà déconnecté */ }
           output.disconnect();
         }, 80);
         /* Position ENTENDUE à l'arrêt (latence de sortie déduite), reprise
@@ -1114,13 +1139,15 @@
     SCHEDULE_HORIZON_S: SCHEDULE_HORIZON_S,
     START_DELAY_S: START_DELAY_S,
     NOTE_RELEASE_S: NOTE_RELEASE_S,
+    VOLUME_MAX: VOLUME_MAX,
     PULSATION_VOLUME_MAX: PULSATION_VOLUME_MAX,
     CLICK_VOICES: CLICK_VOICES,
     tempoRange: tempoRange,
     clampTempo: clampTempo,
     beatSubdivisions: beatSubdivisions,
     pulsesOfBeat: pulsesOfBeat,
-    clampPulsationVolume: clampPulsationVolume,
+    clampVolume: clampVolume,
+    clampPulsationVolume: clampVolume,
     createBeatClock: createBeatClock,
     meterBeats: meterBeats,
     countInBeats: countInBeats,

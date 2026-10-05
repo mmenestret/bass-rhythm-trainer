@@ -57,6 +57,7 @@ function safeRead(storage, label) {
 const DEFAULTS = {
   pulsationVoice: "clic",
   pulsationVolumes: { clic: 1, groove: 1 },
+  noteVolume: 1,
   aids: { click: true, visual: true, sound: false },
   subdivide: true,
 };
@@ -80,6 +81,7 @@ const DEFAULTS = {
   const prefs = {
     pulsationVoice: "groove",
     pulsationVolumes: { clic: 2.5, groove: 0 },
+    noteVolume: 0.4,
     aids: { click: false, visual: false, sound: true },
     subdivide: false,
   };
@@ -121,6 +123,11 @@ const DEFAULTS = {
       { ...DEFAULTS, pulsationVolumes: { clic: 0, groove: 2.5 } }],
     [{ pulsationVolumes: [2, 2] }, DEFAULTS],
     [{ pulsationVolumes: "loud" }, DEFAULTS],
+    [{ noteVolume: 2.25 }, { ...DEFAULTS, noteVolume: 2.25 }],
+    [{ noteVolume: 0 }, { ...DEFAULTS, noteVolume: 0 }],
+    [{ noteVolume: 3.5 }, DEFAULTS],
+    [{ noteVolume: -1 }, DEFAULTS],
+    [{ noteVolume: "fort" }, DEFAULTS],
     [{ aids: { click: "yes", visual: 0, sound: null } }, DEFAULTS],
     [{ aids: { click: false } }, { ...DEFAULTS, aids: { click: false, visual: true, sound: false } }],
     [{ aids: true }, DEFAULTS],
@@ -128,7 +135,7 @@ const DEFAULTS = {
     [{ subdivide: "non" }, DEFAULTS],
     [{ subdivide: 0 }, DEFAULTS],
     [{ pulsationVoice: "groove", pulsationVolumes: { groove: 2 }, aids: { sound: true }, unknown: 1 },
-      { pulsationVoice: "groove", pulsationVolumes: { clic: 1, groove: 2 }, aids: { click: true, visual: true, sound: true }, subdivide: true }],
+      { pulsationVoice: "groove", pulsationVolumes: { clic: 1, groove: 2 }, noteVolume: 1, aids: { click: true, visual: true, sound: true }, subdivide: true }],
   ];
   for (const [stored, want] of cases) {
     const got = safeRead(memoryStorage({ [STORAGE_KEY]: JSON.stringify(stored) }), JSON.stringify(stored));

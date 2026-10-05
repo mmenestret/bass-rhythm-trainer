@@ -107,10 +107,16 @@ du niveau par défaut pour passer par-dessus un instrument amplifié. Chaque voi
 garde son propre volume.
 _Avoid_: volume du métronome
 
+**Volume de la note** :
+Le niveau sonore des notes jouées par l'aide *Son*, du silence au triple du
+niveau par défaut, le même pour toutes les basses. Réglable en cours de lecture,
+à côté du volume de pulsation ; l'app ne le change jamais d'elle-même.
+_Avoid_: volume de la basse, volume de l'instrument
+
 **Préférence de lecture** :
-Un réglage personnel du lecteur (voix de pulsation, volume de pulsation, aides
-activées, subdivision), mémorisé sur l'appareil et jamais transmis par un lien
-de partage.
+Un réglage personnel du lecteur (voix de pulsation, volume de pulsation, volume
+de la note, aides activées, subdivision), mémorisé sur l'appareil et jamais
+transmis par un lien de partage.
 
 ### Le mode Composer
 

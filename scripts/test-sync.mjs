@@ -830,6 +830,60 @@ try {
       }
     }
 
+    // Volume de la note : la crête de chaque note suit le facteur, sans
+    // toucher au clic ; réglable en vol ; borné comme la pulsation.
+    {
+      const notes = [0, 2, 4, 6].map((b) => ({ startBeats: b, holdBeats: 1 }));
+      const runNotes = (noteVolume) => {
+        const ctx = createMockCtx();
+        const t0 = ctx.currentTime + START_DELAY_S;
+        const opts = {
+          ctx, bpm: BPM, beatsPerBar: bpb, totalBeats: total,
+          noteEvents: notes, notesEnabled: true, getNoteVoice: () => ({ buffer: BUFFER }),
+        };
+        if (noteVolume !== undefined) opts.noteVolume = noteVolume;
+        const tr = createTransport(opts);
+        return { ctx, tr, t0 };
+      };
+      const finish = ({ ctx, t0 }) => stepPump(ctx, t0 + (countIn + total + 2) * (60 / BPM));
+      const notePeaks = (ctx) => ctx.noteStarts.map((r) => peakAtOutput(ctx, r));
+      const refRun = runNotes();
+      finish(refRun);
+      const refNotes = notePeaks(refRun.ctx);
+      const refClicks = clickPeaks(refRun.ctx);
+      expect(refNotes.length === notes.length && refNotes.every((p) => p > 0),
+        `volume note — référence : ${refNotes.length} note(s) audibles, attendu ${notes.length}`);
+      for (const v of [0, 0.5, 2.5]) {
+        const run = runNotes(v);
+        finish(run);
+        expect(ratiosOk(notePeaks(run.ctx), refNotes, v),
+          `volume note ${v} — les notes ne suivent pas le facteur`);
+        expect(ratiosOk(clickPeaks(run.ctx), refClicks, 1),
+          `volume note ${v} — le clic ne doit pas bouger`);
+      }
+      const high = runNotes(9);
+      finish(high);
+      expect(ratiosOk(notePeaks(high.ctx), refNotes, 3), "volume note — au-delà de 3, borné à 3");
+      const bad = runNotes("fort");
+      finish(bad);
+      expect(ratiosOk(notePeaks(bad.ctx), refNotes, 1), "volume note — une valeur invalide vaut 100 %");
+
+      const live = runNotes();
+      stepPump(live.ctx, live.t0 + 5.5);
+      const changeAt = live.ctx.currentTime;
+      live.tr.setNoteVolume(2);
+      finish(live);
+      const peaks = notePeaks(live.ctx);
+      live.ctx.noteStarts.forEach((r, i) => {
+        const factor = r.time < changeAt ? 1 : 2;
+        expect(close(peaks[i], refNotes[i] * factor, 1e-9),
+          `volume note en vol — note ${i} (t=${r.time.toFixed(2)}) à ${peaks[i].toFixed(4)}, attendu ${factor} × référence`);
+      });
+      expect(live.tr.noteVolume() === 2, "volume note en vol — valeur relue");
+      live.tr.setNoteVolume(4);
+      expect(live.tr.noteVolume() === 3, "volume note en vol — borné à 3");
+    }
+
     // Limiteur : tout chemin vers la sortie traverse un compresseur réglé en
     // limiteur, dernier nœud avant la sortie (notes et pulsation comprises).
     const limiterOk = (ctx, recs, label) => {

@@ -1,12 +1,13 @@
 /*
  * Bass Rhythm Trainer — préférences de lecture (voix et volumes de
- * pulsation, aides activées, subdivision), mémorisées sur l'appareil.
+ * pulsation, volume de la note, aides activées, subdivision), mémorisées sur
+ * l'appareil.
  *
  * Module pur : le stockage est injecté (localStorage dans la page, un objet
  * { getItem, setItem } sous Node). Contrat :
  *   - defaultPreferences() rend une copie neuve des défauts :
  *     { pulsationVoice: "clic", pulsationVolumes: { clic: 1, groove: 1 },
- *       aids: { click: true, visual: true, sound: false },
+ *       noteVolume: 1, aids: { click: true, visual: true, sound: false },
  *       subdivide: true } — subdivide : croches entendues entre les temps
  *       d'une mesure composée (au clic comme au charley du groove) ;
  *   - readPreferences(storage) lit l'unique clé versionnée STORAGE_KEY et
@@ -17,8 +18,8 @@
  *     et rend true si l'écriture a réussi, false sinon (mode privé, quota
  *     dépassé, stockage absent). Elle ne lève jamais.
  *
- * Un volume de pulsation est un facteur appliqué au niveau par défaut de la
- * voix, de 0 (silence) à PULSATION_VOLUME_MAX (même borne que le moteur).
+ * Un volume (de pulsation ou de la note) est un facteur appliqué au niveau par
+ * défaut, de 0 (silence) à VOLUME_MAX (même borne que le moteur).
  * Ces réglages ne passent jamais dans le lien de partage (ADR 0001 et 0002).
  *
  * UMD minimal : window.BassRhythmPreferences dans la page, module.exports
@@ -36,14 +37,15 @@
 
   const STORAGE_KEY = "bass-rhythm-trainer.preferences.v1";
   const PULSATION_VOICES = ["clic", "groove"];
-  const PULSATION_VOLUME_MIN = 0;
-  const PULSATION_VOLUME_MAX = 3;
+  const VOLUME_MIN = 0;
+  const VOLUME_MAX = 3;
   const AIDS = ["click", "visual", "sound"];
 
   function defaultPreferences() {
     return {
       pulsationVoice: "clic",
       pulsationVolumes: { clic: 1, groove: 1 },
+      noteVolume: 1,
       aids: { click: true, visual: true, sound: false },
       subdivide: true
     };
@@ -53,11 +55,11 @@
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
 
-  function isPulsationVolume(value) {
+  function isVolume(value) {
     return typeof value === "number" &&
       isFinite(value) &&
-      value >= PULSATION_VOLUME_MIN &&
-      value <= PULSATION_VOLUME_MAX;
+      value >= VOLUME_MIN &&
+      value <= VOLUME_MAX;
   }
 
   /* Complète et assainit des préférences quelconques : chaque champ invalide
@@ -71,9 +73,10 @@
     if (isPlainObject(raw.pulsationVolumes)) {
       PULSATION_VOICES.forEach(function (voice) {
         const volume = raw.pulsationVolumes[voice];
-        if (isPulsationVolume(volume)) prefs.pulsationVolumes[voice] = volume;
+        if (isVolume(volume)) prefs.pulsationVolumes[voice] = volume;
       });
     }
+    if (isVolume(raw.noteVolume)) prefs.noteVolume = raw.noteVolume;
     if (isPlainObject(raw.aids)) {
       AIDS.forEach(function (aid) {
         if (typeof raw.aids[aid] === "boolean") prefs.aids[aid] = raw.aids[aid];
@@ -108,7 +111,8 @@
 
   return {
     STORAGE_KEY: STORAGE_KEY,
-    PULSATION_VOLUME_MAX: PULSATION_VOLUME_MAX,
+    VOLUME_MAX: VOLUME_MAX,
+    PULSATION_VOLUME_MAX: VOLUME_MAX,
     defaultPreferences: defaultPreferences,
     readPreferences: readPreferences,
     writePreferences: writePreferences

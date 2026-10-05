@@ -921,17 +921,17 @@
     background: var(--accent);
   }
 
-  /* volume de pulsation : le nom de la voix active, sans chiffre, puis un
-     curseur à filet fin (rempli d'accent jusqu'au pouce, --fill posé par le
-     script) */
-  .pulse-volume {
+  /* volumes (pulsation, puis note) : le nom de ce qu'on règle, sans chiffre,
+     puis un curseur à filet fin (rempli d'accent jusqu'au pouce, --fill posé
+     par le script). Grisé quand son aide (métronome, son) est coupée. */
+  .aids-volume {
     display: flex;
     flex-direction: column;
     gap: 2px;
     padding: 9px 12px 6px;
     border-top: 1px solid var(--hairline);
   }
-  .pulse-volume-head {
+  .aids-volume-head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
@@ -942,7 +942,7 @@
     white-space: nowrap;
     color: var(--ink-soft);
   }
-  .pulse-volume-range {
+  .aids-volume-range {
     --fill: calc(100% / 3);
     -webkit-appearance: none;
     appearance: none;
@@ -952,17 +952,17 @@
     background: transparent;
     cursor: pointer;
   }
-  .pulse-volume-range::-webkit-slider-runnable-track {
+  .aids-volume-range::-webkit-slider-runnable-track {
     height: 2px;
     border-radius: 999px;
     background: linear-gradient(to right,var(--accent) var(--fill),var(--hairline-strong) var(--fill));
   }
-  .pulse-volume-range::-moz-range-track {
+  .aids-volume-range::-moz-range-track {
     height: 2px;
     border-radius: 999px;
     background: linear-gradient(to right,var(--accent) var(--fill),var(--hairline-strong) var(--fill));
   }
-  .pulse-volume-range::-webkit-slider-thumb {
+  .aids-volume-range::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
     width: 15px;
@@ -973,7 +973,7 @@
     background: var(--mist-2);
     transition: transform 0.3s var(--ease-drift);
   }
-  .pulse-volume-range::-moz-range-thumb {
+  .aids-volume-range::-moz-range-thumb {
     width: 13px;
     height: 13px;
     border: 1px solid var(--accent);
@@ -981,11 +981,22 @@
     background: var(--mist-2);
     transition: transform 0.3s var(--ease-drift);
   }
-  .pulse-volume-range:active::-webkit-slider-thumb {
+  .aids-volume-range:active::-webkit-slider-thumb {
     transform: scale(1.15);
   }
-  .pulse-volume-range:active::-moz-range-thumb {
+  .aids-volume-range:active::-moz-range-thumb {
     transform: scale(1.15);
+  }
+  .aids-volume + .aids-volume {
+    padding-top: 3px;
+    border-top: none;
+  }
+  .aids-volume.off .aids-volume-head {
+    color: var(--ink-faint);
+  }
+  .aids-volume-range:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   .hint {
@@ -1852,15 +1863,15 @@
       min-width: 50px;
       min-height: 46px;
     }
-    .pulse-volume-range {
+    .aids-volume-range {
       height: 40px;
     }
-    .pulse-volume-range::-webkit-slider-thumb {
+    .aids-volume-range::-webkit-slider-thumb {
       width: 24px;
       height: 24px;
       margin-top: -11px;
     }
-    .pulse-volume-range::-moz-range-thumb {
+    .aids-volume-range::-moz-range-thumb {
       width: 22px;
       height: 22px;
     }
@@ -2115,7 +2126,7 @@ Wikimedia Commons and are in the public domain.
   <!-- transport -->
   <div class="transport rise d4 player-only">
     <div class="aids" id="aids">
-      <button id="aids-toggle" class="aids-toggle" aria-expanded="false" aria-controls="aids-panel" aria-haspopup="true" title="Aides de lecture" aria-label="Aides de lecture — métronome, guide visuel, son, volume de pulsation" data-i18n-title="aids.title" data-i18n-aria-label="aids.description">
+      <button id="aids-toggle" class="aids-toggle" aria-expanded="false" aria-controls="aids-panel" aria-haspopup="true" title="Aides de lecture" aria-label="Aides de lecture — métronome, guide visuel, son, volumes" data-i18n-title="aids.title" data-i18n-aria-label="aids.description">
         <svg viewBox="0 0 24 24"><line x1="4" y1="8.5" x2="20" y2="8.5"/><circle cx="9.5" cy="8.5" r="2.4"/><line x1="4" y1="15.5" x2="20" y2="15.5"/><circle cx="14.5" cy="15.5" r="2.4"/></svg>
         <span class="aids-badge" aria-hidden="true"></span>
       </button>
@@ -2136,12 +2147,18 @@ Wikimedia Commons and are in the public domain.
           <span data-i18n="subdivide.label">Subdiviser</span>
           <span class="aids-switch-track" aria-hidden="true"></span>
         </button>
-        <!-- volume de pulsation de la voix active (clic ou groove), réglable en vol -->
-        <div class="pulse-volume">
-          <label class="pulse-volume-head" for="pulse-volume">
+        <!-- volumes réglables en vol : pulsation (clic ou groove), puis note -->
+        <div class="aids-volume">
+          <label class="aids-volume-head" for="pulse-volume">
             <span id="pulse-volume-voice" data-i18n="beat.click">Clic</span>
           </label>
-          <input type="range" id="pulse-volume" class="pulse-volume-range" min="0" max="300" step="5" value="100" aria-label="Volume du clic" data-i18n-aria-label="volume.click">
+          <input type="range" id="pulse-volume" class="aids-volume-range" min="0" max="300" step="5" value="100" aria-label="Volume du clic" data-i18n-aria-label="volume.click">
+        </div>
+        <div class="aids-volume">
+          <label class="aids-volume-head" for="note-volume">
+            <span data-i18n="volume.noteLabel">Note</span>
+          </label>
+          <input type="range" id="note-volume" class="aids-volume-range" min="0" max="300" step="5" value="100" aria-label="Volume de la note" data-i18n-aria-label="volume.note">
         </div>
       </div>
     </div>
@@ -3722,8 +3739,9 @@ window.BRT_EMBEDDED_SAMPLES = {
  *      s'espacent au nouvel intervalle — continuité sans saut.
  *      positionAt(t) : position continue en battements, linéaire par morceaux
  *      entre les changements de tempo.
- *    - clampPulsationVolume(v) : facteur de volume de pulsation borné à
- *      [0, PULSATION_VOLUME_MAX = 3] ; valeur non numérique -> 1.
+ *    - clampVolume(v) : facteur de volume (pulsation ou note) borné à
+ *      [0, VOLUME_MAX = 3] ; valeur non numérique -> 1. Ancien nom conservé :
+ *      clampPulsationVolume.
  *    - meterBeats("3/2") -> 3 : temps par mesure d'une signature, d'après
  *      l'analyse de signature (js/meter.js) — meterBeats("6/8") -> 2.
  *    - tempoRange(meter) -> { min, max } : 40–200 BPM, 40–120 en mesure
@@ -3776,7 +3794,7 @@ window.BRT_EMBEDDED_SAMPLES = {
  *      rend { stop() }.
  *    - createTransport({ ctx, bpm, beatsPerBar, totalBeats, startGridBeat,
  *      subdivisions, noteEvents, notesEnabled, clicksEnabled, pulsationVoice,
- *      pulsationVolumes, getNoteVoice, loop }) :
+ *      pulsationVolumes, noteVolume, getNoteVoice, loop }) :
  *      horloge à lookahead (setInterval ~25 ms, horizon ~120 ms), chaque clic
  *      programmé sur ctx.currentTime — jamais de setTimeout cumulatif.
  *      Clic = oscillateur sinus court avec enveloppe douce (esthétique Apnée) ;
@@ -3805,10 +3823,13 @@ window.BRT_EMBEDDED_SAMPLES = {
  *      voix un facteur de 0 à 3 (défaut 1) appliqué à son niveau ; le
  *      décompte prend le volume de la voix choisie. setPulsationVolume(voice,
  *      v) le règle en vol, pulsationVolume(voice) le relit ;
- *      setPulsationVoice(voice) change de voix en vol, à son propre volume. Un limiteur
- *      (DynamicsCompressorNode natif) suit le master : monter la pulsation,
- *      son des notes compris, ne sature jamais la sortie. Les préécoutes
- *      passent par la même sortie limitée.
+ *      setPulsationVoice(voice) change de voix en vol, à son propre volume.
+ *      Volume de la note : noteVolume, facteur de 0 à 3 (défaut 1) appliqué
+ *      au son des notes, toutes basses confondues ; setNoteVolume(v) le règle
+ *      en vol, noteVolume() le relit. Les préécoutes restent au niveau par
+ *      défaut. Un limiteur (DynamicsCompressorNode natif) suit le master :
+ *      monter la pulsation ou la note ne sature jamais la sortie. Les
+ *      préécoutes passent par la même sortie limitée.
  *      visualNow() : instant de position visuelle UNIQUE — currentTime moins
  *      la latence de sortie : ce qui s'affiche suit ce qui s'entend.
  *      stop() rend la position entendue et un point de reprise calé au début
@@ -3866,12 +3887,14 @@ window.BRT_EMBEDDED_SAMPLES = {
   const TEMPO_MAX = 200;
   const TEMPO_MAX_COMPOUND = 120;
 
-  /* Volume de pulsation : facteur par voix (clic, groove) appliqué au niveau
-     par défaut ci-dessus, de 0 (silence) à 3. Au-delà de 100 %, la somme
-     peut dépasser la pleine échelle : le limiteur de sortie la contient. */
-  const PULSATION_VOLUME_MAX = 3;
+  /* Volumes réglables : facteur appliqué au niveau par défaut ci-dessus, de
+     0 (silence) à 3 — par voix de pulsation (clic, groove) et pour la note.
+     Au-delà de 100 %, la somme peut dépasser la pleine échelle : le limiteur
+     de sortie la contient. */
+  const VOLUME_MAX = 3;
+  const PULSATION_VOLUME_MAX = VOLUME_MAX;
   // glissé du réglage en vol (pas de zip)
-  const PULSATION_VOLUME_RAMP_S = 0.02;
+  const VOLUME_RAMP_S = 0.02;
 
   /* Limiteur de sortie : compresseur natif à seuil haut, ratio fort et
      attaque courte. Sous le seuil, le son passe (au gain de rattrapage près,
@@ -3945,11 +3968,11 @@ window.BRT_EMBEDDED_SAMPLES = {
     };
   }
 
-  /* Facteur de volume de pulsation borné à [0, PULSATION_VOLUME_MAX] ; toute
-     valeur non numérique vaut 100 %. */
-  function clampPulsationVolume(value) {
+  /* Facteur de volume borné à [0, VOLUME_MAX] ; toute valeur non numérique
+     vaut 100 %. */
+  function clampVolume(value) {
     if (typeof value !== "number" || !isFinite(value)) return 1;
-    return Math.min(PULSATION_VOLUME_MAX, Math.max(0, value));
+    return Math.min(VOLUME_MAX, Math.max(0, value));
   }
 
   /* Temps par mesure, lus dans l'analyse de signature (js/meter.js) : le
@@ -4475,21 +4498,30 @@ window.BRT_EMBEDDED_SAMPLES = {
        ne s'entend pas. */
     const initialVolumes = opts.pulsationVolumes || {};
     const pulsationVolumes = {
-      clic: clampPulsationVolume(initialVolumes.clic),
-      groove: clampPulsationVolume(initialVolumes.groove)
+      clic: clampVolume(initialVolumes.clic),
+      groove: clampVolume(initialVolumes.groove)
     };
     const pulseBus = ctx.createGain();
     pulseBus.gain.value = pulsationVolumes[pulsationVoice];
     pulseBus.connect(master);
 
-    /* Glissé du bus vers le volume de la voix courante (réglage en vol). */
-    function glidePulseBus() {
+    /* Volume de la note : toutes les voix de notes passent par noteBus. */
+    let noteVolume = clampVolume(opts.noteVolume);
+    const noteBus = ctx.createGain();
+    noteBus.gain.value = noteVolume;
+    noteBus.connect(master);
+
+    /* Glissé d'un bus vers un nouveau volume (réglage en vol). */
+    function glideBus(bus, value) {
       if (stopped) return;
       const now = ctx.currentTime;
-      const g = pulseBus.gain;
+      const g = bus.gain;
       g.cancelScheduledValues(now);
       g.setValueAtTime(g.value, now);
-      g.linearRampToValueAtTime(pulsationVolumes[pulsationVoice], now + PULSATION_VOLUME_RAMP_S);
+      g.linearRampToValueAtTime(value, now + VOLUME_RAMP_S);
+    }
+    function glidePulseBus() {
+      glideBus(pulseBus, pulsationVolumes[pulsationVoice]);
     }
 
     /* Suivi uniforme des voix de pulsation (clic ET groove) dans `live` :
@@ -4563,7 +4595,7 @@ window.BRT_EMBEDDED_SAMPLES = {
        (buildNoteVoice). getNoteVoice() est lu à chaque attaque. */
     function scheduleNoteVoice(time, holdBeats) {
       var holdS = holdBeats * 60 / clock.bpm();
-      var voice = buildNoteVoice(ctx, master, time, holdS, getNoteVoice());
+      var voice = buildNoteVoice(ctx, noteBus, time, holdS, getNoteVoice());
       liveNotes.push(voice);
       voice.src.onended = function () {
         var i = liveNotes.indexOf(voice);
@@ -4672,11 +4704,11 @@ window.BRT_EMBEDDED_SAMPLES = {
       bpm: function () { return clock.bpm(); },
       /* Volume de pulsation d'une voix ("clic" | "groove"), facteur borné à
          [0, 3]. Réglé en vol : la voix active glisse vers sa nouvelle
-         valeur en PULSATION_VOLUME_RAMP_S, ce qui est déjà programmé compris ;
+         valeur en VOLUME_RAMP_S, ce qui est déjà programmé compris ;
          l'autre voix mémorise la sienne. */
       setPulsationVolume: function (voice, value) {
         if (!(voice in pulsationVolumes)) return;
-        pulsationVolumes[voice] = clampPulsationVolume(value);
+        pulsationVolumes[voice] = clampVolume(value);
         if (voice === pulsationVoice) glidePulseBus();
       },
       /* Changement de voix en vol : les battements suivants jouent la
@@ -4690,6 +4722,15 @@ window.BRT_EMBEDDED_SAMPLES = {
       },
       pulsationVolume: function (voice) {
         return pulsationVolumes[voice];
+      },
+      /* Volume de la note, facteur borné à [0, 3], réglé en vol : les notes
+         en cours et programmées glissent vers la nouvelle valeur. */
+      setNoteVolume: function (value) {
+        noteVolume = clampVolume(value);
+        glideBus(noteBus, noteVolume);
+      },
+      noteVolume: function () {
+        return noteVolume;
       },
       /* Subdivision en vol (croches par temps, 1 = le temps seul) : les
          temps suivants la prennent ; coupée, les croches pas encore
@@ -4794,6 +4835,7 @@ window.BRT_EMBEDDED_SAMPLES = {
         // Unique setTimeout de nettoyage (pas de programmation cumulative).
         setTimeout(function () {
           try { pulseBus.disconnect(); } catch (e) { /* déjà déconnecté */ }
+          try { noteBus.disconnect(); } catch (e) { /* déjà déconnecté */ }
           output.disconnect();
         }, 80);
         /* Position ENTENDUE à l'arrêt (latence de sortie déduite), reprise
@@ -4823,13 +4865,15 @@ window.BRT_EMBEDDED_SAMPLES = {
     SCHEDULE_HORIZON_S: SCHEDULE_HORIZON_S,
     START_DELAY_S: START_DELAY_S,
     NOTE_RELEASE_S: NOTE_RELEASE_S,
+    VOLUME_MAX: VOLUME_MAX,
     PULSATION_VOLUME_MAX: PULSATION_VOLUME_MAX,
     CLICK_VOICES: CLICK_VOICES,
     tempoRange: tempoRange,
     clampTempo: clampTempo,
     beatSubdivisions: beatSubdivisions,
     pulsesOfBeat: pulsesOfBeat,
-    clampPulsationVolume: clampPulsationVolume,
+    clampVolume: clampVolume,
+    clampPulsationVolume: clampVolume,
     createBeatClock: createBeatClock,
     meterBeats: meterBeats,
     countInBeats: countInBeats,
@@ -4889,7 +4933,7 @@ window.BRT_EMBEDDED_SAMPLES = {
       "tempo.increase": "Augmenter le tempo de 5 BPM",
       "tempo.unit": "Unité du tempo : {figure}",
       "aids.title": "Aides de lecture",
-      "aids.description": "Aides de lecture — métronome, guide visuel, son, volume de pulsation",
+      "aids.description": "Aides de lecture — métronome, guide visuel, son, volumes",
       "metronome.title": "Métronome — clics des temps",
       "metronome.label": "Métronome",
       "visual.title": "Guide visuel — durée des notes et curseur",
@@ -4900,6 +4944,8 @@ window.BRT_EMBEDDED_SAMPLES = {
       "subdivide.title": "Subdiviser — croches entre les temps, au clic et au charley",
       "volume.click": "Volume du clic",
       "volume.groove": "Volume du groove",
+      "volume.note": "Volume de la note",
+      "volume.noteLabel": "Note",
       "transport.rewind": "Retour au début",
       "transport.play": "Lancer la lecture",
       "transport.pause": "Suspendre la lecture",
@@ -5029,7 +5075,7 @@ window.BRT_EMBEDDED_SAMPLES = {
       "tempo.increase": "Increase tempo by 5 BPM",
       "tempo.unit": "Tempo unit: {figure}",
       "aids.title": "Reading aids",
-      "aids.description": "Reading aids — metronome, visual guide, note sound, beat volume",
+      "aids.description": "Reading aids — metronome, visual guide, note sound, volumes",
       "metronome.title": "Metronome — beat clicks",
       "metronome.label": "Metronome",
       "visual.title": "Visual guide — note lengths and cursor",
@@ -5040,6 +5086,8 @@ window.BRT_EMBEDDED_SAMPLES = {
       "subdivide.title": "Subdivide — eighth notes between beats, on the click and the hi-hat",
       "volume.click": "Click volume",
       "volume.groove": "Groove volume",
+      "volume.note": "Note volume",
+      "volume.noteLabel": "Note",
       "transport.rewind": "Back to the start",
       "transport.play": "Start playback",
       "transport.pause": "Pause playback",
@@ -5236,13 +5284,14 @@ window.BRT_EMBEDDED_SAMPLES = {
 /* ---- js/preferences.js (inline) ---- */
 /*
  * Bass Rhythm Trainer — préférences de lecture (voix et volumes de
- * pulsation, aides activées, subdivision), mémorisées sur l'appareil.
+ * pulsation, volume de la note, aides activées, subdivision), mémorisées sur
+ * l'appareil.
  *
  * Module pur : le stockage est injecté (localStorage dans la page, un objet
  * { getItem, setItem } sous Node). Contrat :
  *   - defaultPreferences() rend une copie neuve des défauts :
  *     { pulsationVoice: "clic", pulsationVolumes: { clic: 1, groove: 1 },
- *       aids: { click: true, visual: true, sound: false },
+ *       noteVolume: 1, aids: { click: true, visual: true, sound: false },
  *       subdivide: true } — subdivide : croches entendues entre les temps
  *       d'une mesure composée (au clic comme au charley du groove) ;
  *   - readPreferences(storage) lit l'unique clé versionnée STORAGE_KEY et
@@ -5253,8 +5302,8 @@ window.BRT_EMBEDDED_SAMPLES = {
  *     et rend true si l'écriture a réussi, false sinon (mode privé, quota
  *     dépassé, stockage absent). Elle ne lève jamais.
  *
- * Un volume de pulsation est un facteur appliqué au niveau par défaut de la
- * voix, de 0 (silence) à PULSATION_VOLUME_MAX (même borne que le moteur).
+ * Un volume (de pulsation ou de la note) est un facteur appliqué au niveau par
+ * défaut, de 0 (silence) à VOLUME_MAX (même borne que le moteur).
  * Ces réglages ne passent jamais dans le lien de partage (ADR 0001 et 0002).
  *
  * UMD minimal : window.BassRhythmPreferences dans la page, module.exports
@@ -5272,14 +5321,15 @@ window.BRT_EMBEDDED_SAMPLES = {
 
   const STORAGE_KEY = "bass-rhythm-trainer.preferences.v1";
   const PULSATION_VOICES = ["clic", "groove"];
-  const PULSATION_VOLUME_MIN = 0;
-  const PULSATION_VOLUME_MAX = 3;
+  const VOLUME_MIN = 0;
+  const VOLUME_MAX = 3;
   const AIDS = ["click", "visual", "sound"];
 
   function defaultPreferences() {
     return {
       pulsationVoice: "clic",
       pulsationVolumes: { clic: 1, groove: 1 },
+      noteVolume: 1,
       aids: { click: true, visual: true, sound: false },
       subdivide: true
     };
@@ -5289,11 +5339,11 @@ window.BRT_EMBEDDED_SAMPLES = {
     return typeof value === "object" && value !== null && !Array.isArray(value);
   }
 
-  function isPulsationVolume(value) {
+  function isVolume(value) {
     return typeof value === "number" &&
       isFinite(value) &&
-      value >= PULSATION_VOLUME_MIN &&
-      value <= PULSATION_VOLUME_MAX;
+      value >= VOLUME_MIN &&
+      value <= VOLUME_MAX;
   }
 
   /* Complète et assainit des préférences quelconques : chaque champ invalide
@@ -5307,9 +5357,10 @@ window.BRT_EMBEDDED_SAMPLES = {
     if (isPlainObject(raw.pulsationVolumes)) {
       PULSATION_VOICES.forEach(function (voice) {
         const volume = raw.pulsationVolumes[voice];
-        if (isPulsationVolume(volume)) prefs.pulsationVolumes[voice] = volume;
+        if (isVolume(volume)) prefs.pulsationVolumes[voice] = volume;
       });
     }
+    if (isVolume(raw.noteVolume)) prefs.noteVolume = raw.noteVolume;
     if (isPlainObject(raw.aids)) {
       AIDS.forEach(function (aid) {
         if (typeof raw.aids[aid] === "boolean") prefs.aids[aid] = raw.aids[aid];
@@ -5344,7 +5395,8 @@ window.BRT_EMBEDDED_SAMPLES = {
 
   return {
     STORAGE_KEY: STORAGE_KEY,
-    PULSATION_VOLUME_MAX: PULSATION_VOLUME_MAX,
+    VOLUME_MAX: VOLUME_MAX,
+    PULSATION_VOLUME_MAX: VOLUME_MAX,
     defaultPreferences: defaultPreferences,
     readPreferences: readPreferences,
     writePreferences: writePreferences
@@ -6125,6 +6177,7 @@ window.BRT_EMBEDDED_SAMPLES = {
       clicksEnabled: clickOn,
       pulsationVoice: pulsationVoice,
       pulsationVolumes: playbackPrefs.pulsationVolumes,
+      noteVolume: playbackPrefs.noteVolume,
       getNoteVoice: currentVoice,
       loop: repeatOn && !infiniteOn
     });
@@ -6305,6 +6358,7 @@ window.BRT_EMBEDDED_SAMPLES = {
   bindToggle("tgl-click", playbackPrefs.aids, "click", function(on){
     clickOn = on;
     if (playing && transport) transport.setClicksEnabled(on);
+    refreshVolumeAvailability();
   });
   bindToggle("tgl-visual", playbackPrefs.aids, "visual", function(on){
     visualOn = on;
@@ -6316,6 +6370,7 @@ window.BRT_EMBEDDED_SAMPLES = {
   bindToggle("tgl-sound", playbackPrefs.aids, "sound", function(on){
     soundOn = on;
     if (playing && transport) transport.setNotesEnabled(on);
+    refreshVolumeAvailability();
   });
   /* Subdiviser : n'apparaît qu'en mesure composée (refreshGridMeter) ;
      s'applique en vol aux temps suivants. */
@@ -6328,7 +6383,7 @@ window.BRT_EMBEDDED_SAMPLES = {
   });
 
   /* Volume de pulsation : le curseur du panneau des aides règle la voix
-     active (clic ou groove), du silence à PULSATION_VOLUME_MAX fois son
+     active (clic ou groove), du silence à VOLUME_MAX fois son
      niveau par défaut, en vol. Valeur du curseur de 0 à 300 par pas de 5,
      volume = valeur / 100 : le niveau par défaut tombe pile sur 100. Aucun
      chiffre affiché : la position du curseur suffit. Chaque voix garde sa
@@ -6352,6 +6407,31 @@ window.BRT_EMBEDDED_SAMPLES = {
   });
   pulseVolumeInput.addEventListener("change", savePlaybackPrefs);
   refreshPulseVolume();
+
+  /* Volume de la note : même curseur, pour le son des notes (toutes basses
+     confondues), du silence au triple, en vol. */
+  const noteVolumeInput = document.getElementById("note-volume");
+  function refreshNoteVolume(){
+    noteVolumeInput.value = String(Math.round(playbackPrefs.noteVolume * 100));
+    noteVolumeInput.style.setProperty("--fill", Number(noteVolumeInput.value) / 3 + "%");
+  }
+  noteVolumeInput.addEventListener("input", function(){
+    playbackPrefs.noteVolume = Number(noteVolumeInput.value) / 100;
+    if (playing && transport) transport.setNoteVolume(playbackPrefs.noteVolume);
+    refreshNoteVolume();
+  });
+  noteVolumeInput.addEventListener("change", savePlaybackPrefs);
+  refreshNoteVolume();
+
+  /* Un curseur est grisé quand son aide est coupée : le clic (ou le groove)
+     avec le métronome, la note avec le son. */
+  function refreshVolumeAvailability(){
+    [[pulseVolumeInput, clickOn], [noteVolumeInput, soundOn]].forEach(function(pair){
+      pair[0].disabled = !pair[1];
+      pair[0].closest(".aids-volume").classList.toggle("off", !pair[1]);
+    });
+  }
+  refreshVolumeAvailability();
 
   /* Déclencheur des aides : un seul cercle qui déplie le flotteur des trois
      bascules. La rangée reste symétrique (play centré) ; le flotteur se referme

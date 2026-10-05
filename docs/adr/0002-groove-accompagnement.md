@@ -57,3 +57,8 @@ alourdir le fichier unique.
   défaut, sous un limiteur), depuis le panneau des aides ; le décompte prend le
   volume de la voix choisie. Volume, voix et subdivision sont des préférences de
   lecture mémorisées sur l'appareil, toujours hors du lien de partage.
+- Un second curseur, sous celui de la pulsation, règle le **volume de la note**
+  (son des notes, toutes basses confondues, du silence au triple). La note n'est
+  jamais baissée automatiquement pour laisser passer la pulsation : seul
+  l'utilisateur la règle. Chaque curseur est grisé quand son aide (métronome,
+  son) est coupée.
