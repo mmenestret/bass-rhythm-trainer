@@ -152,9 +152,12 @@ html = html.replace(
 );
 
 // (3) Scripts inline (licence abcjs conservée : elle vit en tête du fichier).
+// La balise peut porter un suffixe de version (?v=…) qui force le
+// rechargement en ligne ; il n'a pas de sens dans le fichier unique.
 for (const rel of ["vendor/abcjs-basic-min.js", "js/meter.js", "js/generator.js", "js/engine.js", "js/i18n.js", "js/preferences.js"]) {
-  const tag = `<script src="${rel}"></script>`;
-  if (!html.includes(tag)) { fail(`balise introuvable dans index.html : ${tag}`); continue; }
+  const found = html.match(new RegExp(`<script src="${rel.replace(/[.\/]/g, "\\$&")}(?:\\?v=[\\w.-]+)?"></script>`));
+  if (!found) { fail(`balise introuvable dans index.html : <script src="${rel}">`); continue; }
+  const tag = found[0];
   const js = escapeInlineScript(read(rel).toString("utf8"));
   html = replaceOnce(html, tag, `<script>\n/* ---- ${rel} (inline) ---- */\n${js}\n</script>`);
 }
