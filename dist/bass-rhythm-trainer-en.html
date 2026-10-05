@@ -76,7 +76,7 @@
   button:focus-visible,
   input:focus-visible,
   select:focus-visible,
-  .meter-digit:focus-visible {
+  .meter-hint:focus-visible {
     outline: 1.5px solid var(--accent);
     outline-offset: 3px;
     border-radius: 4px;
@@ -1271,25 +1271,35 @@
     flex-direction: column;
     gap: 10px;
   }
-  /* fraction écrite comme sur la portée : chaque chiffre entre ‹ et › */
+  /* signature gravée sur un bout de portée (abcjs), réglée par − / + */
   .meter-custom {
-    display: grid;
-    grid-template-columns: auto 44px auto;
+    display: flex;
     align-items: center;
-    justify-items: center;
-    justify-content: start;
-    column-gap: 6px;
+    gap: 16px;
   }
   .meter-custom[hidden] {
     display: none;
   }
-  .meter-digit {
-    font-family: 'Cormorant Garamond',serif;
-    font-size: 30px;
-    font-weight: 500;
-    line-height: 1.05;
-    color: var(--ink);
-    text-align: center;
+  .meter-staff svg {
+    display: block;
+  }
+  .meter-staff path {
+    fill: var(--ink);
+  }
+  .meter-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .meter-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .meter-hint {
+    margin-left: 4px;
+    font-size: 12px;
+    color: var(--ink-soft);
   }
   .meter-step {
     width: 30px;
@@ -4949,6 +4959,8 @@ window.BRT_EMBEDDED_SAMPLES = {
       "meter.other": "Autre…",
       "meter.numerator": "Chiffre du haut de la signature",
       "meter.denominator": "Chiffre du bas de la signature",
+      "meter.countHint": "nombre par mesure",
+      "meter.unitHint": "unité : {figure}",
       "field.measures": "Mesures",
       "measures.unlimited": "Mesures illimitées, générées en continu",
       "action.generate": "Générer",
@@ -5087,6 +5099,8 @@ window.BRT_EMBEDDED_SAMPLES = {
       "meter.other": "Other…",
       "meter.numerator": "Time signature top number",
       "meter.denominator": "Time signature bottom number",
+      "meter.countHint": "number per bar",
+      "meter.unitHint": "unit: {figure}",
       "field.measures": "Measures",
       "measures.unlimited": "Unlimited measures, generated continuously",
       "action.generate": "Generate",
@@ -6434,15 +6448,52 @@ window.BRT_EMBEDDED_SAMPLES = {
   }
   /* ---------- signature : composant partagé (tiroir Jouer et Composer) ----------
      Quatre pastilles courantes (2/4, 3/4, 4/4, 6/8) et « Autre… », qui
-     déplie la fraction écrite comme sur la portée : le numérateur (1 à 12)
-     sur le dénominateur (2, 4 ou 8), chacun entre ‹ et ›, ou ↑ ↓ au
-     clavier (motif ARIA spinbutton : les flèches cliquables sont hors de
-     l'arbre d'accessibilité, le chiffre porte le focus). Une
+     déplie la signature gravée sur un bout de portée (abcjs, comme la
+     partition) : le numérateur (1 à 12) sur le dénominateur (2, 4 ou 8),
+     chacun réglé par − / +, ou ↑ ↓ au clavier (motif ARIA spinbutton : les
+     boutons sont hors de l'arbre d'accessibilité, la légende de la ligne
+     porte le focus). Une
      signature hors des pastilles ouvre « Autre… » d'elle-même. onChange
      reçoit la nouvelle signature et peut la refuser en rendant false : le
      composant revient alors à la précédente. setValue l'aligne sur un état
      restauré (lien, grille composée), sans appeler onChange. */
   const COMMON_METERS = ["2/4", "3/4", "4/4", "6/8"];
+  /* Figure qui sert d'unité, selon le dénominateur. */
+  const METER_UNIT_KEYS = { 2: "figureDefinite.half", 4: "figureDefinite.quarter", 8: "figureDefinite.eighth" };
+  /* Signature gravée par abcjs sur un bout de portée, rognée autour des
+     chiffres. Rendue hors écran (getBBox exige un élément affiché, le
+     panneau peut être replié), puis mise en cache par signature. */
+  const meterStaffCache = {};
+  function meterStaffSvg(meter){
+    if (meterStaffCache.hasOwnProperty(meter)) return meterStaffCache[meter];
+    let svg = "";
+    if (window.ABCJS){
+      const tmp = document.createElement("div");
+      tmp.style.cssText = "position:absolute;left:-9999px;top:0";
+      document.body.appendChild(tmp);
+      try {
+        window.ABCJS.renderAbc(tmp, "X:1\nM:" + meter + "\nL:1/8\nK:C clef=none\nx\n", { add_classes: true });
+        const s = tmp.querySelector("svg");
+        const sig = s && s.querySelector(".abcjs-time-signature");
+        const staff = s && s.querySelector(".abcjs-staff");
+        if (sig && staff){
+          s.querySelectorAll(".abcjs-bar, style, title").forEach(function(e){ e.remove(); });
+          const sb = sig.getBBox();
+          const tb = staff.getBBox();
+          const pad = 10;
+          const w = sb.width + pad * 2;
+          s.setAttribute("viewBox", (sb.x - pad) + " " + tb.y + " " + w + " " + tb.height);
+          s.setAttribute("height", "50");
+          s.setAttribute("width", String(Math.round(50 * w / tb.height)));
+          svg = s.outerHTML;
+        }
+      } finally {
+        tmp.remove();
+      }
+    }
+    meterStaffCache[meter] = svg;
+    return svg;
+  }
   function createMeterPicker(host, initial, onChange){
     let value = initial;
     let customOpen = COMMON_METERS.indexOf(initial) === -1;
@@ -6452,9 +6503,11 @@ window.BRT_EMBEDDED_SAMPLES = {
       Meter.METER_DENOMINATORS
     ];
     const partRowHtml = function(part, label){
-      return "<button type=\"button\" class=\"meter-step\" data-meter-step=\"" + part + "\" data-dir=\"-1\" tabindex=\"-1\" aria-hidden=\"true\">‹</button>" +
-        "<span class=\"meter-digit\" data-meter-part=\"" + part + "\" role=\"spinbutton\" tabindex=\"0\" aria-label=\"" + label + "\"></span>" +
-        "<button type=\"button\" class=\"meter-step\" data-meter-step=\"" + part + "\" data-dir=\"1\" tabindex=\"-1\" aria-hidden=\"true\">›</button>";
+      return "<div class=\"meter-row\">" +
+        "<button type=\"button\" class=\"meter-step\" data-meter-step=\"" + part + "\" data-dir=\"-1\" tabindex=\"-1\" aria-hidden=\"true\">−</button>" +
+        "<button type=\"button\" class=\"meter-step\" data-meter-step=\"" + part + "\" data-dir=\"1\" tabindex=\"-1\" aria-hidden=\"true\">+</button>" +
+        "<span class=\"meter-hint\" data-meter-part=\"" + part + "\" role=\"spinbutton\" tabindex=\"0\" aria-label=\"" + label + "\"></span>" +
+        "</div>";
     };
     host.innerHTML =
       "<div class=\"pills\" role=\"group\" aria-label=\"" + t("field.timeSignature") + "\">" +
@@ -6464,11 +6517,15 @@ window.BRT_EMBEDDED_SAMPLES = {
       "<button type=\"button\" class=\"pill\" data-meter-other aria-expanded=\"false\">" + t("meter.other") + "</button>" +
       "</div>" +
       "<div class=\"meter-custom\" hidden>" +
+      "<div class=\"meter-staff\" aria-hidden=\"true\"></div>" +
+      "<div class=\"meter-rows\">" +
       partRowHtml(0, t("meter.numerator")) +
       partRowHtml(1, t("meter.denominator")) +
+      "</div>" +
       "</div>";
     const other = host.querySelector("[data-meter-other]");
     const custom = host.querySelector(".meter-custom");
+    const staff = host.querySelector(".meter-staff");
 
     function render(){
       host.querySelectorAll("[data-meter]").forEach(function(pill){
@@ -6480,10 +6537,12 @@ window.BRT_EMBEDDED_SAMPLES = {
       other.setAttribute("aria-expanded", String(customOpen));
       custom.hidden = !customOpen;
       const parts = value.split("/");
+      if (customOpen) staff.innerHTML = meterStaffSvg(value);
+      host.querySelector("[data-meter-part='0']").textContent = t("meter.countHint");
+      host.querySelector("[data-meter-part='1']").textContent = t("meter.unitHint", { figure: t(METER_UNIT_KEYS[parts[1]]) });
       partValues.forEach(function(values, part){
         const index = values.indexOf(Number(parts[part]));
         const digit = host.querySelector("[data-meter-part='" + part + "']");
-        digit.textContent = parts[part];
         digit.setAttribute("aria-valuenow", parts[part]);
         digit.setAttribute("aria-valuemin", String(values[0]));
         digit.setAttribute("aria-valuemax", String(values[values.length - 1]));
