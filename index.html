@@ -1268,6 +1268,9 @@
   .meter-custom[hidden] {
     display: none;
   }
+  .meter-staff {
+    margin-left: 18px;
+  }
   .meter-staff svg {
     display: block;
   }
@@ -3385,6 +3388,11 @@
         // « Autre… » se replie sur une signature courante, reste ouvert sinon.
         request(value, !customOpen || COMMON_METERS.indexOf(value) === -1);
       }
+    });
+    // Les boutons − / + sont hors de l'arbre d'accessibilité : un clic ne doit
+    // pas leur donner le focus (le navigateur refuserait alors aria-hidden).
+    host.addEventListener("mousedown", function(e){
+      if (e.target.closest("[data-meter-step]")) e.preventDefault();
     });
     host.addEventListener("keydown", function(e){
       const digit = e.target.closest("[data-meter-part]");
