@@ -727,44 +727,6 @@
     background: var(--accent-soft);
   }
 
-  /* aides de lecture : trois bascules indépendantes en ligne, centrée
-     verticalement sur le bouton play (align-items:center du transport) */
-  .seg {
-    display: flex;
-    border: 1px solid var(--hairline);
-    border-radius: 999px;
-    overflow: hidden;
-    background: rgba(255,255,255,0.18);
-  }
-  .seg button {
-    width: 44px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--ink-faint);
-    transition: color 0.4s,background 0.4s;
-  }
-  .seg button svg {
-    width: 17px;
-    height: 17px;
-    stroke: currentColor;
-    fill: none;
-    stroke-width: 1.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-  .seg button + button {
-    border-left: 1px solid var(--hairline);
-  }
-  .seg button.active {
-    color: var(--ink);
-    background: rgba(255,255,255,0.55);
-  }
-  .seg button:hover:not(.active) {
-    color: var(--ink-soft);
-  }
-
   /* aides de lecture repliées : un seul cercle déclencheur, sœur du retour /
      repeat / copier, qui déplie les trois bascules dans un flotteur ancré
      au-dessus. La rangée reste symétrique et le play centré, panneau ouvert
@@ -824,20 +786,22 @@
     opacity: 1;
     transform: scale(1);
   }
-  /* le flotteur des aides : ancré et centré au-dessus du déclencheur, hors
-     flux pour ne pas décaler la rangée ; se déplie en fondu + échelle. Les
-     trois bascules en tête, le volume de pulsation dessous, sous un filet. */
+  /* le flotteur des aides : à gauche du déclencheur, à hauteur de la barre
+     de lecture, pour ne jamais recouvrir la portée ; hors flux pour ne pas
+     décaler la rangée ; se déplie en fondu + échelle. Une ligne par aide :
+     guide visuel, clic (et Subdiviser), note — chaque icône suivie de son
+     curseur. Sur téléphone, il s'ouvre sous la barre (voir max-width:640px). */
   .aids-panel {
     position: absolute;
-    bottom: calc(100% + 12px);
-    left: 50%;
+    top: 50%;
+    right: calc(100% + 12px);
     display: flex;
     flex-direction: column;
     border: 1px solid var(--hairline);
     border-radius: 22px;
     overflow: hidden;
-    transform: translateX(-50%) translateY(6px) scale(0.94);
-    transform-origin: bottom center;
+    transform: translateY(-50%) translateX(6px) scale(0.94);
+    transform-origin: right center;
     background: var(--glass);
     -webkit-backdrop-filter: blur(9px);
     backdrop-filter: blur(9px);
@@ -850,12 +814,65 @@
   .aids.open .aids-panel {
     opacity: 1;
     pointer-events: auto;
-    transform: translateX(-50%) translateY(0) scale(1);
+    transform: translateY(-50%) translateX(0) scale(1);
   }
-  .aids-panel .seg {
-    border: none;
-    border-radius: 0;
-    background: none;
+  /* ligne d'une aide : le bloc de l'icône occupe toute la hauteur */
+  .aids-row {
+    display: flex;
+    align-items: stretch;
+    min-height: 44px;
+  }
+  .aids-row + .aids-row,
+  .aids-row + .aids-switch,
+  .aids-switch + .aids-row {
+    border-top: 1px solid var(--hairline);
+  }
+  .aids-row > button {
+    position: relative;
+    flex: none;
+    width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-right: 1px solid var(--hairline);
+    color: var(--ink-faint);
+    transition: color 0.4s,background 0.4s;
+  }
+  .aids-row > button svg {
+    width: 17px;
+    height: 17px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .aids-row > button.active {
+    color: var(--ink);
+    background: rgba(255,255,255,0.55);
+  }
+  .aids-row > button:hover:not(.active) {
+    color: var(--ink-soft);
+  }
+  /* aide coupée : icône barrée */
+  .aids-row > button:not(.active)::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 30%;
+    right: 30%;
+    height: 1.5px;
+    background: currentColor;
+    transform: rotate(-45deg);
+  }
+  .aids-row-label {
+    align-self: center;
+    padding: 0 14px 0 12px;
+    font-size: 9.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--ink-soft);
   }
 
   /* bascule Subdiviser : visible seulement en mesure composée, sous les
@@ -866,7 +883,6 @@
     justify-content: space-between;
     gap: 10px;
     padding: 10px 12px;
-    border-top: 1px solid var(--hairline);
     font-size: 9.5px;
     letter-spacing: 0.2em;
     text-transform: uppercase;
@@ -909,15 +925,16 @@
     background: var(--accent);
   }
 
-  /* volumes (pulsation, puis note) : le nom de ce qu'on règle, sans chiffre,
+  /* volumes (pulsation, note) : le nom de ce qu'on règle, sans chiffre,
      puis un curseur à filet fin (rempli d'accent jusqu'au pouce, --fill posé
-     par le script). Grisé quand son aide (métronome, son) est coupée. */
+     par le script). À zéro quand son aide est coupée. */
   .aids-volume {
     display: flex;
     flex-direction: column;
+    justify-content: center;
     gap: 2px;
-    padding: 9px 12px 6px;
-    border-top: 1px solid var(--hairline);
+    width: 140px;
+    padding: 6px 14px 2px 12px;
   }
   .aids-volume-head {
     display: flex;
@@ -974,17 +991,6 @@
   }
   .aids-volume-range:active::-moz-range-thumb {
     transform: scale(1.15);
-  }
-  .aids-volume + .aids-volume {
-    padding-top: 3px;
-    border-top: none;
-  }
-  .aids-volume.off .aids-volume-head {
-    color: var(--ink-faint);
-  }
-  .aids-volume-range:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
   }
 
   .hint {
@@ -1666,6 +1672,17 @@
 
   /* mobile étroit : cibles tactiles ≥ 44 px, chrome resserré */
   @media (max-width:640px) {
+    /* pas de place à gauche du bouton : le flotteur s'ouvre sous la barre */
+    .aids-panel {
+      top: calc(100% + 8px);
+      right: auto;
+      left: 0;
+      transform: translateY(-6px) scale(0.94);
+      transform-origin: top left;
+    }
+    .aids.open .aids-panel {
+      transform: translateY(0) scale(1);
+    }
     header {
       padding: 14px 16px;
     }
@@ -1703,9 +1720,8 @@
       flex-wrap: wrap;
       justify-content: center;
     }
-    .seg button {
+    .aids-row > button {
       width: 50px;
-      height: 46px;
     }
     .play-btn {
       width: 68px;
@@ -1847,9 +1863,8 @@
       min-height: 44px;
       padding: 12px 17px;
     }
-    .seg button {
+    .aids-row > button {
       min-width: 50px;
-      min-height: 46px;
     }
     .aids-volume-range {
       height: 40px;
@@ -1885,10 +1900,10 @@
     }
   }
 
-  /* très étroit (Android 360 px) : les aides se resserrent, le transport
-     tient sur une ligne — après pointer:coarse pour gagner sur son min-width */
+  /* très étroit (Android 360 px) : les aides se resserrent — après
+     pointer:coarse pour gagner sur son min-width */
   @media (max-width:400px) {
-    .seg button {
+    .aids-row > button {
       width: 46px;
       min-width: 46px;
     }
@@ -1965,34 +1980,39 @@
         <span class="aids-badge" aria-hidden="true"></span>
       </button>
       <div class="aids-panel" id="aids-panel" role="group" aria-label="Aides de lecture" data-i18n-aria-label="aids.title">
-        <div class="seg">
-          <button id="tgl-click" class="active" title="Métronome — clics des temps" aria-pressed="true" aria-label="Métronome" data-i18n-title="metronome.title" data-i18n-aria-label="metronome.label">
-            <svg viewBox="0 0 24 24"><path d="M9.3 4.5h5.4l2.8 15H6.5z"/><line x1="12" y1="15.5" x2="16" y2="6.8"/><line x1="8.4" y1="15.5" x2="15.6" y2="15.5"/></svg>
-          </button>
+        <!-- une ligne par aide : l'icône coupe ou rallume, le curseur dose -->
+        <div class="aids-row">
           <button id="tgl-visual" class="active" title="Guide visuel — durée des notes et curseur" aria-pressed="true" aria-label="Guide visuel" data-i18n-title="visual.title" data-i18n-aria-label="visual.label">
             <svg viewBox="0 0 24 24"><path d="M2.8 12s3.4-6 9.2-6 9.2 6 9.2 6-3.4 6-9.2 6-9.2-6-9.2-6z"/><circle cx="12" cy="12" r="2.5"/></svg>
           </button>
-          <button id="tgl-sound" title="Son — rythmique jouée" aria-pressed="false" aria-label="Son" data-i18n-title="noteSound.title" data-i18n-aria-label="noteSound.label">
-            <svg viewBox="0 0 24 24"><path d="M4.5 9.6v4.8h3.2l4.5 3.7V5.9L7.7 9.6z"/><path d="M15.6 9.4a3.7 3.7 0 0 1 0 5.2M18.2 7.1a7 7 0 0 1 0 9.8"/></svg>
+          <span class="aids-row-label" data-i18n="visual.label">Guide visuel</span>
+        </div>
+        <div class="aids-row">
+          <button id="tgl-click" class="active" title="Métronome — clics des temps" aria-pressed="true" aria-label="Métronome" data-i18n-title="metronome.title" data-i18n-aria-label="metronome.label">
+            <svg viewBox="0 0 24 24"><path d="M9.3 4.5h5.4l2.8 15H6.5z"/><line x1="12" y1="15.5" x2="16" y2="6.8"/><line x1="8.4" y1="15.5" x2="15.6" y2="15.5"/></svg>
           </button>
+          <div class="aids-volume">
+            <label class="aids-volume-head" for="pulse-volume">
+              <span id="pulse-volume-voice" data-i18n="beat.click">Clic</span>
+            </label>
+            <input type="range" id="pulse-volume" class="aids-volume-range" min="0" max="300" step="5" value="100" aria-label="Volume du clic" data-i18n-aria-label="volume.click">
+          </div>
         </div>
         <!-- subdivision : croches entre les temps, seulement en mesure composée -->
         <button id="tgl-subdivide" class="aids-switch" aria-pressed="true" title="Subdiviser — croches entre les temps, au clic et au charley" data-i18n-title="subdivide.title" hidden>
           <span data-i18n="subdivide.label">Subdiviser</span>
           <span class="aids-switch-track" aria-hidden="true"></span>
         </button>
-        <!-- volumes réglables en vol : pulsation (clic ou groove), puis note -->
-        <div class="aids-volume">
-          <label class="aids-volume-head" for="pulse-volume">
-            <span id="pulse-volume-voice" data-i18n="beat.click">Clic</span>
-          </label>
-          <input type="range" id="pulse-volume" class="aids-volume-range" min="0" max="300" step="5" value="100" aria-label="Volume du clic" data-i18n-aria-label="volume.click">
-        </div>
-        <div class="aids-volume">
-          <label class="aids-volume-head" for="note-volume">
-            <span data-i18n="volume.noteLabel">Note</span>
-          </label>
-          <input type="range" id="note-volume" class="aids-volume-range" min="0" max="300" step="5" value="100" aria-label="Volume de la note" data-i18n-aria-label="volume.note">
+        <div class="aids-row">
+          <button id="tgl-sound" title="Son — rythmique jouée" aria-pressed="false" aria-label="Son" data-i18n-title="noteSound.title" data-i18n-aria-label="noteSound.label">
+            <svg viewBox="0 0 24 24"><path d="M4.5 9.6v4.8h3.2l4.5 3.7V5.9L7.7 9.6z"/><path d="M15.6 9.4a3.7 3.7 0 0 1 0 5.2M18.2 7.1a7 7 0 0 1 0 9.8"/></svg>
+          </button>
+          <div class="aids-volume">
+            <label class="aids-volume-head" for="note-volume">
+              <span data-i18n="volume.noteLabel">Note</span>
+            </label>
+            <input type="range" id="note-volume" class="aids-volume-range" min="0" max="300" step="5" value="100" aria-label="Volume de la note" data-i18n-aria-label="volume.note">
+          </div>
         </div>
       </div>
     </div>
@@ -3105,24 +3125,33 @@
      chaque image ; métronome et son basculent dans le moteur sans toucher la
      lecture (coupure nette du programmé non joué, reprise dans l'horizon).
      Chaque bascule part de la préférence mémorisée prefs[key] et la met à
-     jour elle-même. */
+     jour elle-même. bindToggle rend un setter, pour qu'un curseur de volume
+     puisse couper ou rallumer son aide ; tout changement émet
+     « aids-change » (pastille du déclencheur). */
   function bindToggle(id, prefs, key, fn){
     var btn = document.getElementById(id);
     btn.classList.toggle("active", prefs[key]);
     btn.setAttribute("aria-pressed", String(prefs[key]));
-    btn.addEventListener("click", function(){
-      var on = !btn.classList.contains("active");
+    function set(on){
+      if (on === btn.classList.contains("active")) return;
       btn.classList.toggle("active", on);
       btn.setAttribute("aria-pressed", String(on));
       prefs[key] = on;
       savePlaybackPrefs();
       fn(on);
+      document.dispatchEvent(new Event("aids-change"));
+    }
+    btn.addEventListener("click", function(){
+      set(!btn.classList.contains("active"));
     });
+    return set;
   }
-  bindToggle("tgl-click", playbackPrefs.aids, "click", function(on){
+  const setClickAid = bindToggle("tgl-click", playbackPrefs.aids, "click", function(on){
     clickOn = on;
     if (playing && transport) transport.setClicksEnabled(on);
-    refreshVolumeAvailability();
+    // rallumé après un curseur descendu à zéro : retour au niveau par défaut
+    if (on && playbackPrefs.pulsationVolumes[pulsationVoice] === 0) setPulseVolume(1);
+    refreshPulseVolume();
   });
   bindToggle("tgl-visual", playbackPrefs.aids, "visual", function(on){
     visualOn = on;
@@ -3131,10 +3160,11 @@
       cursor.classList.remove("live");
     }
   });
-  bindToggle("tgl-sound", playbackPrefs.aids, "sound", function(on){
+  const setSoundAid = bindToggle("tgl-sound", playbackPrefs.aids, "sound", function(on){
     soundOn = on;
     if (playing && transport) transport.setNotesEnabled(on);
-    refreshVolumeAvailability();
+    if (on && playbackPrefs.noteVolume === 0) setNoteVolume(1);
+    refreshNoteVolume();
   });
   /* Subdiviser : n'apparaît qu'en mesure composée (refreshGridMeter) ;
      s'applique en vol aux temps suivants. */
@@ -3146,56 +3176,57 @@
     }
   });
 
-  /* Volume de pulsation : le curseur du panneau des aides règle la voix
-     active (clic ou groove), du silence à VOLUME_MAX fois son
-     niveau par défaut, en vol. Valeur du curseur de 0 à 300 par pas de 5,
-     volume = valeur / 100 : le niveau par défaut tombe pile sur 100. Aucun
-     chiffre affiché : la position du curseur suffit. Chaque voix garde sa
-     valeur : changer de voix restaure la sienne. La préférence est écrite au
-     relâchement (change), pas à chaque pas. */
+  /* Volumes du panneau des aides : pulsation (voix active, clic ou
+     groove) et note, du silence à VOLUME_MAX fois le niveau par défaut, en
+     vol. Valeur du curseur de 0 à 300 par pas de 5, volume = valeur / 100 :
+     le niveau par défaut tombe pile sur 100. Aucun chiffre affiché.
+     Chaque curseur est lié à l'icône de son aide, comme un volume de
+     lecteur vidéo : aide coupée = curseur à zéro (le volume réglé reste
+     mémorisé) ; monter le curseur rallume l'aide ; le descendre à zéro la
+     coupe, et la rallumer ensuite repart du niveau par défaut. Chaque voix de
+     pulsation garde sa valeur. La préférence est écrite au relâchement
+     (change), pas à chaque pas. */
   const pulseVolumeInput = document.getElementById("pulse-volume");
   const pulseVolumeVoice = document.getElementById("pulse-volume-voice");
+  const noteVolumeInput = document.getElementById("note-volume");
 
+  function showVolume(input, volume){
+    input.value = String(Math.round(volume * 100));
+    input.style.setProperty("--fill", volume * 100 / 3 + "%");
+  }
+  function setPulseVolume(volume){
+    playbackPrefs.pulsationVolumes[pulsationVoice] = volume;
+    if (playing && transport) transport.setPulsationVolume(pulsationVoice, volume);
+  }
+  function setNoteVolume(volume){
+    playbackPrefs.noteVolume = volume;
+    if (playing && transport) transport.setNoteVolume(volume);
+  }
   function refreshPulseVolume(){
     const isGroove = pulsationVoice === "groove";
-    pulseVolumeInput.value = String(Math.round(playbackPrefs.pulsationVolumes[pulsationVoice] * 100));
+    showVolume(pulseVolumeInput, clickOn ? playbackPrefs.pulsationVolumes[pulsationVoice] : 0);
     pulseVolumeInput.setAttribute("aria-label", t(isGroove ? "volume.groove" : "volume.click"));
-    pulseVolumeInput.style.setProperty("--fill", Number(pulseVolumeInput.value) / 3 + "%");
     pulseVolumeVoice.textContent = t(isGroove ? "beat.groove" : "beat.click");
+  }
+  function refreshNoteVolume(){
+    showVolume(noteVolumeInput, soundOn ? playbackPrefs.noteVolume : 0);
   }
   pulseVolumeInput.addEventListener("input", function(){
     const volume = Number(pulseVolumeInput.value) / 100;
-    playbackPrefs.pulsationVolumes[pulsationVoice] = volume;
-    if (playing && transport) transport.setPulsationVolume(pulsationVoice, volume);
+    setPulseVolume(volume);
+    setClickAid(volume > 0);
     refreshPulseVolume();
   });
-  pulseVolumeInput.addEventListener("change", savePlaybackPrefs);
-  refreshPulseVolume();
-
-  /* Volume de la note : même curseur, pour le son des notes (toutes basses
-     confondues), du silence au triple, en vol. */
-  const noteVolumeInput = document.getElementById("note-volume");
-  function refreshNoteVolume(){
-    noteVolumeInput.value = String(Math.round(playbackPrefs.noteVolume * 100));
-    noteVolumeInput.style.setProperty("--fill", Number(noteVolumeInput.value) / 3 + "%");
-  }
   noteVolumeInput.addEventListener("input", function(){
-    playbackPrefs.noteVolume = Number(noteVolumeInput.value) / 100;
-    if (playing && transport) transport.setNoteVolume(playbackPrefs.noteVolume);
+    const volume = Number(noteVolumeInput.value) / 100;
+    setNoteVolume(volume);
+    setSoundAid(volume > 0);
     refreshNoteVolume();
   });
+  pulseVolumeInput.addEventListener("change", savePlaybackPrefs);
   noteVolumeInput.addEventListener("change", savePlaybackPrefs);
+  refreshPulseVolume();
   refreshNoteVolume();
-
-  /* Un curseur est grisé quand son aide est coupée : le clic (ou le groove)
-     avec le métronome, la note avec le son. */
-  function refreshVolumeAvailability(){
-    [[pulseVolumeInput, clickOn], [noteVolumeInput, soundOn]].forEach(function(pair){
-      pair[0].disabled = !pair[1];
-      pair[0].closest(".aids-volume").classList.toggle("off", !pair[1]);
-    });
-  }
-  refreshVolumeAvailability();
 
   /* Déclencheur des aides : un seul cercle qui déplie le flotteur des trois
      bascules. La rangée reste symétrique (play centré) ; le flotteur se referme
@@ -3235,10 +3266,7 @@
       });
       aids.classList.toggle("has-active", any);
     }
-    aidIds.forEach(function(id){
-      var b = document.getElementById(id);
-      if (b) b.addEventListener("click", refreshAidsBadge);
-    });
+    document.addEventListener("aids-change", refreshAidsBadge);
     refreshAidsBadge();
   })();
 

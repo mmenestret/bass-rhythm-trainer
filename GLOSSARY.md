@@ -110,7 +110,9 @@ _Avoid_: volume du métronome
 **Volume de la note** :
 Le niveau sonore des notes jouées par l'aide *Son*, du silence au triple du
 niveau par défaut, le même pour toutes les basses. Réglable en cours de lecture,
-à côté du volume de pulsation ; l'app ne le change jamais d'elle-même.
+sous le volume de pulsation ; l'app ne le change jamais d'elle-même. Comme le
+volume de pulsation, il est lié à l'icône de son aide : aide coupée = curseur à
+zéro, monter le curseur rallume l'aide.
 _Avoid_: volume de la basse, volume de l'instrument
 
 **Préférence de lecture** :

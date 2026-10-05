@@ -60,5 +60,8 @@ alourdir le fichier unique.
 - Un second curseur, sous celui de la pulsation, règle le **volume de la note**
   (son des notes, toutes basses confondues, du silence au triple). La note n'est
   jamais baissée automatiquement pour laisser passer la pulsation : seul
-  l'utilisateur la règle. Chaque curseur est grisé quand son aide (métronome,
-  son) est coupée.
+  l'utilisateur la règle. Chaque curseur est lié à l'icône de son aide
+  (métronome, son), comme un volume de lecteur vidéo : aide coupée = curseur à
+  zéro, monter le curseur la rallume. Le panneau s'ouvre à gauche du bouton des
+  aides (sous la barre de lecture sur téléphone) pour ne jamais recouvrir la
+  portée ; ordre des lignes : guide visuel, clic, note.
