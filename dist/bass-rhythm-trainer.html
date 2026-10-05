@@ -6481,8 +6481,10 @@ window.BRT_EMBEDDED_SAMPLES = {
           s.querySelectorAll(".abcjs-clef, .abcjs-bar, style, title").forEach(function(e){ e.remove(); });
           const sb = sig.getBBox();
           const tb = staff.getBBox();
-          const left = Math.max(tb.x, sb.x - 18);
-          const w = sb.x + sb.width + 10 - left;
+          // Autant de portée de part et d'autre : les chiffres au milieu.
+          const pad = Math.min(16, sb.x - tb.x);
+          const left = sb.x - pad;
+          const w = sb.width + pad * 2;
           s.setAttribute("viewBox", left + " " + tb.y + " " + w + " " + tb.height);
           s.setAttribute("height", "50");
           s.setAttribute("width", String(Math.round(50 * w / tb.height)));
