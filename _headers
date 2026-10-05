@@ -1,0 +1,6 @@
+# En-têtes Cloudflare Pages.
+# Les scripts évoluent avec index.html : le navigateur les revalide à chaque
+# visite (ETag, réponse 304 si rien n'a changé). Sinon, un ancien script gardé
+# en cache jusqu'à 4 h côtoie une page neuve (clés de traduction brutes, etc.).
+/js/*
+  Cache-Control: no-cache
