@@ -1280,9 +1280,6 @@
   .meter-custom[hidden] {
     display: none;
   }
-  .meter-staff {
-    margin-left: 18px;
-  }
   .meter-staff svg {
     display: block;
   }
@@ -6464,7 +6461,8 @@ window.BRT_EMBEDDED_SAMPLES = {
   /* Figure qui sert d'unité, selon le dénominateur. */
   const METER_UNIT_KEYS = { 2: "figureDefinite.half", 4: "figureDefinite.quarter", 8: "figureDefinite.eighth" };
   /* Signature gravée par abcjs sur un bout de portée, rognée autour des
-     chiffres. Rendue hors écran (getBBox exige un élément affiché, le
+     chiffres. La portée est gravée avec sa clé, puis la clé est retirée :
+     sa place laisse de la portée avant les chiffres. Rendue hors écran (getBBox exige un élément affiché, le
      panneau peut être replié), puis mise en cache par signature. */
   const meterStaffCache = {};
   function meterStaffSvg(meter){
@@ -6475,17 +6473,17 @@ window.BRT_EMBEDDED_SAMPLES = {
       tmp.style.cssText = "position:absolute;left:-9999px;top:0";
       document.body.appendChild(tmp);
       try {
-        window.ABCJS.renderAbc(tmp, "X:1\nM:" + meter + "\nL:1/8\nK:C clef=none\nx\n", { add_classes: true });
+        window.ABCJS.renderAbc(tmp, "X:1\nM:" + meter + "\nL:1/8\nK:C clef=bass\nx\n", { add_classes: true });
         const s = tmp.querySelector("svg");
         const sig = s && s.querySelector(".abcjs-time-signature");
         const staff = s && s.querySelector(".abcjs-staff");
         if (sig && staff){
-          s.querySelectorAll(".abcjs-bar, style, title").forEach(function(e){ e.remove(); });
+          s.querySelectorAll(".abcjs-clef, .abcjs-bar, style, title").forEach(function(e){ e.remove(); });
           const sb = sig.getBBox();
           const tb = staff.getBBox();
-          const pad = 10;
-          const w = sb.width + pad * 2;
-          s.setAttribute("viewBox", (sb.x - pad) + " " + tb.y + " " + w + " " + tb.height);
+          const left = Math.max(tb.x, sb.x - 18);
+          const w = sb.x + sb.width + 10 - left;
+          s.setAttribute("viewBox", left + " " + tb.y + " " + w + " " + tb.height);
           s.setAttribute("height", "50");
           s.setAttribute("width", String(Math.round(50 * w / tb.height)));
           svg = s.outerHTML;
