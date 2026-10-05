@@ -75,7 +75,8 @@
   }
   button:focus-visible,
   input:focus-visible,
-  select:focus-visible {
+  select:focus-visible,
+  .meter-digit:focus-visible {
     outline: 1.5px solid var(--accent);
     outline-offset: 3px;
     border-radius: 4px;
@@ -1264,35 +1265,50 @@
     display: none;
   }
 
-  /* ---------- signature : pastilles courantes, « Autre… » déplie n / d ---------- */
+  /* ---------- signature : pastilles courantes, « Autre… » déplie la fraction ---------- */
   .meter-picker {
     display: flex;
     flex-direction: column;
     gap: 10px;
   }
+  /* fraction écrite comme sur la portée : chaque chiffre entre ‹ et › */
   .meter-custom {
-    display: flex;
+    display: grid;
+    grid-template-columns: auto 44px auto;
     align-items: center;
-    gap: 8px;
+    justify-items: center;
+    justify-content: start;
+    column-gap: 6px;
   }
   .meter-custom[hidden] {
     display: none;
   }
-  .meter-select {
+  .meter-digit {
     font-family: 'Cormorant Garamond',serif;
-    font-size: 17px;
+    font-size: 30px;
     font-weight: 500;
+    line-height: 1.05;
     color: var(--ink);
-    background: var(--glass-strong);
-    border: 1px solid var(--accent);
-    border-radius: 999px;
-    padding: 4px 12px;
-    cursor: pointer;
+    text-align: center;
   }
-  .meter-slash {
-    font-family: 'Cormorant Garamond',serif;
-    font-size: 21px;
+  .meter-step {
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    font-size: 17px;
+    line-height: 1;
     color: var(--ink-soft);
+    transition: border-color 0.35s,color 0.35s;
+  }
+  .meter-step:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--ink);
+  }
+  .meter-step:disabled {
+    cursor: not-allowed;
+    border-style: dashed;
+    color: var(--ink-faint);
   }
 
   .btn {
@@ -1841,6 +1857,10 @@
     .sound .preview {
       width: 42px;
       height: 42px;
+    }
+    .meter-step {
+      width: 44px;
+      height: 44px;
     }
     .pill {
       padding: 13px 15px;
@@ -4927,8 +4947,8 @@ window.BRT_EMBEDDED_SAMPLES = {
       "figure.dottedQuarter": "Noire pointée",
       "field.timeSignature": "Signature",
       "meter.other": "Autre…",
-      "meter.numerator": "Numérateur de la signature",
-      "meter.denominator": "Dénominateur de la signature",
+      "meter.numerator": "Chiffre du haut de la signature",
+      "meter.denominator": "Chiffre du bas de la signature",
       "field.measures": "Mesures",
       "measures.unlimited": "Mesures illimitées, générées en continu",
       "action.generate": "Générer",
@@ -6414,7 +6434,10 @@ window.BRT_EMBEDDED_SAMPLES = {
   }
   /* ---------- signature : composant partagé (tiroir Jouer et Composer) ----------
      Quatre pastilles courantes (2/4, 3/4, 4/4, 6/8) et « Autre… », qui
-     déplie un numérateur (1 à 12) et un dénominateur (2, 4 ou 8). Une
+     déplie la fraction écrite comme sur la portée : le numérateur (1 à 12)
+     sur le dénominateur (2, 4 ou 8), chacun entre ‹ et ›, ou ↑ ↓ au
+     clavier (motif ARIA spinbutton : les flèches cliquables sont hors de
+     l'arbre d'accessibilité, le chiffre porte le focus). Une
      signature hors des pastilles ouvre « Autre… » d'elle-même. onChange
      reçoit la nouvelle signature et peut la refuser en rendant false : le
      composant revient alors à la précédente. setValue l'aligne sur un état
@@ -6423,10 +6446,16 @@ window.BRT_EMBEDDED_SAMPLES = {
   function createMeterPicker(host, initial, onChange){
     let value = initial;
     let customOpen = COMMON_METERS.indexOf(initial) === -1;
-    const optionsHtml = function(values){
-      return values.map(function(v){ return "<option value=\"" + v + "\">" + v + "</option>"; }).join("");
+    // Valeurs permises de chaque chiffre, dans l'ordre de la fraction.
+    const partValues = [
+      Array.from({ length: Meter.METER_NUMERATOR_MAX }, function(_, i){ return i + 1; }),
+      Meter.METER_DENOMINATORS
+    ];
+    const partRowHtml = function(part, label){
+      return "<button type=\"button\" class=\"meter-step\" data-meter-step=\"" + part + "\" data-dir=\"-1\" tabindex=\"-1\" aria-hidden=\"true\">‹</button>" +
+        "<span class=\"meter-digit\" data-meter-part=\"" + part + "\" role=\"spinbutton\" tabindex=\"0\" aria-label=\"" + label + "\"></span>" +
+        "<button type=\"button\" class=\"meter-step\" data-meter-step=\"" + part + "\" data-dir=\"1\" tabindex=\"-1\" aria-hidden=\"true\">›</button>";
     };
-    const numerators = Array.from({ length: Meter.METER_NUMERATOR_MAX }, function(_, i){ return i + 1; });
     host.innerHTML =
       "<div class=\"pills\" role=\"group\" aria-label=\"" + t("field.timeSignature") + "\">" +
       COMMON_METERS.map(function(m){
@@ -6435,14 +6464,11 @@ window.BRT_EMBEDDED_SAMPLES = {
       "<button type=\"button\" class=\"pill\" data-meter-other aria-expanded=\"false\">" + t("meter.other") + "</button>" +
       "</div>" +
       "<div class=\"meter-custom\" hidden>" +
-      "<select class=\"meter-select\" data-meter-part=\"numerator\" aria-label=\"" + t("meter.numerator") + "\">" + optionsHtml(numerators) + "</select>" +
-      "<span class=\"meter-slash\" aria-hidden=\"true\">/</span>" +
-      "<select class=\"meter-select\" data-meter-part=\"denominator\" aria-label=\"" + t("meter.denominator") + "\">" + optionsHtml(Meter.METER_DENOMINATORS) + "</select>" +
+      partRowHtml(0, t("meter.numerator")) +
+      partRowHtml(1, t("meter.denominator")) +
       "</div>";
     const other = host.querySelector("[data-meter-other]");
     const custom = host.querySelector(".meter-custom");
-    const numerator = host.querySelector("[data-meter-part='numerator']");
-    const denominator = host.querySelector("[data-meter-part='denominator']");
 
     function render(){
       host.querySelectorAll("[data-meter]").forEach(function(pill){
@@ -6454,8 +6480,16 @@ window.BRT_EMBEDDED_SAMPLES = {
       other.setAttribute("aria-expanded", String(customOpen));
       custom.hidden = !customOpen;
       const parts = value.split("/");
-      numerator.value = parts[0];
-      denominator.value = parts[1];
+      partValues.forEach(function(values, part){
+        const index = values.indexOf(Number(parts[part]));
+        const digit = host.querySelector("[data-meter-part='" + part + "']");
+        digit.textContent = parts[part];
+        digit.setAttribute("aria-valuenow", parts[part]);
+        digit.setAttribute("aria-valuemin", String(values[0]));
+        digit.setAttribute("aria-valuemax", String(values[values.length - 1]));
+        host.querySelector("[data-meter-step='" + part + "'][data-dir='-1']").disabled = index === 0;
+        host.querySelector("[data-meter-step='" + part + "'][data-dir='1']").disabled = index === values.length - 1;
+      });
     }
     function request(next, openCustom){
       const previous = value;
@@ -6469,7 +6503,21 @@ window.BRT_EMBEDDED_SAMPLES = {
         render();
       }
     }
+    // Passe un chiffre à la valeur permise voisine ; rien au bout de la plage.
+    function step(part, dir){
+      const parts = value.split("/");
+      const values = partValues[part];
+      const next = values[values.indexOf(Number(parts[part])) + dir];
+      if (next === undefined) return;
+      parts[part] = next;
+      request(parts.join("/"), true);
+    }
     host.addEventListener("click", function(e){
+      const stepper = e.target.closest("[data-meter-step]");
+      if (stepper){
+        step(Number(stepper.dataset.meterStep), Number(stepper.dataset.dir));
+        return;
+      }
       const pill = e.target.closest("[data-meter]");
       if (pill){
         request(pill.dataset.meter, false);
@@ -6480,9 +6528,12 @@ window.BRT_EMBEDDED_SAMPLES = {
         request(value, !customOpen || COMMON_METERS.indexOf(value) === -1);
       }
     });
-    host.addEventListener("change", function(e){
-      if (!e.target.closest(".meter-select")) return;
-      request(numerator.value + "/" + denominator.value, true);
+    host.addEventListener("keydown", function(e){
+      const digit = e.target.closest("[data-meter-part]");
+      const dir = { ArrowUp: 1, ArrowDown: -1 }[e.key];
+      if (!digit || !dir) return;
+      e.preventDefault();
+      step(Number(digit.dataset.meterPart), dir);
     });
     render();
     return {
