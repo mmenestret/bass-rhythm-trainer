@@ -6539,8 +6539,10 @@ window.BRT_EMBEDDED_SAMPLES = {
     return {
       value: function(){ return value; },
       setValue: function(meter){
+        // Un simple rafraîchissement (même signature) laisse « Autre… » tel
+        // quel : les flèches peuvent passer par 3/4 sans le replier.
+        if (meter !== value) customOpen = COMMON_METERS.indexOf(meter) === -1;
         value = meter;
-        customOpen = COMMON_METERS.indexOf(meter) === -1;
         render();
       }
     };
